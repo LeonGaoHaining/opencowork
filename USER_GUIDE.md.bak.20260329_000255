@@ -1,0 +1,359 @@
+# OpenCowork v0.2.1 使用说明
+
+| 项目 | 内容 |
+|------|------|
+| 版本 | v0.2.1 |
+| 更新日期 | 2026-03-28 |
+| 状态 | 测试版 |
+
+---
+
+## 目录
+
+1. [项目简介](#1-项目简介)
+2. [快速开始](#2-快速开始)
+3. [配置说明](#3-配置说明)
+4. [功能使用](#4-功能使用)
+5. [快捷键](#5-快捷键)
+6. [目录结构](#6-目录结构)
+7. [常见问题](#7-常见问题)
+
+---
+
+## 1. 项目简介
+
+OpenCowork 是一款 **AI Native Desktop Agent**，让AI像人类一样使用电脑完成复杂任务。
+
+### 核心能力
+
+| 能力 | 说明 |
+|------|------|
+| 浏览器自动化 | AI自主操作浏览器完成网页任务 |
+| 任务规划 | 将复杂任务分解为可执行步骤 |
+| **侧边栏实时预览** | 实时观看AI操作浏览器（8fps） |
+| 人工接管 | 随时接管AI的控制权 |
+| **用户交互** | AI可暂停等待用户确认 |
+| **LLM驱动重试** | 失败时LLM决策重试策略（最多3次） |
+| **会话持久化** | 会话历史自动保存，跨任务保留上下文 |
+| CLI执行 | 执行白名单内的系统命令 |
+
+### 技术栈
+
+| 层级 | 技术 |
+|------|------|
+| 桌面框架 | Electron 28 |
+| UI框架 | React 18 + TailwindCSS |
+| 语言 | TypeScript |
+| 浏览器自动化 | Playwright |
+| LLM | OpenAI Responses API (Azure) |
+
+---
+
+## 2. 快速开始
+
+### 2.1 安装依赖
+
+```bash
+cd opencowork
+npm install
+```
+
+### 2.2 配置LLM
+
+编辑 `config/llm.json`，填入你的 Azure OpenAI 配置：
+
+```json
+{
+  "provider": "openai",
+  "model": "gpt-4-turbo",
+  "apiKey": "你的API Key",
+  "baseUrl": "https://your-resource.openai.azure.com/openai/v1",
+  "timeout": 60000,
+  "maxRetries": 3,
+  "temperature": 0.7
+}
+```
+
+### 2.3 启动应用
+
+```bash
+npm run electron:dev
+```
+
+---
+
+## 3. 配置说明
+
+### 3.1 LLM配置 (config/llm.json)
+
+| 参数 | 说明 | 必填 |
+|------|------|------|
+| provider | LLM供应商，目前支持`openai` | 是 |
+| model | 模型名称，如`gpt-4-turbo` | 是 |
+| apiKey | OpenAI API Key | 是 |
+| baseUrl | API地址（Azure格式） | 是 |
+| timeout | 请求超时(ms) | 否，默认60000 |
+| maxRetries | 最大重试次数 | 否，默认3 |
+| temperature | 生成温度，越低越确定性 | 否，默认0.7 |
+
+### 3.2 CLI白名单 (src/config/whitelist.ts)
+
+```typescript
+const CLI_WHITELIST = {
+  commands: {
+    'git': { allowed: ['status', 'pull', 'push', 'clone'] },
+    'npm': { allowed: ['install', 'run', 'test'] },
+    // ...
+  },
+  paths: {
+    '~/Documents': 'read-write',
+    '~/Downloads': 'read-write',
+  },
+};
+```
+
+---
+
+## 4. 功能使用
+
+### 4.1 创建任务
+
+在输入框中描述你想完成的任务：
+
+```
+输入: "打开百度并搜索高海宁"
+```
+
+### 4.2 观看任务执行
+
+**侧边栏实时预览**：
+- 应用启动后默认显示侧边栏预览（右侧40%区域）
+- 实时显示浏览器操作，帧率约 8fps
+- 预览区显示当前操作步骤
+
+### 4.3 预览模式切换
+
+在控制栏右侧有两个图标按钮：
+
+| 按钮 | 功能 |
+|------|------|
+| 👁 (眼睛图标) | 侧边栏模式 - 右侧实时预览 |
+| 📱 (窗口图标) | 独立窗口模式 - 弹出独立预览窗口 |
+
+### 4.4 人工接管
+
+**触发接管的方式**:
+
+| 方式 | 操作 |
+|------|------|
+| ESC键 | 按下ESC键 |
+| 接管按钮 | 点击"接管"按钮 |
+
+**接管后可选择**:
+
+| 选项 | 说明 |
+|------|------|
+| 交还AI控制 | AI从中断处继续执行 |
+| 重新开始 | 清空上下文，重新规划 |
+| 人工完成 | 任务结束 |
+| 取消任务 | 取消整个任务 |
+
+### 4.5 ask:user 用户交互
+
+AI 在执行复杂任务时，可能需要用户确认。会出现：
+
+- 弹窗显示问题
+- 选项按钮供选择（或自由输入）
+- 5分钟超时限制
+
+选择后任务继续执行。
+
+### 4.6 控制栏按钮
+
+| 按钮 | 功能 |
+|------|------|
+| 接管 | 接管AI的控制权 |
+| 暂停 | 暂停当前任务 |
+| 停止 | 停止当前任务 |
+| 👁 | 切换到侧边栏预览模式 |
+| 📱 | 切换到独立窗口预览模式 |
+| 计划 | 显示/隐藏执行计划 |
+
+### 4.7 会话历史
+
+**会话面板**（左侧）：
+- 自动保存任务对话到当前会话
+- 支持创建新会话
+- 切换不同会话查看历史
+- 重命名/删除会话
+
+**会话持久化**：
+- 会话数据存储在 `~/.opencowork/sessions/`
+- 任务完成后自动保存对话
+- 切换会话时加载对应的历史记录
+
+### 4.8 LLM 驱动的重试机制
+
+当节点执行失败时：
+1. **自动调用 LLM 分析** - LLM 分析失败原因
+2. **LLM 决策策略** - 决定下一步行动：
+   - `retry_same` - 重试相同操作
+   - `regenerate_selector` - 重新生成选择器
+   - `simplify_action` - 简化操作（如添加强制输入）
+   - `skip_step` - 跳过该步骤
+   - `ask_user` - 询问用户是否继续
+   - `give_up` - 放弃
+3. **最多重试 3 次** - 超过后任务失败
+4. **状态显示** - 界面显示重试进度
+
+---
+
+## 5. 快捷键
+
+| 快捷键 | 功能 | 说明 |
+|--------|------|------|
+| ESC | 接管 | 立即接管AI控制权 |
+| Ctrl+Enter | 发送 | 发送当前输入 |
+
+---
+
+## 6. 目录结构
+
+```
+opencowork/
+├── src/
+│   ├── main/               # Electron主进程
+│   │   ├── index.ts       # 入口文件
+│   │   ├── window.ts      # 窗口管理
+│   │   ├── ipc.ts        # IPC通信
+│   │   ├── ipcHandlers.ts # IPC处理器
+│   │   ├── shortcuts.ts  # 快捷键
+│   │   └── SessionManager.ts  # 会话管理（新增）
+│   │
+│   ├── renderer/          # React渲染进程
+│   │   ├── App.tsx       # 主应用
+│   │   ├── components/   # UI组件
+│   │   │   ├── ChatUI.tsx
+│   │   │   ├── ChatInput.tsx
+│   │   │   ├── ChatMessage.tsx
+│   │   │   ├── ControlBar.tsx      # 含模式切换按钮
+│   │   │   ├── TaskStatus.tsx
+│   │   │   ├── TakeoverModal.tsx
+│   │   │   ├── PlanViewer.tsx
+│   │   │   ├── AskUserDialog.tsx    # 用户确认对话框
+│   │   │   └── SessionPanel.tsx      # 会话历史面板（新增）
+│   │   └── stores/        # 状态管理
+│   │       ├── taskStore.ts
+│   │       └── sessionStore.ts      # 会话状态（新增）
+│   │
+│   ├── core/              # 核心业务逻辑
+│   │   ├── action/        # Action定义和验证
+│   │   │   ├── ActionSchema.ts
+│   │   │   └── ActionValidator.ts
+│   │   │
+│   │   ├── executor/      # 执行器
+│   │   │   ├── ExecutorRouter.ts
+│   │   │   ├── BrowserExecutor.ts    # 浏览器操作（含force:true）
+│   │   │   ├── CLIExecutor.ts
+│   │   │   ├── AskUserExecutor.ts    # 用户交互执行器
+│   │   │   └── ScreencastService.ts  # 实时截图服务
+│   │   │
+│   │   ├── planner/      # 任务规划
+│   │   │   ├── TaskPlanner.ts
+│   │   │   ├── PlanExecutor.ts
+│   │   │   └── Replanner.ts          # 动态重规划器（LLM驱动）
+│   │   │
+│   │   └── runtime/       # 运行时引擎
+│   │       ├── TaskEngine.ts        # 含重试循环
+│   │       └── TakeoverManager.ts
+│   │
+│   ├── preview/          # 预览管理
+│   │   └── PreviewManager.ts
+│   │
+│   ├── llm/              # LLM集成
+│   │   ├── config.ts
+│   │   ├── LLMClient.ts
+│   │   └── OpenAIResponses.ts
+│   │
+│   └── config/           # 配置
+│       ├── whitelist.ts  # CLI白名单
+│       └── constants.ts   # 常量
+│
+├── config/
+│   └── llm.json          # LLM配置（用户填入）
+│
+└── docs/
+    ├── USER_GUIDE.md     # 本文档
+    ├── PRD.md           # 产品需求
+    └── SPEC_v0.2.md     # 技术规格
+```
+
+---
+
+## 7. 常见问题
+
+### Q1: 启动报错 "Cannot find module"
+
+**A**: 确保已运行 `npm install` 安装所有依赖。
+
+### Q2: LLM调用失败
+
+**A**: 检查 `config/llm.json` 中的API Key是否正确，网络是否正常。
+
+### Q3: 预览区域没有显示
+
+**A**: 
+1. 确认使用侧边栏模式（默认）
+2. 检查控制栏右侧的 👁 按钮是否选中
+
+### Q4: 浏览器操作失败
+
+**A**: 
+1. 检查网络连接
+2. 页面结构可能变化，AI会自动重试和重规划
+
+### Q5: 如何添加新的CLI命令白名单？
+
+**A**: 编辑 `src/config/whitelist.ts` 中的 `CLI_WHITELIST.commands` 对象。
+
+---
+
+## 版本说明
+
+### v0.2.1
+
+**新增功能**:
+- ✅ 会话持久化 - 左侧会话面板，历史自动保存
+- ✅ LLM驱动重试 - 失败时LLM决策，最多3次重试
+
+**已实现**:
+- ✅ 侧边栏实时预览（8fps）
+- ✅ 模式切换（侧边/独立窗口）
+- ✅ ask:user 用户交互
+- ✅ Replanner 自动恢复
+- ✅ Selector 优化（force:true）
+- ✅ 浏览器自动化（6个动作）
+- ✅ 对话UI
+- ✅ 任务规划（LLM）
+- ✅ 人工接管机制
+- ✅ CLI基础执行（白名单）
+
+**未实现** (将在后续版本实现):
+- ❌ 测试覆盖
+- ❌ E2E测试
+- ❌ 多端协同
+
+---
+
+## 反馈与支持
+
+如遇到问题，请：
+
+1. 查看控制台错误日志
+2. 检查 `config/llm.json` 配置
+3. 确认所有依赖已正确安装
+
+---
+
+*OpenCowork v0.2.1*
+*最后更新: 2026-03-28*

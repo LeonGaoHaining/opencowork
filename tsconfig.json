@@ -20,6 +20,17 @@
       "@/*": ["src/*"]
     }
   },
-  "include": ["src/renderer/**/*", "src/core/**/*", "src/config/**/*", "src/preview/**/*", "src/llm/**/*"],
+  "include": [
+    "src/renderer/**/*",
+    "src/core/**/*",
+    "src/config/**/*",
+    "src/preview/**/*",
+    "src/llm/**/*",
+    "src/agents/**/*",
+    "src/tools/**/*",
+    "src/checkpointers/**/*",
+    "src/memory/**/*",
+    "src/states/**/*"
+  ],
   "exclude": ["node_modules", "dist"]
 }

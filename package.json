@@ -28,6 +28,10 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
+    "@langchain/core": "latest",
+    "@langchain/langgraph": "latest",
+    "@langchain/langgraph-checkpoint-sqlite": "latest",
+    "@langchain/openai": "latest",
     "playwright-extra": "^4.3.6",
     "playwright-stealth": "^0.0.1",
     "react": "^18.3.1",

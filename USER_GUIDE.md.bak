@@ -1,0 +1,324 @@
+# OpenCowork MVP (v0.1) 使用说明
+
+| 项目 | 内容 |
+|------|------|
+| 版本 | v0.1 |
+| 更新日期 | 2026-03-27 |
+| 状态 | MVP内部测试版 |
+
+---
+
+## 目录
+
+1. [项目简介](#1-项目简介)
+2. [快速开始](#2-快速开始)
+3. [配置说明](#3-配置说明)
+4. [功能使用](#4-功能使用)
+5. [快捷键](#5-快捷键)
+6. [目录结构](#6-目录结构)
+7. [常见问题](#7-常见问题)
+
+---
+
+## 1. 项目简介
+
+OpenCowork 是一款 **AI Native Desktop Agent**，让AI像人类一样使用电脑完成复杂任务。
+
+### 核心能力
+
+| 能力 | 说明 |
+|------|------|
+| 浏览器自动化 | AI自主操作浏览器完成网页任务 |
+| 任务规划 | 将复杂任务分解为可执行步骤 |
+| 实时预览 | 观看AI操作浏览器的过程 |
+| 人工接管 | 随时接管AI的控制权 |
+| CLI执行 | 执行白名单内的系统命令 |
+
+### 技术栈
+
+| 层级 | 技术 |
+|------|------|
+| 桌面框架 | Electron 28 |
+| UI框架 | React 18 + TailwindCSS |
+| 语言 | TypeScript |
+| 浏览器自动化 | Playwright |
+| LLM | OpenAI Responses API |
+
+---
+
+## 2. 快速开始
+
+### 2.1 安装依赖
+
+```bash
+cd opencowork
+npm install
+```
+
+### 2.2 配置LLM
+
+编辑 `config/llm.json`，填入你的OpenAI API Key：
+
+```json
+{
+  "provider": "openai",
+  "model": "gpt-4-turbo",
+  "apiKey": "你的API Key",
+  "baseUrl": "https://api.openai.com/v1",
+  "timeout": 60000,
+  "maxRetries": 3,
+  "temperature": 0.7
+}
+```
+
+### 2.3 启动开发服务器
+
+```bash
+npm run dev
+```
+
+### 2.4 启动Electron应用
+
+```bash
+npm run electron:dev
+```
+
+---
+
+## 3. 配置说明
+
+### 3.1 LLM配置 (config/llm.json)
+
+| 参数 | 说明 | 必填 |
+|------|------|------|
+| provider | LLM供应商，目前支持`openai` | 是 |
+| model | 模型名称，如`gpt-4-turbo` | 是 |
+| apiKey | OpenAI API Key | 是 |
+| baseUrl | API地址 | 是 |
+| timeout | 请求超时(ms) | 否，默认60000 |
+| maxRetries | 最大重试次数 | 否，默认3 |
+| temperature | 生成温度，越低越确定性 | 否，默认0.7 |
+
+### 3.2 CLI白名单 (src/config/whitelist.ts)
+
+```typescript
+const CLI_WHITELIST = {
+  commands: {
+    'git': { allowed: ['status', 'pull', 'push', 'clone'] },
+    'npm': { allowed: ['install', 'run', 'test'] },
+    // ...
+  },
+  paths: {
+    '~/Documents': 'read-write',
+    '~/Downloads': 'read-write',
+  },
+};
+```
+
+**注意**: MVP版本CLI白名单是硬编码的，未来版本将支持配置文件。
+
+---
+
+## 4. 功能使用
+
+### 4.1 创建任务
+
+在输入框中描述你想完成的任务：
+
+```
+输入: "帮我打开Google并搜索OpenCowork"
+```
+
+### 4.2 观看任务执行
+
+- AI开始执行后，你可以在右侧预览窗口看到浏览器操作
+- 任务状态栏显示当前进度
+- 计划视图显示完整的执行计划
+
+### 4.3 人工接管
+
+**触发接管的方式**:
+
+| 方式 | 操作 |
+|------|------|
+| ESC键 | 按下ESC键 |
+| 接管按钮 | 点击"接管"按钮 |
+
+**接管后可选择**:
+
+| 选项 | 说明 |
+|------|------|
+| 交还AI控制 | AI从中断处继续执行 |
+| 重新开始 | 清空上下文，重新规划 |
+| 人工完成 | 任务结束 |
+| 取消任务 | 取消整个任务 |
+
+### 4.4 控制栏按钮
+
+| 按钮 | 功能 |
+|------|------|
+| 接管 | 接管AI的控制权 |
+| 暂停 | 暂停当前任务 |
+| 停止 | 停止当前任务 |
+| 计划 | 显示/隐藏执行计划 |
+
+---
+
+## 5. 快捷键
+
+| 快捷键 | 功能 | 说明 |
+|--------|------|------|
+| ESC | 接管 | 立即接管AI控制权 |
+| Ctrl+Enter | 发送 | 发送当前输入 |
+
+---
+
+## 6. 目录结构
+
+```
+opencowork/
+├── src/
+│   ├── main/               # Electron主进程
+│   │   ├── index.ts       # 入口文件
+│   │   ├── window.ts      # 窗口管理
+│   │   ├── ipc.ts        # IPC通信
+│   │   └── shortcuts.ts  # 快捷键
+│   │
+│   ├── renderer/          # React渲染进程
+│   │   ├── App.tsx       # 主应用
+│   │   ├── components/   # UI组件
+│   │   │   ├── ChatUI.tsx
+│   │   │   ├── ChatInput.tsx
+│   │   │   ├── ChatMessage.tsx
+│   │   │   ├── ControlBar.tsx
+│   │   │   ├── TaskStatus.tsx
+│   │   │   ├── TakeoverModal.tsx
+│   │   │   └── PlanViewer.tsx
+│   │   └── stores/        # 状态管理
+│   │       └── taskStore.ts
+│   │
+│   ├── core/              # 核心业务逻辑
+│   │   ├── action/        # Action定义和验证
+│   │   ├── planner/       # 任务规划器
+│   │   └── runtime/       # 运行时引擎
+│   │
+│   ├── preview/          # 预览窗口管理
+│   │   └── PreviewManager.ts
+│   │
+│   └── config/           # 配置
+│       ├── whitelist.ts  # CLI白名单
+│       └── constants.ts   # 常量
+│
+├── config/
+│   └── llm.json          # LLM配置（用户填入）
+│
+└── tests/
+    └── e2e/              # 端到端测试
+```
+
+---
+
+## 7. 常见问题
+
+### Q1: 启动报错 "Cannot find module"
+
+**A**: 确保已运行 `npm install` 安装所有依赖。
+
+### Q2: LLM调用失败
+
+**A**: 检查 `config/llm.json` 中的API Key是否正确，网络是否正常。
+
+### Q3: 预览窗口没有显示
+
+**A**: MVP版本独立预览窗口功能需要进一步完善，当前版本预览窗口可能无法正常显示。
+
+### Q4: 如何添加新的CLI命令白名单？
+
+**A**: 编辑 `src/config/whitelist.ts` 中的 `CLI_WHITELIST.commands` 对象。
+
+### Q5: 测试如何运行？
+
+**A**:
+```bash
+# 运行所有测试
+npm run test:run
+
+# 运行测试覆盖率
+npm run test:coverage
+```
+
+---
+
+## 开发指南
+
+### 代码规范
+
+项目使用 ESLint + Prettier 进行代码规范检查：
+
+```bash
+# 检查代码
+npm run lint
+
+# 自动修复
+npm run lint:fix
+
+# 格式化代码
+npm run format
+```
+
+### 测试驱动开发
+
+```bash
+# 启动测试watch模式
+npm run test
+
+# 运行单次测试
+npm run test:run
+```
+
+### 构建
+
+```bash
+# 构建所有
+npm run build
+
+# 分别构建
+npm run build:main    # 主进程
+npm run build:preload # 预加载脚本
+npm run build:renderer # 渲染进程
+```
+
+---
+
+## 版本说明
+
+### v0.1 MVP
+
+**已实现**:
+- ✅ 基础浏览器自动化（navigate, click, input）
+- ✅ 对话UI
+- ✅ 任务规划（简化版）
+- ✅ 人工接管机制
+- ✅ CLI基础执行（白名单）
+
+**未实现** (将在后续版本实现):
+- ❌ 独立窗口预览
+- ❌ 完整的LLM规划
+- ❌ 条件分支/循环
+- ❌ 定时任务
+- ❌ 多端协同
+
+---
+
+## 反馈与支持
+
+如遇到问题，请：
+
+1. 查看控制台错误日志
+2. 检查 `config/llm.json` 配置
+3. 确认所有依赖已正确安装
+
+---
+
+*OpenCowork MVP v0.1*
+*最后更新: 2026-03-27*
