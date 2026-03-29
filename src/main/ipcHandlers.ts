@@ -2,9 +2,29 @@ import { BrowserWindow } from 'electron';
 import { TaskEngine } from '../core/runtime/TaskEngine';
 import { PreviewManager } from '../preview/PreviewManager';
 import { sessionManager } from './SessionManager';
+import { BrowserExecutor } from '../core/executor/BrowserExecutor';
+import { CLIExecutor } from '../core/executor/CLIExecutor';
+import { ActionType } from '../core/action/ActionSchema';
 
 const taskEngine = new TaskEngine();
 const previewManager = new PreviewManager();
+
+let browserExecutor: BrowserExecutor | null = null;
+let cliExecutor: CLIExecutor | null = null;
+
+function getBrowserExecutor(): BrowserExecutor {
+  if (!browserExecutor) {
+    browserExecutor = new BrowserExecutor();
+  }
+  return browserExecutor;
+}
+
+function getCLIExecutor(): CLIExecutor {
+  if (!cliExecutor) {
+    cliExecutor = new CLIExecutor();
+  }
+  return cliExecutor;
+}
 
 // Set main window reference
 export function setTaskEngineMainWindow(window: BrowserWindow | null): void {
@@ -35,7 +55,6 @@ type IpcHandler = (
 export const IPC_HANDLERS: Record<string, IpcHandler> = {
   // 任务相关
   'task:start': async (mainWindow, previewWindow, { task }) => {
-    // 检查是否有任务正在执行
     if (taskEngine.isTaskRunning()) {
       return { success: false, error: '已有任务正在执行中，请等待完成后再发起新任务' };
     }
@@ -53,77 +72,26 @@ export const IPC_HANDLERS: Record<string, IpcHandler> = {
     return { success: true };
   },
 
-  'task:cancel': async (mainWindow, previewWindow, { handleId }) => {
-    await taskEngine.cancel(handleId);
+  'task:stop': async (mainWindow, previewWindow, { handleId }) => {
+    await taskEngine.stop(handleId);
     return { success: true };
   },
 
-  'task:takeover': async (mainWindow, previewWindow, { handleId }) => {
-    const context = await taskEngine.takeover(handleId);
-    return { context };
+  'task:status': async (mainWindow, previewWindow, { handleId }) => {
+    const status = taskEngine.getStatus(handleId);
+    return { status };
   },
 
-  'task:resumeFromUser': async (mainWindow, previewWindow, { handleId, action }) => {
-    await taskEngine.resumeFromUser(handleId, action);
+  // 浏览器控制
+  'browser:launch': async (mainWindow, previewWindow) => {
+    const executor = getBrowserExecutor();
+    await executor.ensureBrowser();
     return { success: true };
   },
 
-  'task:getState': async (mainWindow, previewWindow, { handleId }) => {
-    const state = taskEngine.getState(handleId);
-    return { state };
-  },
-
-  'task:checkLoginPopup': async (mainWindow, previewWindow, {}) => {
-    const result = await taskEngine.checkAndHandleLoginPopup();
-    return result;
-  },
-
-  // 预览相关
-  'preview:setMode': async (mainWindow, previewWindow, { mode }) => {
-    // sidebar 模式由 Renderer 处理（通过截图显示），不需要 BrowserView
-    // 只有 detached 模式需要创建独立窗口
-    if (mode === 'detached' && mainWindow) {
-      await previewManager.initialize(mainWindow);
-      await previewManager.setMode('detached');
-    }
-    // sidebar 模式不做任何操作，让 Renderer 显示截图
-    return { success: true };
-  },
-
-  'preview:getState': async (mainWindow, previewWindow) => {
-    const state = previewManager.getState();
-    return { state };
-  },
-
-  // 配置相关
-  'config:get': async () => {
-    // TODO: 从文件加载配置
-    return {};
-  },
-
-  'config:set': async (mainWindow, previewWindow, { config }) => {
-    // TODO: 保存配置到文件
-    console.log('[Config] Saving config:', config);
-    return { success: true };
-  },
-
-  // 窗口相关
-  'window:minimize': async (mainWindow) => {
-    mainWindow?.minimize();
-    return { success: true };
-  },
-
-  'window:maximize': async (mainWindow) => {
-    if (mainWindow?.isMaximized()) {
-      mainWindow.unmaximize();
-    } else {
-      mainWindow?.maximize();
-    }
-    return { success: true };
-  },
-
-  'window:close': async (mainWindow) => {
-    mainWindow?.close();
+  'browser:close': async (mainWindow, previewWindow) => {
+    const executor = getBrowserExecutor();
+    await executor.close();
     return { success: true };
   },
 
@@ -134,8 +102,8 @@ export const IPC_HANDLERS: Record<string, IpcHandler> = {
   },
 
   'session:list': async (mainWindow, previewWindow) => {
-    const meta = sessionManager.list();
-    return { meta };
+    const sessions = sessionManager.list();
+    return { sessions };
   },
 
   'session:get': async (mainWindow, previewWindow, { sessionId }) => {
@@ -161,5 +129,92 @@ export const IPC_HANDLERS: Record<string, IpcHandler> = {
   'session:getActive': async (mainWindow, previewWindow) => {
     const session = sessionManager.getActive();
     return { session };
+  },
+
+  // Agent 相关 (v0.4)
+  'agent:browser': async (mainWindow, previewWindow, params) => {
+    console.log('[IPC] agent:browser:', params);
+    try {
+      const executor = getBrowserExecutor();
+      const action = params;
+      let result: any;
+
+      switch (action.action) {
+        case 'navigate':
+        case 'goto':
+          result = await executor.execute({ type: ActionType.BROWSER_NAVIGATE, params: { url: action.url, waitUntil: 'domcontentloaded' }, id: '', description: '' });
+          break;
+        case 'click':
+          result = await executor.execute({ type: ActionType.BROWSER_CLICK, params: { selector: action.selector, index: action.index }, id: '', description: '' });
+          break;
+        case 'input':
+          result = await executor.execute({ type: ActionType.BROWSER_INPUT, params: { selector: action.selector, text: action.text, clear: true }, id: '', description: '' });
+          break;
+        case 'wait':
+          result = await executor.execute({ type: ActionType.BROWSER_WAIT, params: { selector: action.selector, timeout: action.timeout || 10000 }, id: '', description: '' });
+          break;
+        case 'extract':
+          result = await executor.execute({ type: ActionType.BROWSER_EXTRACT, params: { selector: action.selector, type: 'text', multiple: action.multiple !== false }, id: '', description: '' });
+          break;
+        case 'screenshot':
+          result = await executor.execute({ type: ActionType.BROWSER_SCREENSHOT, params: {}, id: '', description: '' });
+          break;
+        default:
+          return { success: false, error: { code: 'UNKNOWN_ACTION', message: `Unknown action: ${action.action}` } };
+      }
+
+      return result;
+    } catch (error: any) {
+      console.error('[IPC] agent:browser error:', error);
+      return { success: false, error: { code: 'BROWSER_ERROR', message: error.message } };
+    }
+  },
+
+  'agent:cli': async (mainWindow, previewWindow, params) => {
+    console.log('[IPC] agent:cli:', params);
+    try {
+      const executor = getCLIExecutor();
+      const action = { type: ActionType.CLI_EXECUTE, params: { command: params.command, args: params.args }, id: '', description: '' };
+      const result = await executor.execute(action);
+      return result;
+    } catch (error: any) {
+      console.error('[IPC] agent:cli error:', error);
+      return { success: false, error: { code: 'CLI_ERROR', message: error.message } };
+    }
+  },
+
+  'agent:vision': async (mainWindow, previewWindow, params) => {
+    console.log('[IPC] agent:vision:', params);
+    return { success: false, error: { code: 'NOT_IMPLEMENTED', message: 'Vision executor not yet implemented' } };
+  },
+};
+      }
+    } catch (error: any) {
+      console.error('[IPC] agent:browser error:', error);
+      return { success: false, error: { code: 'BROWSER_ERROR', message: error.message } };
+    }
+  },
+
+  'agent:cli': async (mainWindow, previewWindow, params) => {
+    console.log('[IPC] agent:cli:', params);
+    try {
+      const executor = getCLIExecutor();
+      const result = await executor.execute({
+        type: 'cli:execute',
+        params: { command: params.command, args: params.args },
+      });
+      return result;
+    } catch (error: any) {
+      console.error('[IPC] agent:cli error:', error);
+      return { success: false, error: { code: 'CLI_ERROR', message: error.message } };
+    }
+  },
+
+  'agent:vision': async (mainWindow, previewWindow, params) => {
+    console.log('[IPC] agent:vision:', params);
+    return {
+      success: false,
+      error: { code: 'NOT_IMPLEMENTED', message: 'Vision executor not yet implemented' },
+    };
   },
 };
