@@ -3,9 +3,9 @@
 | 项目     | 内容                                                                                                                                                  |
 | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 产品名称 | OpenCowork                                                                                                                                            |
-| 文档版本 | v2.9                                                                                                                                                  |
+| 文档版本 | v3.0                                                                                                                                                  |
 | 更新日期 | 2026-03-31                                                                                                                                            |
-| 文档状态 | v1.0 规划完成                                                                                                                                         |
+| 文档状态 | v2.0 规划完成                                                                                                                                         |
 | 基于竞品 | Claude Cowork + 原有AI Browser PRD                                                                                                                    |
 | 技术规格 | [SPEC v0.3](./SPEC_v0.3.md), [SPEC v0.4](./SPEC_v0.4.md), [SPEC v0.5](./SPEC_v0.5.md), [SPEC_v0.6.md](./SPEC_v0.6.md), [SPEC_v0.7.md](./SPEC_v0.7.md) |
 
@@ -2003,19 +2003,100 @@ function switchToTakeoverMode() {
 
 **里程碑**: 正式发布版本
 
-### 10.9 未来规划
+---
 
-| 版本 | 目标     | 功能点                     |
-| ---- | -------- | -------------------------- |
-| v1.1 | 体验优化 | UI改进、Bug修复            |
-| v1.2 | 生态建设 | 插件市场、更多Connector    |
-| v2.0 | 企业版   | 私有部署、HA集群、高级合规 |
+## 14. v2.0 完整浏览器详细规划
+
+> 更新日期: 2026-03-31
+
+### 14.1 版本目标
+
+将浏览器预览区升级为**完整浏览器**，用户可主动浏览网页，与 AI 共享同一浏览器实例。
+
+### 14.2 功能清单
+
+| 功能                | 说明                          |
+| ------------------- | ----------------------------- |
+| 完整地址栏          | URL 显示、可编辑、可导航      |
+| 标签页管理          | 多标签页创建/切换/关闭        |
+| 前进/后退           | 浏览历史导航                  |
+| AI/用户切换         | 用户可接管控制浏览器          |
+| 共享 BrowserContext | AI 操作和用户操作共享同一实例 |
+
+### 14.3 架构设计
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                      OpenCowork 主窗口                       │
+├─────────────────────────────────────────────────────────────┤
+│  🔍 地址栏  │ 🌐 标签1 │ 🌐 标签2 │ 🌐 标签3 │  +  │ ← → │
+├─────────────────────────────────────────────────────────────┤
+│                                                              │
+│                    BrowserView (真实浏览器)                   │
+│                                                              │
+│   • AI 操作可见                                              │
+│   • 用户可主动浏览                                           │
+│   • 共享同一个 BrowserContext                                 │
+│   • CDP 会话绑定                                             │
+│                                                              │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### 14.4 技术实现
+
+#### 14.4.1 模块升级
+
+| 模块           | 当前实现   | 升级后                  |
+| -------------- | ---------- | ----------------------- |
+| PreviewManager | 仅镜像预览 | 完整浏览器管理器        |
+| 地址栏         | 无         | 新增 URLBar 组件        |
+| 标签管理       | 无         | 新增 TabBar 组件        |
+| 导航控制       | 无         | 新增 NavigationControls |
+
+#### 14.4.2 CDP 会话管理
+
+```typescript
+interface BrowserSession {
+  sessionId: string;
+  contextId: string;
+  isAI: boolean;
+  lastActive: number;
+}
+
+class BrowserSessionManager {
+  private sessions: Map<string, BrowserSession> = new Map();
+  private activeSession: string | null = null;
+
+  async switchSession(sessionId: string): Promise<void>;
+  async createSession(isAI: boolean): Promise<BrowserSession>;
+  async closeSession(sessionId: string): Promise<void>;
+}
+```
+
+### 14.5 实施计划
+
+| Week  | 任务               | 交付物                 |
+| ----- | ------------------ | ---------------------- |
+| 39-40 | URLBar 组件        | 地址栏显示、编辑、导航 |
+| 39-41 | TabBar 组件        | 标签页创建/切换/关闭   |
+| 40-42 | NavigationControls | 前进/后退/刷新         |
+| 41-43 | AI/用户切换        | 控制权交接机制         |
+| 42-44 | 会话管理优化       | CDP 会话隔离、状态同步 |
+| 43-45 | 集成测试           | 完整功能测试           |
+
+### 14.6 与现有系统集成
+
+| 系统           | 集成点                | 方式                  |
+| -------------- | --------------------- | --------------------- |
+| PreviewManager | 升级为 BrowserManager | 重构预览模块          |
+| AutomationPage | 共享 BrowserContext   | AI 操作同一浏览器实例 |
+| TakeoverModal  | 控制权交接            | AI/用户模式切换       |
 
 ---
 
-## 11. 附录
+## 15. 附录
 
-### 11.1 术语表
+### 15.1 术语表
 
 | 术语         | 英文         | 定义                      |
 | ------------ | ------------ | ------------------------- |
@@ -2027,7 +2108,7 @@ function switchToTakeoverMode() {
 | Computer Use | Computer Use | AI像人类一样操作计算机    |
 | Action Layer | Action Layer | 统一动作描述和路由层      |
 
-### 11.2 参考资料
+### 15.2 参考资料
 
 | 资料           | 说明          |
 | -------------- | ------------- |
@@ -2037,7 +2118,7 @@ function switchToTakeoverMode() {
 | BullMQ         | 任务队列      |
 | node-cron      | Cron调度      |
 
-### 11.3 技术选型理由
+### 15.3 技术选型理由
 
 | 技术             | 选择理由        |
 | ---------------- | --------------- |
@@ -2061,6 +2142,7 @@ function switchToTakeoverMode() {
 | v2.5 | 2026-03-30 | v0.4 LangGraph重构架构确认：<br>- createReactAgent 代替完整 StateGraph（已确认）<br>- agentLogger 代替 LangSmith（已确认）<br>- MemorySaver 代替 SQLite Checkpointer（已确认）                                                                                                     |
 | v2.8 | 2026-03-31 | v0.7 飞书机器人方案确认：<br>- 飞书机器人替代独立Mobile App<br>- 企业消息订阅实现主动推送<br>- IM抽象接口预留（支持未来钉钉/企业微信）<br>- Week 29-38 详细实施计划                                                                                                                |
 | v2.9 | 2026-03-31 | v1.0 开源营销规划：<br>- 独立站点 opencowork.ai<br>- GitHub repo优化、开发者社区建设<br>- WhatsApp用户群组运营                                                                                                                                                                     |
+| v3.0 | 2026-03-31 | v2.0 完整浏览器规划：<br>- 浏览器预览区升级为真实浏览器<br>- 新增地址栏、标签页、前进后退<br>- AI/用户控制权切换<br>- 共享 BrowserContext<br>- Week 39-45 实施计划                                                                                                                 |
 
 ---
 
