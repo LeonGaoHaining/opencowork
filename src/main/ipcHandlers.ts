@@ -6,6 +6,7 @@ import { BrowserExecutor } from '../core/executor/BrowserExecutor';
 import { CLIExecutor } from '../core/executor/CLIExecutor';
 import { ActionType } from '../core/action/ActionSchema';
 import { createMainAgent, MainAgent } from '../agents/mainAgent';
+import { ScheduleType } from '../scheduler/types';
 
 const taskEngine = new TaskEngine();
 const previewManager = new PreviewManager();
@@ -342,5 +343,119 @@ export const IPC_HANDLERS: Record<string, IpcHandler> = {
     const { getScheduler } = await import('../scheduler/scheduler');
     const scheduler = getScheduler();
     return await scheduler.triggerTask(id);
+  },
+
+  // 飞书机器人相关 (v0.7)
+  'feishu:handle': async (mainWindow, previewWindow, payload) => {
+    try {
+      const { getFeishuService } = await import('../im/feishu/FeishuService');
+      const service = getFeishuService();
+      await service.handleCallback(payload);
+      return { success: true };
+    } catch (error: any) {
+      console.error('[IPC] feishu:handle error:', error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  'feishu:execute': async (mainWindow, previewWindow, payload) => {
+    try {
+      if (!payload?.taskId || !payload?.description) {
+        return { success: false, error: 'Missing taskId or description' };
+      }
+
+      const { getScheduler } = await import('../scheduler/scheduler');
+      const scheduler = getScheduler();
+
+      const task = await scheduler.addTask({
+        name: payload.taskId,
+        description: payload.description,
+        schedule: { type: ScheduleType.ONE_TIME },
+        execution: {
+          taskDescription: payload.description,
+          timeout: 300000,
+          maxRetries: 0,
+          retryDelayMs: 1000,
+        },
+        enabled: true,
+      });
+
+      await scheduler.triggerTask(task.id);
+
+      return { success: true, taskId: task.id };
+    } catch (error: any) {
+      console.error('[IPC] feishu:execute error:', error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  'feishu:takeover': async (mainWindow, previewWindow, payload) => {
+    try {
+      const { taskId, userId } = payload || {};
+      if (!taskId || !userId) {
+        return { success: false, error: 'Missing taskId or userId' };
+      }
+
+      const taskEngine = getTaskEngine();
+      const result = await taskEngine.takeover(taskId);
+      return { success: result !== null, error: result ? undefined : 'Task not found' };
+    } catch (error: any) {
+      console.error('[IPC] feishu:takeover error:', error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  'feishu:return': async (mainWindow, previewWindow, payload) => {
+    try {
+      const { userId } = payload || {};
+      if (!userId) {
+        return { success: false, error: 'Missing userId' };
+      }
+
+      const taskEngine = getTaskEngine();
+      await taskEngine.resume(userId);
+      return { success: true };
+    } catch (error: any) {
+      console.error('[IPC] feishu:return error:', error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  'feishu:cancel': async (mainWindow, previewWindow, payload) => {
+    try {
+      const { taskId } = payload || {};
+      if (!taskId) {
+        return { success: false, error: 'Missing taskId' };
+      }
+
+      const taskEngine = getTaskEngine();
+      await taskEngine.cancel(taskId);
+      return { success: true };
+    } catch (error: any) {
+      console.error('[IPC] feishu:cancel error:', error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  'feishu:bind': async (mainWindow, previewWindow, payload) => {
+    try {
+      const { imUserId, desktopUserId } = payload || {};
+      if (!imUserId || !desktopUserId) {
+        return { success: false, error: 'Missing imUserId or desktopUserId' };
+      }
+
+      const { getBindingStore } = await import('../im/store/bindingStore');
+      const bindingStore = getBindingStore();
+      bindingStore.set(imUserId, {
+        imUserId,
+        desktopUserId,
+        imPlatform: 'feishu',
+        boundAt: Date.now(),
+      });
+      return { success: true };
+    } catch (error: any) {
+      console.error('[IPC] feishu:bind error:', error);
+      return { success: false, error: error.message };
+    }
   },
 };

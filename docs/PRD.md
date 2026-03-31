@@ -1,13 +1,13 @@
 # OpenCowork 产品需求文档 (PRD)
 
-| 项目     | 内容                                                                                  |
-| -------- | ------------------------------------------------------------------------------------- |
-| 产品名称 | OpenCowork                                                                            |
-| 文档版本 | v2.7                                                                                  |
-| 更新日期 | 2026-03-30                                                                            |
-| 文档状态 | v0.6 规划完成                                                                         |
-| 基于竞品 | Claude Cowork + 原有AI Browser PRD                                                    |
-| 技术规格 | [SPEC v0.3](./SPEC_v0.3.md), [SPEC v0.4](./SPEC_v0.4.md), [SPEC v0.5](./SPEC_v0.5.md) |
+| 项目     | 内容                                                                                                                  |
+| -------- | --------------------------------------------------------------------------------------------------------------------- |
+| 产品名称 | OpenCowork                                                                                                            |
+| 文档版本 | v2.8                                                                                                                  |
+| 更新日期 | 2026-03-31                                                                                                            |
+| 文档状态 | v0.7 规划完成                                                                                                         |
+| 基于竞品 | Claude Cowork + 原有AI Browser PRD                                                                                    |
+| 技术规格 | [SPEC v0.3](./SPEC_v0.3.md), [SPEC v0.4](./SPEC_v0.4.md), [SPEC v0.5](./SPEC_v0.5.md), [SPEC_v0.6.md](./SPEC_v0.6.md) |
 
 ---
 
@@ -17,7 +17,7 @@
 2. [核心功能](#2-核心功能)
 3. [技术架构](#3-技术架构)
    - [3.7 工业级Browser Agent架构 (v0.3)](#37-工业级browser-agent架构-v03)
-4. [多端协同系统](#4-多端协同系统)
+4. [多端协同系统](#4-多端协同系统-飞书机器人)
 5. [任务调度系统](#5-任务调度系统)
 6. [插件与生态](#6-插件与生态)
 7. [安全与权限](#7-安全与权限)
@@ -798,28 +798,101 @@ Task Planner（高层规划）
 
 ---
 
-## 4. 多端协同系统
+## 4. 多端协同系统 (飞书机器人)
 
 ### 4.1 Dispatch架构
 
 ```
 ┌─────────────────┐         ┌─────────────────┐
-│   Mobile App    │◄──────►│   Desktop App   │
-│                 │  HTTPS  │                 │
-│  • 任务发送     │  WebSocket │  • 任务执行    │
-│  • 状态查看     │         │  • 结果生成     │
-│  • 结果预览     │         │  • Browser执行  │
-│  • 快速接管     │         │  • CLI执行      │
+│   飞书 App      │◄──────►│   Desktop App   │
+│                 │ HTTPS  │                 │
+│  • @机器人发送  │Webhook │  • 任务执行    │
+│  • 接收卡片    │        │  • 结果生成     │
+│  • 推送通知   │        │  • Browser执行  │
 └─────────────────┘         └─────────────────┘
-                                    │
-                                    ▼
-                            ┌─────────────────┐
-                            │   Local Data    │
-                            │   (SQLite)      │
-                            └─────────────────┘
+        │                            │
+        └──────────┬─────────────────┘
+                   ▼
+           ┌─────────────────┐
+           │  Feishu Bot     │
+           │  Service        │
+           │  (消息队列)    │
+           └─────────────────┘
 ```
 
-### 4.2 设备配对流程
+### 4.2 飞书机器人功能
+
+| 功能       | 说明                       |
+| ---------- | -------------------------- |
+| 任务发送   | 用户@机器人发送任务描述    |
+| 任务确认   | 机器人回复确认消息         |
+| 结果推送   | 任务完成后主动推送结果卡片 |
+| 状态查询   | 用户发送指令查询任务状态   |
+| 进度推送   | 执行过程中推送进度通知     |
+| 接管控制   | 手机发送指令接管桌面任务   |
+| 对话式交互 | 机器人与用户多轮对话       |
+
+### 4.3 机器人命令体系
+
+| 命令                    | 示例                      | 说明         |
+| ----------------------- | ------------------------- | ------------ |
+| `@机器人 任务描述`      | `@OpenCowork 帮我订机票`  | 发送新任务   |
+| `@机器人 状态 [任务ID]` | `@OpenCowork 状态 abc123` | 查询状态     |
+| `@机器人 列表`          | `@OpenCowork 列表`        | 查看最近任务 |
+| `@机器人 接管 [任务ID]` | `@OpenCowork 接管 abc123` | 接管任务     |
+| `@机器人 交还`          | `@OpenCowork 交还`        | 交还控制给AI |
+| `@机器人 取消 [任务ID]` | `@OpenCowork 取消 abc123` | 取消任务     |
+| `@机器人 帮助`          | `@OpenCowork 帮助`        | 获取帮助     |
+
+### 4.4 企业消息订阅
+
+为实现任务进度主动推送，需要配置企业消息订阅：
+
+- 飞书开放平台 → 企业自建应用 → 消息订阅
+- 订阅事件：`im.message.receive`
+- 建立长连接，实时接收消息并推送通知
+
+### 4.5 设备绑定
+
+```typescript
+// 用户绑定关系
+interface FeishuBinding {
+  feishuOpenId: string; // 飞书用户ID
+  desktopUserId: string; // 桌面端用户ID
+  boundAt: number;
+}
+
+// 任务分发
+interface DispatchTask {
+  id: string;
+  description: string;
+  source: 'feishu' | 'desktop';
+  priority: 'low' | 'normal' | 'high';
+}
+```
+
+### 4.6 IM 抽象接口 (扩展预留)
+
+为支持未来扩展（钉钉/企业微信），预留统一接口：
+
+```typescript
+interface IMBot {
+  platform: 'feishu' | 'dingtalk' | 'wecom';
+
+  // 消息处理
+  onMessage(handler: (msg: IMMessage) => void): void;
+
+  // 主动推送
+  pushMessage(userId: string, message: IMMessage): Promise<void>;
+
+  // 用户绑定
+  bindUser(imUserId: string, desktopUserId: string): Promise<void>;
+}
+
+// v1.0+ 可扩展
+class DingTalkBot implements IMBot { ... }
+class WeComBot implements IMBot { ... }
+```
 
 ```typescript
 // Step 1: 桌面端生成配对码
@@ -910,15 +983,16 @@ async function resumeTaskOnDevice(taskId: string, targetDevice: 'desktop') {
 │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐        │
 │  │   Cron      │  │   Interval  │  │   One-time   │        │
 │  │   Jobs      │  │   Jobs      │  │   Jobs       │        │
+│  │ (node-cron) │  │ (setInterval)│  │ (setTimeout) │        │
 │  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘        │
 │         │                │                │                 │
 │         └────────────────┼────────────────┘                 │
 │                          ▼                                   │
 │              ┌───────────────────────┐                      │
-│              │    Job Queue (Bull)   │                      │
+│              │    Task Queue          │                      │
 │              │  • Priority Queue     │                      │
-│              │  • Delayed Jobs       │                      │
-│              │  • Retry Logic        │                      │
+│              │  • In-memory         │                      │
+│              │  • Concurrency Ctrl   │                      │
 │              └───────────┬───────────┘                      │
 │                          ▼                                   │
 │              ┌───────────────────────┐                      │
@@ -1889,15 +1963,26 @@ function switchToTakeoverMode() {
 
 ### 10.7 v0.7 (多端协同)
 
-**目标**: 多端Dispatch + 插件生态 + 预览优化
+**目标**: 飞书机器人手机端 + 桌面端协同 + 插件生态
 
-| 功能           | 周期       | 交付标准              |
-| -------------- | ---------- | --------------------- |
-| 手机配对连接   | Week 29-32 | 设备配对、加密通道    |
-| 任务分发同步   | Week 31-34 | 任务发送、状态同步    |
-| 可折叠预览面板 | Week 31-34 | 可收起/展开的预览面板 |
-| 基础Connector  | Week 33-36 | Slack/GitHub连接器    |
-| 操作审计       | Week 35-38 | 完整审计日志          |
+| 功能          | 周期       | 交付标准              |
+| ------------- | ---------- | --------------------- |
+| 飞书机器人    | Week 29-30 | 消息接收、基础回复    |
+| 任务转发      | Week 29-30 | 飞书消息→桌面端       |
+| 结果推送      | Week 31-32 | 企业消息订阅主动推送  |
+| 状态查询      | Week 31-32 | 状态/列表命令         |
+| 进度推送      | Week 33    | 执行进度通知          |
+| 接管控制      | Week 33-34 | 手机接管/交还桌面任务 |
+| 对话式交互    | Week 33-34 | 多轮对话状态机        |
+| 飞书Connector | Week 34-36 | 飞书消息读写/通知     |
+| 基础Connector | Week 34-36 | Slack/GitHub连接器    |
+| 操作审计      | Week 37-38 | 完整审计日志          |
+
+**技术选型**:
+
+- 手机端: 飞书机器人（非独立 App）
+- 消息推送: 企业消息订阅（主动推送）
+- IM 抽象: 接口预留（支持未来钉钉/企业微信）
 
 **里程碑**: Beta测试版本
 
@@ -1971,6 +2056,7 @@ function switchToTakeoverMode() {
 | v2.1 | 2026-03-27 | 新增浏览器预览模块：<br>- 新增3.6节PreviewManager技术架构<br>- 新增8.6节浏览器预览模块UI设计<br>- 新增场景4：实时观看浏览器操作<br>- 更新7.4节接管机制（观看模式/接管模式）<br>- 更新路线图（v0.1独立窗口→v0.3侧边预览→v0.5可折叠）                                                |
 | v2.2 | 2026-03-27 | PRD评审修复：<br>- 修复代码重复问题（TakeoverResult/TakeoverOption）<br>- 添加isExpanded属性声明<br>- 添加PreviewConfig配置接口，替代硬编码尺寸<br>- 细化画面同步技术描述（CDP会话绑定）<br>- 简化模块结构为方法模式<br>- 补充控制栏[×]关闭按钮说明<br>- 补充预览可关闭/可配置特性 |
 | v2.5 | 2026-03-30 | v0.4 LangGraph重构架构确认：<br>- createReactAgent 代替完整 StateGraph（已确认）<br>- agentLogger 代替 LangSmith（已确认）<br>- MemorySaver 代替 SQLite Checkpointer（已确认）                                                                                                     |
+| v2.8 | 2026-03-31 | v0.7 飞书机器人方案确认：<br>- 飞书机器人替代独立Mobile App<br>- 企业消息订阅实现主动推送<br>- IM抽象接口预留（支持未来钉钉/企业微信）<br>- Week 29-38 详细实施计划                                                                                                                |
 
 ---
 
@@ -2133,6 +2219,92 @@ interface ScheduledTask {
 {
   "dependencies": {
     "node-cron": "^3.0.0"
+  }
+}
+```
+
+---
+
+## 14. v0.7 飞书机器人详细规划
+
+> 更新日期: 2026-03-31
+
+### 14.1 版本目标
+
+飞书机器人作为手机端入口，实现多端协同。
+
+### 14.2 功能清单
+
+| 功能          | Week  | 说明                  |
+| ------------- | ----- | --------------------- |
+| 飞书机器人    | 29-30 | 消息接收、基础回复    |
+| 任务转发      | 29-30 | 飞书消息→桌面端       |
+| 结果推送      | 31-32 | 企业消息订阅主动推送  |
+| 状态查询      | 31-32 | 状态/列表命令         |
+| 进度推送      | 33    | 执行进度通知          |
+| 接管控制      | 33-34 | 手机接管/交还桌面任务 |
+| 对话式交互    | 33-34 | 多轮对话状态机        |
+| 飞书Connector | 34-36 | 飞书消息读写/通知     |
+| 基础Connector | 34-36 | Slack/GitHub连接器    |
+| 操作审计      | 37-38 | 完整审计日志          |
+
+### 14.3 飞书机器人实现
+
+#### 14.3.1 消息接收
+
+- 飞书开放平台 → 自建应用 → 机器人
+- 接收用户@消息，解析任务描述
+- 验证消息签名
+
+#### 14.3.2 任务转发
+
+- 用户消息 → OpenCowork Service → Desktop TaskEngine
+- 异步处理（消息队列）
+- 任务ID回传
+
+#### 14.3.3 结果推送
+
+- 企业消息订阅 → 主动推送
+- 卡片消息展示结果
+
+### 14.4 架构设计
+
+```
+┌─────────────────┐         ┌─────────────────┐
+│   飞书 App      │         │   Desktop App   │
+│                 │         │                 │
+│  • @机器人发送 │◄──────►│  • 任务执行    │
+│  • 接收卡片    │ HTTPS   │  • Browser执行  │
+│  • 推送进度   │Webhook  │  • 结果回传     │
+└─────────────────┘         └─────────────────┘
+        │                            │
+        └──────────┬────────────────┘
+                   ▼
+         ┌─────────────────┐
+         │  Feishu Bot    │
+         │  Service       │
+         │  (消息队列)    │
+         └─────────────────┘
+```
+
+### 14.5 IM 抽象接口
+
+```typescript
+interface IMBot {
+  platform: 'feishu' | 'dingtalk' | 'wecom';
+  onMessage(handler: (msg: IMMessage) => void): void;
+  pushMessage(userId: string, message: IMMessage): Promise<void>;
+  pushNotification(userId: string, notification: IMNotification): Promise<void>;
+  bindUser(imUserId: string, desktopUserId: string): Promise<void>;
+}
+```
+
+### 14.6 依赖
+
+```json
+{
+  "dependencies": {
+    "axios": "^1.6.0"
   }
 }
 ```

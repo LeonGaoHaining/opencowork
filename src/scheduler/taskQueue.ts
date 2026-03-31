@@ -13,6 +13,14 @@ const DEFAULT_CONFIG: TaskQueueConfig = {
   maxQueueSize: 100,
 };
 
+export const TASK_QUEUE_EVENTS = {
+  TASK_ENQUEUED: 'task:enqueued',
+  TASK_COMPLETED: 'task:completed',
+  TASK_FAILED: 'task:failed',
+  QUEUE_EMPTY: 'queue:empty',
+  QUEUE_PROCESSED: 'queue:processed',
+} as const;
+
 export class TaskQueue extends EventEmitter {
   private config: TaskQueueConfig;
   private queue: QueuedTask[] = [];
@@ -53,9 +61,16 @@ export class TaskQueue extends EventEmitter {
     }
 
     console.log('[TaskQueue] Enqueued task:', task.scheduledTaskId, 'Priority:', task.priority);
+    this.emit(TASK_QUEUE_EVENTS.TASK_ENQUEUED, task);
+
+    // Trigger processing if there are available slots
+    if (this.runningCount < this.config.maxConcurrent && this.queue.length > 0) {
+      this.processQueue();
+    }
   }
 
   dequeue(): QueuedTask | undefined {
+    if (this.queue.length === 0) return undefined;
     return this.queue.shift();
   }
 
@@ -77,7 +92,10 @@ export class TaskQueue extends EventEmitter {
       this.executor
     ) {
       const task = this.peekNextExecutable();
-      if (!task) break;
+      if (!task) {
+        // No executable tasks (waiting for executeAt time)
+        break;
+      }
 
       this.runningCount++;
       const dequeuedTask = this.dequeue();
@@ -85,12 +103,23 @@ export class TaskQueue extends EventEmitter {
       if (dequeuedTask) {
         this.executeTask(dequeuedTask).finally(() => {
           this.runningCount--;
-          this.processQueue();
+
+          // After task completes, try to process more
+          if (this.queue.length > 0 && this.runningCount < this.config.maxConcurrent) {
+            this.processQueue();
+          } else if (this.queue.length === 0) {
+            this.emit(TASK_QUEUE_EVENTS.QUEUE_EMPTY);
+          }
         });
       }
     }
 
-    if (this.isProcessing) {
+    // Only schedule next check if queue has pending tasks but no available slots
+    if (
+      this.isProcessing &&
+      this.queue.length > 0 &&
+      this.runningCount >= this.config.maxConcurrent
+    ) {
       setTimeout(() => this.processQueue(), 100);
     }
   }

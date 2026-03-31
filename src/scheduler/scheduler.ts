@@ -45,6 +45,10 @@ export class Scheduler extends EventEmitter {
     this.setupEventHandlers();
   }
 
+  async initialize(): Promise<void> {
+    await this.taskStore.initialize();
+  }
+
   private setupEventHandlers(): void {
     this.taskQueue.on('task:completed', async (task: QueuedTask, result: TaskExecutionResult) => {
       await this.handleTaskComplete(task, result);
@@ -83,6 +87,10 @@ export class Scheduler extends EventEmitter {
 
   async start(): Promise<void> {
     if (this.isRunning) return;
+
+    // Ensure taskStore is initialized before starting
+    await this.taskStore.initialize();
+
     this.isRunning = true;
 
     this.taskQueue.setExecutor(async (task) => {
@@ -102,6 +110,9 @@ export class Scheduler extends EventEmitter {
   async stop(): Promise<void> {
     if (!this.isRunning) return;
     this.isRunning = false;
+
+    this.taskQueue.removeAllListeners('task:completed');
+    this.taskQueue.removeAllListeners('task:failed');
 
     for (const [id, job] of this.cronJobs) {
       job.stop();
@@ -248,12 +259,25 @@ export class Scheduler extends EventEmitter {
 
     switch (task.schedule.type) {
       case 'cron':
-        return now + 60000;
+        if (!task.schedule.cron) return undefined;
+        // For cron tasks, calculate the next valid time
+        // node-cron handles the actual scheduling, this is just for display
+        // Return a reasonable next run time (e.g., 1 minute from now)
+        // In production, you'd parse the cron expression to get exact time
+        return this.getNextCronRunTime(task.schedule.cron);
       case 'interval':
         return now + (task.schedule.intervalMs || 0);
       case 'one-time':
         return task.schedule.startTime;
     }
+  }
+
+  private getNextCronRunTime(cronExpression: string): number {
+    // Simple implementation: return next minute
+    // In production, use a cron parser library like 'cron-parser'
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const _cron = cronExpression; // Placeholder for actual implementation
+    return Date.now() + 60000;
   }
 
   private calculatePriority(task: ScheduledTask): number {
@@ -276,4 +300,10 @@ export function getScheduler(config?: Partial<SchedulerConfig>): Scheduler {
 export function createScheduler(config?: Partial<SchedulerConfig>): Scheduler {
   schedulerInstance = new Scheduler(config);
   return schedulerInstance;
+}
+
+export async function initializeScheduler(config?: Partial<SchedulerConfig>): Promise<Scheduler> {
+  const scheduler = getScheduler(config);
+  await scheduler.initialize();
+  return scheduler;
 }

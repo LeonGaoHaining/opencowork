@@ -88,11 +88,21 @@ export class TaskExecutor {
 
   private async executeWithMainAgent(description: string, timeout?: number): Promise<void> {
     console.log('[TaskExecutor] Execute with MainAgent:', description);
+    // TODO: Integrate with MainAgent for actual task execution
+    // This requires:
+    // 1. Import MainAgent from '../agents/mainAgent'
+    // 2. Create MainAgent instance
+    // 3. Call agent.run(description) with timeout
+    // 4. Handle the result and propagate to historyService
     await this.simulateExecution(timeout);
   }
 
   private async executeStandalone(description: string, timeout?: number): Promise<void> {
-    console.log('[TaskExecutor] Execute standalone:', description);
+    console.log('[TaskExecutor] Execute standalone (placeholder):', description);
+    // TODO: Implement standalone execution:
+    // - Parse task description using LLM
+    // - Execute actions using BrowserExecutor or CLIExecutor
+    // - Report progress back to scheduler
     await this.simulateExecution(timeout);
   }
 

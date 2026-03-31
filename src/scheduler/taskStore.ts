@@ -2,21 +2,33 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
+import crypto from 'crypto';
 import { ScheduledTask, CreateScheduledTaskInput, UpdateScheduledTaskInput } from './types';
 
 export class TaskStore {
   private dbPath: string;
   private tasks: Map<string, ScheduledTask> = new Map();
+  private initialized = false;
 
   constructor(dbPath: string = './data/scheduled_tasks.json') {
     this.dbPath = dbPath;
-    this.load();
   }
 
-  private load(): void {
+  async initialize(): Promise<void> {
+    if (this.initialized) return;
+    await this.load();
+    this.initialized = true;
+  }
+
+  private async load(): Promise<void> {
     try {
+      const dir = path.dirname(this.dbPath);
+      if (!fs.existsSync(dir)) {
+        await fs.promises.mkdir(dir, { recursive: true });
+      }
+
       if (fs.existsSync(this.dbPath)) {
-        const data = fs.readFileSync(this.dbPath, 'utf-8');
+        const data = await fs.promises.readFile(this.dbPath, 'utf-8');
         const tasks: ScheduledTask[] = JSON.parse(data);
         for (const task of tasks) {
           this.tasks.set(task.id, task);
