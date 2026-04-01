@@ -18,27 +18,21 @@ export interface TakeoverState {
   };
 }
 
+const MAX_LISTENERS = 100;
+
 export class TakeoverManager {
   private takeoverState: TakeoverState | null = null;
   private listeners: Set<(state: TakeoverState | null) => void> = new Set();
 
-  triggerTakeover(reason: TakeoverReason, context: Partial<TakeoverState> = {}): void {
-    console.log(`[TakeoverManager] Takeover triggered:`, reason);
-
-    this.takeoverState = {
-      reason,
-      timestamp: Date.now(),
-      currentNode: context.currentNode || null,
-      completedActions: context.completedActions || [],
-      pendingNodes: context.pendingNodes || [],
-      aiContext: context.aiContext || {
-        currentTask: '',
-        conversationHistory: [],
-        variables: {},
-      },
-    };
-
-    this.notifyListeners();
+  addListener(listener: (state: TakeoverState | null) => void): void {
+    if (this.listeners.size >= MAX_LISTENERS) {
+      const oldest = this.listeners.keys().next().value;
+      if (oldest) {
+        this.listeners.delete(oldest);
+        console.log('[TakeoverManager] Max listeners reached, removed oldest');
+      }
+    }
+    this.listeners.add(listener);
   }
 
   resumeFromTakeover(action?: any): void {
@@ -60,16 +54,24 @@ export class TakeoverManager {
     return this.takeoverState !== null;
   }
 
-  addListener(listener: (state: TakeoverState | null) => void): void {
-    this.listeners.add(listener);
-  }
-
   removeListener(listener: (state: TakeoverState | null) => void): void {
     this.listeners.delete(listener);
   }
 
+  destroy(): void {
+    this.listeners.clear();
+    this.takeoverState = null;
+    console.log('[TakeoverManager] Destroyed');
+  }
+
   private notifyListeners(): void {
-    this.listeners.forEach((listener) => listener(this.takeoverState));
+    this.listeners.forEach((listener) => {
+      try {
+        listener(this.takeoverState);
+      } catch (err) {
+        console.error('[TakeoverManager] Listener error:', err);
+      }
+    });
   }
 }
 

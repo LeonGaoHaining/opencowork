@@ -36,9 +36,7 @@ export class OpenAIResponsesClient implements LLMClient {
   }
 
   async complete(prompt: string): Promise<LLMResponse> {
-    return this.chat([
-      { role: 'user', content: prompt },
-    ]);
+    return this.chat([{ role: 'user', content: prompt }]);
   }
 
   private async makeRequest(url: string, body: any): Promise<any> {
@@ -50,7 +48,7 @@ export class OpenAIResponsesClient implements LLMClient {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${this.apiKey}`,
+          Authorization: `Bearer ${this.apiKey}`,
           'api-key': this.apiKey,
         },
         body: JSON.stringify(body),
@@ -84,4 +82,9 @@ export function getLLMClient(): OpenAIResponsesClient {
     clientInstance = new OpenAIResponsesClient();
   }
   return clientInstance;
+}
+
+export function resetLLMClient(): void {
+  clientInstance = null;
+  console.log('[OpenAIResponses] Client reset');
 }

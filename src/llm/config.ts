@@ -20,29 +20,32 @@ export function loadLLMConfig(): LLMConfig {
 
   const configPath = path.join(process.cwd(), 'config', 'llm.json');
 
-  if (!fs.existsSync(configPath)) {
-    throw new Error(`LLM config file not found: ${configPath}`);
+  try {
+    const raw = fs.readFileSync(configPath, 'utf-8');
+    const config = JSON.parse(raw) as LLMConfig;
+
+    if (!config.apiKey) {
+      throw new Error('LLM API key is not configured in config/llm.json');
+    }
+
+    if (!config.model) {
+      throw new Error('LLM model is not configured in config/llm.json');
+    }
+
+    cachedConfig = config;
+    console.log('[LLM] Config loaded:', {
+      provider: config.provider,
+      model: config.model,
+      baseUrl: config.baseUrl,
+    });
+
+    return config;
+  } catch (error) {
+    console.error('[LLM] Failed to load config:', error);
+    throw new Error(
+      `LLM config file not found or invalid: ${error instanceof Error ? error.message : String(error)}`
+    );
   }
-
-  const raw = fs.readFileSync(configPath, 'utf-8');
-  const config = JSON.parse(raw) as LLMConfig;
-
-  if (!config.apiKey) {
-    throw new Error('LLM API key is not configured in config/llm.json');
-  }
-
-  if (!config.model) {
-    throw new Error('LLM model is not configured in config/llm.json');
-  }
-
-  cachedConfig = config;
-  console.log('[LLM] Config loaded:', {
-    provider: config.provider,
-    model: config.model,
-    baseUrl: config.baseUrl,
-  });
-
-  return config;
 }
 
 export function getLLMConfig(): LLMConfig {

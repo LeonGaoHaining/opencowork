@@ -244,9 +244,17 @@ export class PlanExecutor {
   }
 
   private async waitForResume(): Promise<void> {
-    return new Promise((resolve) => {
+    const TIMEOUT_MS = 300000;
+
+    return new Promise((resolve, reject) => {
+      const timeoutId = setTimeout(() => {
+        console.warn('[PlanExecutor] waitForResume timeout after 5 minutes');
+        resolve();
+      }, TIMEOUT_MS);
+
       const check = () => {
         if (!this.paused) {
+          clearTimeout(timeoutId);
           resolve();
         } else {
           setTimeout(check, 100);

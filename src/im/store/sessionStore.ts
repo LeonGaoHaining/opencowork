@@ -18,11 +18,22 @@ export interface SessionContext {
   updatedAt: number;
 }
 
+const MAX_SESSIONS_SIZE = 300;
+const TIMEOUT = 300000;
+
 class SessionStateMachine extends EventEmitter {
   private sessions: Map<string, SessionContext> = new Map();
-  private readonly TIMEOUT = 300000;
+  private sessionInsertionOrder: string[] = [];
+  private readonly TIMEOUT = TIMEOUT;
 
   createSession(userId: string, conversationId: string): string {
+    if (this.sessions.size >= MAX_SESSIONS_SIZE) {
+      const oldestKey = this.sessionInsertionOrder.shift();
+      if (oldestKey) {
+        this.sessions.delete(oldestKey);
+        console.log('[SessionStateMachine] Max size reached, removed oldest session');
+      }
+    }
     const sessionId = `sess_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
     const session: SessionContext = {
       sessionId,
@@ -34,6 +45,7 @@ class SessionStateMachine extends EventEmitter {
       updatedAt: Date.now(),
     };
     this.sessions.set(sessionId, session);
+    this.sessionInsertionOrder.push(sessionId);
     console.log('[SessionStateMachine] Session created:', sessionId);
     return sessionId;
   }

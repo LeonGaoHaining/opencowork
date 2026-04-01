@@ -8,10 +8,14 @@ const PRIORITY_MAP: Record<string, number> = {
   high: 1,
 };
 
+const MAX_STATUS_MAP_SIZE = 1000;
+const MAX_TASK_QUEUE_SIZE = 500;
+
 export class DispatchService extends EventEmitter {
   private bot: IMBot;
   private taskQueue: DispatchTask[] = [];
   private statusMap: Map<string, TaskStatus> = new Map();
+  private statusInsertionOrder: string[] = [];
 
   constructor(bot: IMBot) {
     super();
@@ -98,6 +102,10 @@ export class DispatchService extends EventEmitter {
   }
 
   private enqueueTask(task: DispatchTask): void {
+    if (this.taskQueue.length >= MAX_TASK_QUEUE_SIZE) {
+      this.taskQueue.shift();
+      console.log('[DispatchService] Task queue limit reached, removed oldest task');
+    }
     const priority = PRIORITY_MAP[task.priority];
     const index = this.taskQueue.findIndex((t) => PRIORITY_MAP[t.priority] > priority);
     if (index === -1) {
@@ -268,6 +276,22 @@ export class DispatchService extends EventEmitter {
   }
 
   updateTaskStatus(taskId: string, status: Partial<TaskStatus>): void {
+    if (status.status === 'completed' || status.status === 'failed') {
+      this.statusMap.delete(taskId);
+      this.statusInsertionOrder = this.statusInsertionOrder.filter((k) => k !== taskId);
+      return;
+    }
+
+    if (this.statusMap.size >= MAX_STATUS_MAP_SIZE) {
+      const oldestKey = this.statusInsertionOrder.shift();
+      if (oldestKey) {
+        this.statusMap.delete(oldestKey);
+        console.log('[DispatchService] statusMap limit reached, removed oldest entry');
+      }
+    }
+    if (!this.statusMap.has(taskId)) {
+      this.statusInsertionOrder.push(taskId);
+    }
     const existing = this.statusMap.get(taskId);
     if (existing) {
       this.statusMap.set(taskId, { ...existing, ...status, updatedAt: Date.now() });

@@ -3,6 +3,8 @@ import * as path from 'path';
 import * as crypto from 'crypto';
 import { app } from 'electron';
 
+const MAX_SESSIONS = 100;
+
 function generateId(): string {
   return crypto.randomUUID();
 }
@@ -52,6 +54,7 @@ class SessionManager {
   private sessionsDir: string;
   private metaPath: string;
   private meta: SessionMeta;
+  private updateLocks: Map<string, boolean> = new Map();
 
   constructor() {
     const userDataPath = app.getPath('userData');
@@ -60,19 +63,27 @@ class SessionManager {
     this.meta = this.loadMeta();
   }
 
+  private async acquireUpdateLock(sessionId: string): Promise<() => void> {
+    while (this.updateLocks.get(sessionId)) {
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+    this.updateLocks.set(sessionId, true);
+    return () => this.updateLocks.set(sessionId, false);
+  }
+
   private ensureSessionsDir(): void {
-    if (!fs.existsSync(this.sessionsDir)) {
+    try {
       fs.mkdirSync(this.sessionsDir, { recursive: true });
+    } catch (err) {
+      console.error('[SessionManager] Failed to create sessions directory:', err);
     }
   }
 
   private loadMeta(): SessionMeta {
     this.ensureSessionsDir();
     try {
-      if (fs.existsSync(this.metaPath)) {
-        const data = fs.readFileSync(this.metaPath, 'utf-8');
-        return JSON.parse(data);
-      }
+      const data = fs.readFileSync(this.metaPath, 'utf-8');
+      return JSON.parse(data);
     } catch (err) {
       console.error('[SessionManager] Failed to load meta:', err);
     }
@@ -80,7 +91,11 @@ class SessionManager {
   }
 
   private saveMeta(): void {
-    fs.writeFileSync(this.metaPath, JSON.stringify(this.meta, null, 2), 'utf-8');
+    try {
+      fs.writeFileSync(this.metaPath, JSON.stringify(this.meta, null, 2), 'utf-8');
+    } catch (err) {
+      console.error('[SessionManager] Failed to save meta:', err);
+    }
   }
 
   private getSessionPath(sessionId: string): string {
@@ -99,7 +114,13 @@ class SessionManager {
 
     const sessionDir = path.join(this.sessionsDir, session.id);
     fs.mkdirSync(sessionDir, { recursive: true });
-    fs.writeFileSync(this.getSessionPath(session.id), JSON.stringify(session, null, 2), 'utf-8');
+
+    try {
+      fs.writeFileSync(this.getSessionPath(session.id), JSON.stringify(session, null, 2), 'utf-8');
+    } catch (err) {
+      console.error('[SessionManager] Failed to write session file:', err);
+      throw err;
+    }
 
     this.meta.sessions.push({
       id: session.id,
@@ -109,6 +130,18 @@ class SessionManager {
       messageCount: 0,
       taskCount: 0,
     });
+
+    if (this.meta.sessions.length > MAX_SESSIONS) {
+      const removed = this.meta.sessions.shift();
+      if (removed) {
+        const removedDir = path.join(this.sessionsDir, removed.id);
+        if (fs.existsSync(removedDir)) {
+          fs.rmSync(removedDir, { recursive: true, force: true });
+        }
+        console.log('[SessionManager] Max sessions reached, removed oldest:', removed.id);
+      }
+    }
+
     this.meta.activeSessionId = session.id;
     this.saveMeta();
 
@@ -118,37 +151,53 @@ class SessionManager {
 
   get(sessionId: string): SessionData | null {
     const sessionPath = this.getSessionPath(sessionId);
-    try {
-      if (fs.existsSync(sessionPath)) {
+    if (fs.existsSync(sessionPath)) {
+      try {
         const data = fs.readFileSync(sessionPath, 'utf-8');
         return JSON.parse(data);
+      } catch (err) {
+        console.error('[SessionManager] Failed to load session:', err);
       }
-    } catch (err) {
-      console.error('[SessionManager] Failed to load session:', err);
     }
     return null;
   }
 
   update(sessionId: string, data: Partial<SessionData>): SessionData | null {
-    const session = this.get(sessionId);
-    if (!session) return null;
-
-    const updated = { ...session, ...data, updatedAt: Date.now() };
-    fs.writeFileSync(this.getSessionPath(sessionId), JSON.stringify(updated, null, 2), 'utf-8');
-
-    const metaIndex = this.meta.sessions.findIndex(s => s.id === sessionId);
-    if (metaIndex !== -1) {
-      this.meta.sessions[metaIndex] = {
-        ...this.meta.sessions[metaIndex],
-        name: updated.name,
-        updatedAt: updated.updatedAt,
-        messageCount: updated.messages.length,
-        taskCount: updated.tasks.length,
-      };
-      this.saveMeta();
+    if (this.updateLocks.get(sessionId)) {
+      console.warn('[SessionManager] Update already in progress for:', sessionId);
+      return null;
     }
+    this.updateLocks.set(sessionId, true);
 
-    return updated;
+    try {
+      const session = this.get(sessionId);
+      if (!session) return null;
+
+      const updated = { ...session, ...data, updatedAt: Date.now() };
+
+      try {
+        fs.writeFileSync(this.getSessionPath(sessionId), JSON.stringify(updated, null, 2), 'utf-8');
+      } catch (err) {
+        console.error('[SessionManager] Failed to update session:', err);
+        return null;
+      }
+
+      const metaIndex = this.meta.sessions.findIndex((s) => s.id === sessionId);
+      if (metaIndex !== -1) {
+        this.meta.sessions[metaIndex] = {
+          ...this.meta.sessions[metaIndex],
+          name: updated.name,
+          updatedAt: updated.updatedAt,
+          messageCount: updated.messages.length,
+          taskCount: updated.tasks.length,
+        };
+        this.saveMeta();
+      }
+
+      return updated;
+    } finally {
+      this.updateLocks.set(sessionId, false);
+    }
   }
 
   delete(sessionId: string): boolean {
@@ -157,7 +206,7 @@ class SessionManager {
       if (fs.existsSync(sessionPath)) {
         fs.rmSync(sessionPath, { recursive: true });
       }
-      this.meta.sessions = this.meta.sessions.filter(s => s.id !== sessionId);
+      this.meta.sessions = this.meta.sessions.filter((s) => s.id !== sessionId);
       if (this.meta.activeSessionId === sessionId) {
         this.meta.activeSessionId = this.meta.sessions[0]?.id || null;
       }
@@ -174,7 +223,7 @@ class SessionManager {
   }
 
   setActive(sessionId: string): void {
-    if (this.meta.sessions.find(s => s.id === sessionId)) {
+    if (this.meta.sessions.find((s) => s.id === sessionId)) {
       this.meta.activeSessionId = sessionId;
       this.saveMeta();
     }

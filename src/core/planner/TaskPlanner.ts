@@ -499,47 +499,52 @@ ${context.previousTaskResult.content.substring(0, 500)}`
   }
 
   private simpleDecompose(task: string): AnyAction[] {
-    const taskLower = task.toLowerCase();
-    const urlMap: Record<string, string> = {
-      百度: 'https://www.baidu.com',
-      google: 'https://www.google.com',
-      谷歌: 'https://www.google.com',
-      淘宝: 'https://www.taobao.com',
-      天猫: 'https://www.tmall.com',
-      京东: 'https://www.jd.com',
-      github: 'https://github.com',
-      bilibili: 'https://www.bilibili.com',
-      知乎: 'https://www.zhihu.com',
-    };
+    try {
+      const taskLower = task.toLowerCase();
+      const urlMap: Record<string, string> = {
+        百度: 'https://www.baidu.com',
+        google: 'https://www.google.com',
+        谷歌: 'https://www.google.com',
+        淘宝: 'https://www.taobao.com',
+        天猫: 'https://www.tmall.com',
+        京东: 'https://www.jd.com',
+        github: 'https://github.com',
+        bilibili: 'https://www.bilibili.com',
+        知乎: 'https://www.zhihu.com',
+      };
 
-    if (taskLower.includes('打开') || taskLower.includes('导航') || taskLower.includes('访问')) {
-      const urlMatch = task.match(/https?:\/\/[^\s]+/);
-      if (urlMatch) {
-        return [
-          {
-            id: generateId(),
-            type: ActionType.BROWSER_NAVIGATE,
-            description: `导航到 ${urlMatch[0]}`,
-            params: { url: urlMatch[0], waitUntil: 'domcontentloaded' },
-          },
-        ];
-      }
-
-      for (const [keyword, url] of Object.entries(urlMap)) {
-        if (taskLower.includes(keyword)) {
+      if (taskLower.includes('打开') || taskLower.includes('导航') || taskLower.includes('访问')) {
+        const urlMatch = task.match(/https?:\/\/[^\s]+/);
+        if (urlMatch) {
           return [
             {
               id: generateId(),
               type: ActionType.BROWSER_NAVIGATE,
-              description: `导航到 ${keyword}`,
-              params: { url, waitUntil: 'domcontentloaded' },
+              description: `导航到 ${urlMatch[0]}`,
+              params: { url: urlMatch[0], waitUntil: 'domcontentloaded' },
             },
           ];
         }
-      }
-    }
 
-    return [];
+        for (const [keyword, url] of Object.entries(urlMap)) {
+          if (taskLower.includes(keyword)) {
+            return [
+              {
+                id: generateId(),
+                type: ActionType.BROWSER_NAVIGATE,
+                description: `导航到 ${keyword}`,
+                params: { url, waitUntil: 'domcontentloaded' },
+              },
+            ];
+          }
+        }
+      }
+
+      return [];
+    } catch (error) {
+      console.error('[TaskPlanner] simpleDecompose error:', error);
+      return [];
+    }
   }
 }
 

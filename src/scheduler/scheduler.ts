@@ -193,7 +193,11 @@ export class Scheduler extends EventEmitter {
     const job = cron.schedule(
       task.schedule.cron,
       async () => {
-        await this.enqueueTask(task);
+        try {
+          await this.enqueueTask(task);
+        } catch (error) {
+          console.error('[Scheduler] Cron task enqueue failed:', error);
+        }
       },
       {
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
@@ -207,7 +211,11 @@ export class Scheduler extends EventEmitter {
     if (!task.schedule.intervalMs) return;
 
     const timer = setInterval(async () => {
-      await this.enqueueTask(task);
+      try {
+        await this.enqueueTask(task);
+      } catch (error) {
+        console.error('[Scheduler] Interval task enqueue failed:', error);
+      }
     }, task.schedule.intervalMs);
 
     this.intervalTimers.set(task.id, timer);
@@ -220,7 +228,12 @@ export class Scheduler extends EventEmitter {
     if (delay <= 0) return;
 
     const timer = setTimeout(async () => {
-      await this.enqueueTask(task);
+      try {
+        await this.enqueueTask(task);
+      } catch (error) {
+        console.error('[Scheduler] One-time task enqueue failed:', error);
+      }
+      this.intervalTimers.delete(task.id);
     }, delay);
 
     this.intervalTimers.set(task.id, timer);

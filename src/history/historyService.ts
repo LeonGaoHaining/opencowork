@@ -67,6 +67,10 @@ export class HistoryService {
     return this.taskMutexes.get(taskId)!;
   }
 
+  private releaseTaskMutex(taskId: string): void {
+    this.taskMutexes.delete(taskId);
+  }
+
   async createTask(
     task: string,
     metadata?: TaskHistoryRecord['metadata']
@@ -171,6 +175,7 @@ export class HistoryService {
       task.duration = now - task.startTime;
       task.result = result;
       await this.store.saveTask(task);
+      this.releaseTaskMutex(taskId);
     });
   }
 
@@ -187,6 +192,7 @@ export class HistoryService {
       task.duration = now - task.startTime;
       task.result = { success: false, error: reason || 'Cancelled by user' };
       await this.store.saveTask(task);
+      this.releaseTaskMutex(taskId);
     });
   }
 

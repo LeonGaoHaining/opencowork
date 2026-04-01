@@ -3,7 +3,16 @@ import { useSessionStore } from '../stores/sessionStore';
 import { useTaskStore } from '../stores/taskStore';
 
 export function SessionPanel() {
-  const { sessions, activeSessionId, isLoading, loadSessions, createSession, selectSession, deleteSession, renameSession } = useSessionStore();
+  const {
+    sessions,
+    activeSessionId,
+    isLoading,
+    loadSessions,
+    createSession,
+    selectSession,
+    deleteSession,
+    renameSession,
+  } = useSessionStore();
   const { setMessages, setSessionId } = useTaskStore();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState('');
@@ -13,19 +22,27 @@ export function SessionPanel() {
   }, []);
 
   const handleCreateSession = async () => {
-    const session = await createSession();
-    if (session) {
-      setSessionId(session.id);
+    try {
+      const session = await createSession();
+      if (session) {
+        setSessionId(session.id);
+      }
+    } catch (error) {
+      console.error('[SessionPanel] handleCreateSession error:', error);
     }
   };
 
   const handleSelectSession = async (sessionId: string) => {
-    await selectSession(sessionId);
-    const { activeSession } = useSessionStore.getState();
-    if (activeSession?.messages) {
-      setMessages(activeSession.messages);
+    try {
+      await selectSession(sessionId);
+      const { activeSession } = useSessionStore.getState();
+      if (activeSession?.messages) {
+        setMessages(activeSession.messages);
+      }
+      setSessionId(sessionId);
+    } catch (error) {
+      console.error('[SessionPanel] handleSelectSession error:', error);
     }
-    setSessionId(sessionId);
   };
 
   const handleRename = (sessionId: string, currentName: string) => {
@@ -34,23 +51,37 @@ export function SessionPanel() {
   };
 
   const handleRenameSubmit = async () => {
-    if (editingId && editingName.trim()) {
-      await renameSession(editingId, editingName.trim());
+    try {
+      if (editingId && editingName.trim()) {
+        await renameSession(editingId, editingName.trim());
+      }
+    } catch (error) {
+      console.error('[SessionPanel] handleRenameSubmit error:', error);
+    } finally {
+      setEditingId(null);
+      setEditingName('');
     }
-    setEditingId(null);
-    setEditingName('');
   };
 
   const handleDelete = async (sessionId: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (confirm('确定删除此会话？')) {
-      await deleteSession(sessionId);
+    try {
+      e.stopPropagation();
+      if (confirm('确定删除此会话？')) {
+        await deleteSession(sessionId);
+      }
+    } catch (error) {
+      console.error('[SessionPanel] handleDelete error:', error);
     }
   };
 
   const formatTime = (timestamp: number) => {
     const date = new Date(timestamp);
-    return date.toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    return date.toLocaleString('zh-CN', {
+      month: 'numeric',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
   };
 
   if (isLoading && sessions.length === 0) {
@@ -80,9 +111,7 @@ export function SessionPanel() {
       {/* Session List */}
       <div className="flex-1 overflow-y-auto p-2">
         {sessions.length === 0 ? (
-          <div className="text-center text-sm text-text-muted py-8">
-            暂无会话
-          </div>
+          <div className="text-center text-sm text-text-muted py-8">暂无会话</div>
         ) : (
           <div className="space-y-1">
             {sessions.map((session) => (
@@ -109,9 +138,7 @@ export function SessionPanel() {
                 ) : (
                   <div className="flex items-center justify-between">
                     <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium text-white truncate">
-                        {session.name}
-                      </div>
+                      <div className="text-sm font-medium text-white truncate">{session.name}</div>
                       <div className="text-xs text-text-muted mt-1">
                         {formatTime(session.updatedAt)}
                       </div>
@@ -125,8 +152,18 @@ export function SessionPanel() {
                         className="p-1 rounded hover:bg-border text-text-muted hover:text-white"
                         title="重命名"
                       >
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                        <svg
+                          className="w-4 h-4"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
+                          />
                         </svg>
                       </button>
                       <button
@@ -134,8 +171,18 @@ export function SessionPanel() {
                         className="p-1 rounded hover:bg-border text-text-muted hover:text-red-400"
                         title="删除"
                       >
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        <svg
+                          className="w-4 h-4"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                          />
                         </svg>
                       </button>
                     </div>

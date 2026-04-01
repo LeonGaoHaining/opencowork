@@ -9,9 +9,12 @@ export interface BindingRecord {
   lastActive: number;
 }
 
+const MAX_BINDINGS_SIZE = 500;
+
 class BindingStore {
   private filePath: string;
   private bindings: Map<string, BindingRecord> = new Map();
+  private bindingInsertionOrder: string[] = [];
   private initialized = false;
 
   constructor() {
@@ -56,6 +59,16 @@ class BindingStore {
   }
 
   set(imUserId: string, binding: Omit<BindingRecord, 'lastActive'>): void {
+    if (this.bindings.size >= MAX_BINDINGS_SIZE && !this.bindings.has(imUserId)) {
+      const oldestKey = this.bindingInsertionOrder.shift();
+      if (oldestKey) {
+        this.bindings.delete(oldestKey);
+        console.log('[BindingStore] Max size reached, removed oldest binding');
+      }
+    }
+    if (!this.bindings.has(imUserId)) {
+      this.bindingInsertionOrder.push(imUserId);
+    }
     const record: BindingRecord = {
       ...binding,
       lastActive: Date.now(),

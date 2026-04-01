@@ -8,9 +8,12 @@ import {
   SkillTrigger,
 } from './skillManifest';
 
+const MAX_MANIFEST_CACHE = 200;
+
 export class SkillLoader {
   private skillsDirs: string[];
   private manifestCache: Map<string, SkillManifest> = new Map();
+  private manifestCacheOrder: string[] = [];
   private skillsCache: InstalledSkill[] | null = null;
   private skillsCacheTime: number = 0;
   private readonly CACHE_TTL_MS = 5000;
@@ -70,6 +73,16 @@ export class SkillLoader {
     }
 
     this.manifestCache.set(name, manifest);
+
+    if (!this.manifestCacheOrder.includes(name)) {
+      this.manifestCacheOrder.push(name);
+    }
+    while (this.manifestCacheOrder.length > MAX_MANIFEST_CACHE) {
+      const oldest = this.manifestCacheOrder.shift();
+      if (oldest) {
+        this.manifestCache.delete(oldest);
+      }
+    }
 
     const skill: InstalledSkill = {
       manifest,

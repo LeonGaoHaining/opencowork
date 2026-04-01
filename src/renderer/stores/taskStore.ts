@@ -1,5 +1,9 @@
 import { create } from 'zustand';
 
+const MAX_MESSAGES = 500;
+const MAX_LOGS = 1000;
+const MAX_ACTIVE_STEPS = 200;
+
 export interface Message {
   id: string;
   role: 'user' | 'ai';
@@ -102,7 +106,7 @@ export const useTaskStore = create<TaskState>((set) => ({
   addMessage: (message) =>
     set((state) => ({
       messages: [
-        ...state.messages,
+        ...state.messages.slice(-(MAX_MESSAGES - 1)),
         {
           ...message,
           id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
@@ -137,7 +141,7 @@ export const useTaskStore = create<TaskState>((set) => ({
   activeSteps: [],
   addActiveStep: (step) =>
     set((state) => ({
-      activeSteps: [...state.activeSteps, step],
+      activeSteps: [...state.activeSteps.slice(-(MAX_ACTIVE_STEPS - 1)), step],
     })),
   updateActiveStep: (id, updates) =>
     set((state) => ({
@@ -150,7 +154,7 @@ export const useTaskStore = create<TaskState>((set) => ({
   addLog: (log) =>
     set((state) => ({
       logs: [
-        ...state.logs,
+        ...state.logs.slice(-(MAX_LOGS - 1)),
         {
           ...log,
           timestamp: Date.now(),
@@ -172,12 +176,16 @@ export const useTaskStore = create<TaskState>((set) => ({
   setAskUserRequest: (request) => set({ askUserRequest: request }),
   respondToAskUser: (answer) => {
     const request = useTaskStore.getState().askUserRequest;
-    if (request && window.electron) {
-      window.electron.invoke('ask:user:response', {
-        requestId: request.requestId,
-        answer,
-        cancelled: false,
-      });
+    try {
+      if (request && window.electron) {
+        window.electron.invoke('ask:user:response', {
+          requestId: request.requestId,
+          answer,
+          cancelled: false,
+        });
+      }
+    } catch (error) {
+      console.error('[taskStore] respondToAskUser error:', error);
     }
     set({ askUserRequest: null });
   },
@@ -186,8 +194,12 @@ export const useTaskStore = create<TaskState>((set) => ({
   previewMode: 'sidebar' as const,
   setPreviewMode: (mode: 'sidebar' | 'detached') => {
     set({ previewMode: mode });
-    if (window.electron) {
-      window.electron.invoke('preview:setMode', { mode });
+    try {
+      if (window.electron) {
+        window.electron.invoke('preview:setMode', { mode });
+      }
+    } catch (error) {
+      console.error('[taskStore] setPreviewMode error:', error);
     }
   },
 }));

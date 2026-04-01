@@ -1,4 +1,4 @@
-import axios from 'axios';
+import axios, { AxiosInstance } from 'axios';
 import crypto from 'crypto';
 import {
   IMBot,
@@ -23,9 +23,14 @@ export class FeishuBot implements IMBot {
   private tenantAccessToken: string | null = null;
   private tokenExpireTime: number = 0;
   private readonly TOKEN_REFRESH_BEFORE = 300000;
+  private readonly DEFAULT_TIMEOUT = 30000;
+  private axiosInstance: AxiosInstance;
 
   constructor(config: FeishuConfig) {
     this.config = config;
+    this.axiosInstance = axios.create({
+      timeout: this.DEFAULT_TIMEOUT,
+    });
   }
 
   async initialize(): Promise<void> {
@@ -39,7 +44,7 @@ export class FeishuBot implements IMBot {
     }
 
     try {
-      const response = await axios.post(
+      const response = await this.axiosInstance.post(
         'https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal',
         {
           app_id: this.config.appId,
@@ -102,7 +107,12 @@ export class FeishuBot implements IMBot {
   }
 
   private parseMessage(event: FeishuMessageEvent): FeishuMessage {
-    const content = JSON.parse(event.message.content);
+    let content: any = {};
+    try {
+      content = JSON.parse(event.message.content);
+    } catch (err) {
+      console.warn('[FeishuBot] Failed to parse message content:', err);
+    }
     const text = content.text || '';
 
     return {
@@ -127,7 +137,7 @@ export class FeishuBot implements IMBot {
         ? { msg_type: 'text', content: { text: message } }
         : this.buildCardMessage(message);
 
-    await axios.post('https://open.feishu.cn/open-apis/im/v1/messages', payload, {
+    await this.axiosInstance.post('https://open.feishu.cn/open-apis/im/v1/messages', payload, {
       params: { receive_id_type: 'chat_id' },
       headers: { Authorization: `Bearer ${this.tenantAccessToken}` },
     });
@@ -232,7 +242,7 @@ export class FeishuBot implements IMBot {
     await this.ensureToken();
 
     try {
-      const response = await axios.get(
+      const response = await this.axiosInstance.get(
         `https://open.feishu.cn/open-apis/contact/v3/user_id_mapping?user_id=${encodeURIComponent(userId)}`,
         { headers: { Authorization: `Bearer ${this.tenantAccessToken}` } }
       );

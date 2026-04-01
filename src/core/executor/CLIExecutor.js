@@ -15,15 +15,7 @@ const CLI_WHITELIST = {
     cd: [],
     touch: ['*'],
 };
-const BLACKLIST_COMMANDS = [
-    'rm -rf',
-    'dd',
-    'mkfs',
-    ':(){:|:&};:',
-    'chmod -R 777',
-    'sudo',
-    'su',
-];
+const BLACKLIST_COMMANDS = ['rm -rf', 'dd', 'mkfs', ':(){:|:&};:', 'chmod -R 777', 'sudo', 'su'];
 export class CLIExecutor {
     async execute(action) {
         const startTime = Date.now();

@@ -115,46 +115,60 @@ export class BrowserExecutor {
         ],
       });
 
-      this.context = await this.browser.newContext({
-        viewport: { width: 1280, height: 720 },
-        userAgent:
-          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-      });
-      this.page = await this.context.newPage();
-
-      // 手动反检测脚本
-      await this.page.addInitScript(() => {
-        Object.defineProperty(navigator, 'webdriver', {
-          get: () => undefined,
+      try {
+        this.context = await this.browser.newContext({
+          viewport: { width: 1280, height: 720 },
+          userAgent:
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         });
 
-        if (window.navigator.permissions) {
-          // @ts-ignore
-          window.navigator.permissions.query = (parameters: any) => {
-            if (parameters.name === 'notifications') {
-              return Promise.resolve({ state: 'default' } as any);
+        try {
+          this.page = await this.context.newPage();
+
+          // 手动反检测脚本
+          await this.page.addInitScript(() => {
+            Object.defineProperty(navigator, 'webdriver', {
+              get: () => undefined,
+            });
+
+            if (window.navigator.permissions) {
+              // @ts-ignore
+              window.navigator.permissions.query = (parameters: any) => {
+                if (parameters.name === 'notifications') {
+                  return Promise.resolve({ state: 'default' } as any);
+                }
+                return Promise.resolve({ state: 'prompt' } as any);
+              };
             }
-            return Promise.resolve({ state: 'prompt' } as any);
-          };
+
+            Object.defineProperty(navigator, 'plugins', {
+              get: () => [1, 2, 3, 4, 5],
+            });
+
+            Object.defineProperty(navigator, 'languages', {
+              get: () => ['zh-CN', 'zh', 'en'],
+            });
+          });
+
+          // 设置实时截图服务
+          this.screencast.setPage(this.page);
+          this.screencast.setMainWindow(mainWindowRef);
+          this.screencast.start();
+
+          console.log('[BrowserExecutor] Browser launched with manual stealth');
+        } catch (e) {
+          await this.browser.close();
+          this.browser = null;
+          throw e;
         }
-
-        Object.defineProperty(navigator, 'plugins', {
-          get: () => [1, 2, 3, 4, 5],
-        });
-
-        Object.defineProperty(navigator, 'languages', {
-          get: () => ['zh-CN', 'zh', 'en'],
-        });
-      });
-
-      // 设置实时截图服务
-      this.screencast.setPage(this.page);
-      this.screencast.setMainWindow(mainWindowRef);
-      this.screencast.start();
-
-      console.log('[BrowserExecutor] Browser launched with manual stealth');
+      } catch (e) {
+        await this.browser.close();
+        this.browser = null;
+        throw e;
+      }
     } catch (error) {
       console.error('[BrowserExecutor] Failed to launch browser:', error);
+      this.browser = null;
       throw error;
     }
   }
@@ -431,6 +445,8 @@ export class BrowserExecutor {
   }
 
   private async regenerateSelector(oldSelector: string): Promise<string | null> {
+    const TIMEOUT_MS = 30000;
+
     try {
       const html = await this.page.content();
       const htmlSnippet = html.substring(0, 8000);
@@ -449,7 +465,12 @@ ${htmlSnippet}
         { role: 'user', content: userPrompt },
       ];
 
-      const response = await this.llmClient.chat(messages);
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('Selector regeneration timeout')), TIMEOUT_MS)
+      );
+
+      const response = await Promise.race([this.llmClient.chat(messages), timeoutPromise]);
+
       const newSelector = response.content.trim();
 
       if (
@@ -637,6 +658,9 @@ ${htmlSnippet}
 
   async cleanup(): Promise<void> {
     try {
+      if (this.screencast) {
+        this.screencast.stop();
+      }
       if (this.page) {
         await this.page.close();
         this.page = null;

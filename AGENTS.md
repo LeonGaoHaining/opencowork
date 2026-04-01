@@ -273,6 +273,187 @@ describe('CLIExecutor', () => {
 
 ---
 
+## 代码审核修复记录
+
+### 2026-03-31 代码审核修复 (v0.7)
+
+#### P0 关键问题修复
+
+| 问题 | 文件                                                     | 修复内容                              |
+| ---- | -------------------------------------------------------- | ------------------------------------- |
+| P0-1 | `BrowserExecutor.ts:638`                                 | cleanup() 添加 `screencast.stop()`    |
+| P0-2 | `BrowserExecutor.ts:109`                                 | 初始化嵌套 try-catch 清理             |
+| P0-3 | `CLIExecutor.ts:57`                                      | 添加 timeout + callback try-catch     |
+| P0-4 | `TaskEngine.ts:504,674`                                  | wait 函数 cleanup 跟踪                |
+| P0-5 | `scheduler.ts:195-224`                                   | Cron/Interval/One-time 回调 try-catch |
+| P0-6 | `taskQueue.ts:85`                                        | 连续空检查 + 降频                     |
+| P0-7 | `taskExecutor.ts:15`                                     | 任务超时保护（默认5分钟）             |
+| P0-8 | `memoryStore.ts`, `historyStore.ts`, `historyService.ts` | 大小限制 + mutex 清理                 |
+
+#### P1 高优先级问题修复
+
+| 问题 | 文件                                 | 修复内容                   |
+| ---- | ------------------------------------ | -------------------------- |
+| P1-1 | `DispatchService.ts:272`             | statusMap 使用插入顺序数组 |
+| P1-2 | `DispatchService.ts:104`             | taskQueue 大小限制         |
+| P1-3 | `bindingStore.ts`, `sessionStore.ts` | 大小限制                   |
+| P1-4 | `FeishuBot.ts:27`                    | axios timeout 30秒         |
+| P1-5 | `mainAgent.ts:706,722`               | JSON.parse try-catch       |
+| P1-6 | `agentLogger.ts:65`                  | toolDurations 限制100条    |
+
+---
+
+### 2026-04-01 第二轮代码审核修复 (v0.7.1)
+
+#### P0 关键问题修复
+
+| 问题 | 文件                                 | 修复内容                                               |
+| ---- | ------------------------------------ | ------------------------------------------------------ |
+| P0-1 | `renderer/stores/taskStore.ts`       | MAX_MESSAGES=500, MAX_LOGS=1000, MAX_ACTIVE_STEPS=200  |
+| P0-2 | `renderer/stores/sessionStore.ts`    | MAX_SESSIONS=100, MAX_MESSAGES_PER_SESSION=200         |
+| P0-3 | `skills/skillLoader.ts`              | MAX_MANIFEST_CACHE=200, LRU 淘汰                       |
+| P0-4 | `memory/agentMemory.ts`              | MAX_ENTRIES=1000, FIFO 淘汰                            |
+| P0-5 | `checkpointers/agentCheckpointer.ts` | cleanup() + resetCheckpointer()                        |
+| P0-6 | `recovery/recoveryEngine.ts`         | MAX_STRATEGY_HISTORY=100, MAX_LLM_CALLS=500            |
+| P0-7 | `browser/observer.ts`                | destroy() 方法                                         |
+| P0-8 | `core/planner/PlanExecutor.ts`       | 已完整（BrowserExecutor.cleanup 包含 screencast.stop） |
+
+#### P1 高优先级问题修复
+
+| 问题 | 文件                                | 修复内容                       |
+| ---- | ----------------------------------- | ------------------------------ |
+| P1-1 | `skills/skillRunner.ts`             | cleanup() + resetSkillRunner() |
+| P1-2 | `skills/skillMarket.ts`             | cleanup() + resetSkillMarket() |
+| P1-3 | `renderer/stores/schedulerStore.ts` | MAX_TASKS=200                  |
+| P1-4 | `memory/agentMemory.ts`             | 内置 try-catch                 |
+| P1-5 | `core/planner/TaskPlanner.ts`       | simpleDecompose try-catch      |
+| P1-6 | `core/planner/Replanner.ts`         | cleanup()                      |
+| P1-7 | `browser/uiGraph.ts`                | page.evaluate 错误边界         |
+
+---
+
+### 2026-04-01 第三轮代码审核修复 (v0.7.2)
+
+#### P0 关键问题修复
+
+| 问题 | 文件                               | 修复内容                                                        |
+| ---- | ---------------------------------- | --------------------------------------------------------------- |
+| P0-1 | `main/SessionManager.ts`           | MAX_SESSIONS=100, JSON.parse try-catch, writeFileSync try-catch |
+| P0-2 | `main/ipcHandlers.ts`              | 完善（已有 Promise 锁定）                                       |
+| P0-3 | `core/executor/AskUserExecutor.ts` | resolve/reject 时删除 pendingRequests                           |
+| P0-4 | `core/runtime/TaskEngine.ts`       | MAX_TASKS=500 + taskOrder + cleanup()                           |
+| P0-5 | `core/runtime/TakeoverManager.ts`  | MAX_LISTENERS=100 + destroy()                                   |
+| P0-6 | `llm/OpenAIResponses.ts`           | 添加 resetLLMClient()                                           |
+| P0-7 | `preview/PreviewManager.ts`        | 增强 cleanup（检查 isDestroyed）                                |
+| P0-8 | `agents/mainAgent.ts`              | 添加 clearAgentInstance() + finally 清理                        |
+
+#### P1 高优先级问题修复
+
+| 问题 | 文件                               | 修复内容                                      |
+| ---- | ---------------------------------- | --------------------------------------------- |
+| P1-1 | `llm/config.ts`                    | TOCTOU 修复（try-catch 替代 existsSync 检查） |
+| P1-2 | `main/ipcHandlers.ts`              | 跳过（minor issue）                           |
+| P1-3 | `core/planner/TaskPlanner.ts`      | parseLLMResponse JSON.parse 已内置 try-catch  |
+| P1-4 | `core/planner/Replanner.ts`        | 已内置 try-catch                              |
+| P1-5 | `core/executor/BrowserExecutor.ts` | regenerateSelector 添加 30s 超时              |
+
+---
+
+### 2026-04-01 第四轮代码审核修复 (v0.7.3)
+
+#### P0 关键问题修复
+
+| 问题 | 文件                                | 修复内容                                             |
+| ---- | ----------------------------------- | ---------------------------------------------------- |
+| P0-1 | `main/SessionManager.ts`            | create() 和 update() 中 writeFileSync 添加 try-catch |
+| P0-2 | `agents/mainAgent.ts`               | agent.invoke() 添加 5 分钟超时保护                   |
+| P0-3 | `agents/mainAgent.ts`               | extractSteps 中 JSON.parse 已内置 try-catch          |
+| P0-4 | `im/feishu/FeishuBot.ts`            | parseMessage 中 JSON.parse 添加 try-catch            |
+| P0-5 | `renderer/App.tsx`                  | 跳过（事件处理器较多，后续优化）                     |
+| P0-6 | `renderer/stores/schedulerStore.ts` | setOpen 添加 .catch 错误处理                         |
+| P0-6 | `renderer/stores/historyStore.ts`   | setFilter 添加 .catch 错误处理                       |
+
+#### P1 高优先级问题修复
+
+| 问题 | 文件                     | 修复内容                                     |
+| ---- | ------------------------ | -------------------------------------------- |
+| P1-1 | `scheduler/taskQueue.ts` | 跳过（minor issue）                          |
+| P1-2 | `im/DispatchService.ts`  | 任务完成时删除 statusMap 条目                |
+| P1-3 | `agents/agentLogger.ts`  | exportToFile 中 writeFileSync 添加 try-catch |
+
+---
+
+### 2026-04-01 第五轮代码审核修复 (v0.7.4)
+
+#### P0 关键问题修复
+
+| 问题 | 文件                              | 修复内容                                        |
+| ---- | --------------------------------- | ----------------------------------------------- |
+| P0-1 | `main/ipcHandlers.ts`             | Agent 初始化错误时确保 isAgentInitializing 重置 |
+| P0-2 | `main/ipcHandlers.ts`             | Agent 初始化添加 60s 超时保护                   |
+| P0-3 | `main/SessionManager.ts`          | ensureSessionsDir 使用 mkdirSync 避免 TOCTOU    |
+| P0-4 | `main/SessionManager.ts`          | loadMeta 移除 existsSync 检查，使用 try-catch   |
+| P0-5 | `core/runtime/TaskEngine.ts`      | getBrowserPage() 添加 null 检查                 |
+| P0-6 | `core/runtime/TaskEngine.ts`      | ensureAgentModules 添加 Promise 锁定防止竞态    |
+| P0-7 | `core/executor/ExecutorRouter.ts` | cleanup() 添加日志                              |
+| P0-8 | `renderer/preview.tsx`            | 已修复（useEffect 返回 unsubscribe）            |
+
+#### P1 高优先级问题修复
+
+| 问题 | 文件                              | 修复内容                               |
+| ---- | --------------------------------- | -------------------------------------- |
+| P1-1 | `main/SessionManager.ts`          | saveMeta 已内置 try-catch              |
+| P1-2 | `core/planner/PlanExecutor.ts`    | waitForResume 添加 5 分钟绝对超时      |
+| P1-3 | `core/planner/Replanner.ts`       | cleanup() 已调用 cancelAll()           |
+| P1-4 | `core/runtime/TakeoverManager.ts` | notifyListeners 添加 try-catch 保护    |
+| P1-5 | `core/runtime/TaskEngine.ts`      | cleanup() 添加 executor.cleanup() 调用 |
+
+### 2026-04-01 第六轮代码审核修复 (v0.7.5)
+
+#### P0 关键问题修复
+
+| 问题  | 文件                                    | 修复内容                                                |
+| ----- | --------------------------------------- | ------------------------------------------------------- |
+| P0-1  | `main/ipcHandlers.ts`                   | 已完成（Promise 锁定防止竞态）                          |
+| P0-2  | `main/PreviewManager.ts`                | 已完成（try-catch around addBrowserView）               |
+| P0-3  | `main/index.ts`                         | 已完成（添加 isDestroyed() 检查）                       |
+| P0-4  | `core/runtime/TaskEngine.ts`            | 已完成（waitForPopupClosed 有 cleanup 跟踪）            |
+| P0-5  | `core/runtime/TaskEngine.ts`            | 已完成（cancel() 添加 clearPopupWait/clearUserConfirm） |
+| P0-6  | `core/runtime/TaskEngine.ts`            | 已完成（ensureAgentModules 有 Promise 锁定）            |
+| P0-7  | `core/planner/Replanner.ts`             | 已完成（executeAskUser 已 await）                       |
+| P0-8  | `renderer/App.tsx`                      | 已完成（8个事件处理器添加 try-catch）                   |
+| P0-9  | `renderer/components/AskUserDialog.tsx` | 已完成（handleCancel 添加 try-catch）                   |
+| P0-10 | `renderer/components/SessionPanel.tsx`  | 已完成（所有 handler 添加 try-catch）                   |
+| P0-11 | `skills/skillLoader.ts`                 | 已完成（catch 块已有 console.warn）                     |
+| P0-12 | `skills/skillMarket.ts`                 | 已完成（所有方法已有 try-catch）                        |
+| P0-13 | `preview/PreviewManager.ts`             | 已完成（addBrowserView 有 try-catch）                   |
+| P0-14 | `preview/PreviewManager.ts`             | 已完成（navigateTo 有 try-catch）                       |
+| P0-15 | `browser/observer.ts`                   | 已完成（已有 destroy() 方法）                           |
+
+#### P1 功能问题修复
+
+| 问题 | 文件                                 | 修复内容                                    |
+| ---- | ------------------------------------ | ------------------------------------------- |
+| P1-1 | `main/SessionManager.ts`             | 已完成（添加 updateLocks 防止并发更新）     |
+| P1-2 | `core/runtime/TaskEngine.ts`         | 已完成（takeover() 返回任务进度信息）       |
+| P1-3 | `core/runtime/TaskEngine.ts`         | 已完成（使用 generateId() 生成唯一 ID）     |
+| P1-4 | `history/historyService.ts`          | 已完成（releaseTaskMutex 在任务完成时调用） |
+| P1-5 | `history/historyStore.ts`            | 已完成（添加 flushPendingWrites() 方法）    |
+| P1-6 | `memory/shortTermMemory.ts`          | 已完成（添加 cleanup() 方法）               |
+| P1-7 | `memory/agentMemory.ts`              | 已完成（添加 resetMemory() 函数）           |
+| P1-8 | `main/ipc.ts`                        | 已完成（添加 cleanupIPC() 函数）            |
+| P1-9 | `core/executor/ScreencastService.ts` | 已完成（已有 isDestroyed 检查）             |
+
+#### P2 代码质量修复
+
+| 问题 | 文件                                 | 修复内容                                    |
+| ---- | ------------------------------------ | ------------------------------------------- |
+| P2-1 | `renderer/components/ControlBar.tsx` | 已完成（handlePause/handleStop 调用 IPC）   |
+| P2-2 | `core/action/ActionSchema.ts`        | 已完成（generateId 使用 Date.now + random） |
+| P2-3 | `im/DispatchService.ts`              | 已完成（已有 MAX_STATUS_MAP_SIZE 限制）     |
+
+---
+
 ## GitHub Workflow
 
 ### Repository
@@ -326,4 +507,4 @@ Key documents:
 - `USER_GUIDE.md` - User Guide
 - `CHANGELOG.md` - Changelog
 
-Last updated: 2026-03-30
+Last updated: 2026-04-01

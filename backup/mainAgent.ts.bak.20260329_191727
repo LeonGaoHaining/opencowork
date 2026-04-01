@@ -1,0 +1,670 @@
+/**
+ * Main Agent - LangGraph ReAct 主 Agent
+ * 负责任务理解、分发、结果汇总
+ * v0.4 主架构
+ */
+
+import { createReactAgent } from '@langchain/langgraph/prebuilt';
+import { ChatOpenAI } from '@langchain/openai';
+import { tool } from '@langchain/core/tools';
+import { z } from 'zod';
+import { BrowserWindow } from 'electron';
+import { getCheckpointer, AgentCheckpointer } from '../checkpointers/agentCheckpointer';
+import { getLogger, LoggerConfig } from './agentLogger';
+import { getBrowserExecutor } from '../main/ipcHandlers';
+import { getCLIExecutor } from '../main/ipcHandlers';
+import { ActionType } from '../core/action/ActionSchema';
+import { loadLLMConfig } from '../llm/config';
+
+export interface AgentConfig {
+  modelName?: string;
+  temperature?: number;
+  threadId?: string;
+  checkpointerEnabled?: boolean;
+  logger?: LoggerConfig;
+}
+
+export interface AgentStep {
+  id: string;
+  toolName: string;
+  args: any;
+  status: 'pending' | 'running' | 'completed' | 'error';
+  result?: any;
+  duration?: number;
+}
+
+export interface AgentResult {
+  success: boolean;
+  output?: any;
+  error?: string;
+  messages?: any[];
+  duration?: number;
+  steps?: AgentStep[];
+  finalMessage?: string;
+}
+
+export type AgentStatus = 'idle' | 'running' | 'paused' | 'completed' | 'cancelled' | 'error';
+
+let currentAgentInstance: MainAgent | null = null;
+
+function getAgent(): MainAgent | null {
+  return currentAgentInstance;
+}
+
+// Browser Tool 定义
+const browserTool = tool(
+  async (params: {
+    action: string;
+    url?: string;
+    selector?: string;
+    text?: string;
+    timeout?: number;
+    index?: number;
+  }) => {
+    const logger = getLogger();
+    const startTime = Date.now();
+    const agent = getAgent();
+
+    try {
+      const executor = getBrowserExecutor();
+      let result: any;
+
+      switch (params.action) {
+        case 'goto':
+          if (!params.url)
+            return { success: false, error: { code: 'MISSING_PARAM', message: 'URL is required' } };
+          agent?.sendNodeStart('browser', 'goto', { url: params.url });
+          logger.logToolCall(
+            'browser',
+            { action: 'goto', url: params.url },
+            'main-agent',
+            params.url
+          );
+          result = await executor.execute({
+            id: `browser-goto-${Date.now()}`,
+            type: ActionType.BROWSER_NAVIGATE,
+            description: 'Navigate to URL',
+            params: { url: params.url, waitUntil: 'domcontentloaded' },
+          });
+          break;
+        case 'click':
+          if (!params.selector)
+            return {
+              success: false,
+              error: { code: 'MISSING_PARAM', message: 'Selector is required' },
+            };
+          agent?.sendNodeStart('browser', 'click', { selector: params.selector });
+          logger.logToolCall(
+            'browser',
+            { action: 'click', selector: params.selector },
+            'main-agent',
+            params.selector
+          );
+          result = await executor.execute({
+            id: `browser-click-${Date.now()}`,
+            type: ActionType.BROWSER_CLICK,
+            description: 'Click element',
+            params: { selector: params.selector, index: params.index },
+          });
+          break;
+        case 'input':
+          if (!params.selector)
+            return {
+              success: false,
+              error: { code: 'MISSING_PARAM', message: 'Selector is required' },
+            };
+          agent?.sendNodeStart('browser', 'input', {
+            selector: params.selector,
+            text: params.text,
+          });
+          logger.logToolCall(
+            'browser',
+            { action: 'input', selector: params.selector, text: params.text },
+            'main-agent',
+            params.selector
+          );
+          result = await executor.execute({
+            id: `browser-input-${Date.now()}`,
+            type: ActionType.BROWSER_INPUT,
+            description: 'Input text',
+            params: { selector: params.selector, text: params.text || '', clear: true },
+          });
+          break;
+        case 'wait':
+          if (!params.selector)
+            return {
+              success: false,
+              error: { code: 'MISSING_PARAM', message: 'Selector is required' },
+            };
+          agent?.sendNodeStart('browser', 'wait', { selector: params.selector });
+          logger.logToolCall(
+            'browser',
+            { action: 'wait', selector: params.selector },
+            'main-agent',
+            params.selector
+          );
+          result = await executor.execute({
+            id: `browser-wait-${Date.now()}`,
+            type: ActionType.BROWSER_WAIT,
+            description: 'Wait for element',
+            params: { selector: params.selector, timeout: params.timeout || 10000 },
+          });
+          break;
+        case 'extract':
+          if (!params.selector)
+            return {
+              success: false,
+              error: { code: 'MISSING_PARAM', message: 'Selector is required' },
+            };
+          agent?.sendNodeStart('browser', 'extract', { selector: params.selector });
+          logger.logToolCall(
+            'browser',
+            { action: 'extract', selector: params.selector },
+            'main-agent',
+            params.selector
+          );
+          result = await executor.execute({
+            id: `browser-extract-${Date.now()}`,
+            type: ActionType.BROWSER_EXTRACT,
+            description: 'Extract content',
+            params: { selector: params.selector, type: 'text', multiple: true },
+          });
+          break;
+        case 'screenshot':
+          agent?.sendNodeStart('browser', 'screenshot', {});
+          logger.logToolCall('browser', { action: 'screenshot' }, 'main-agent', 'screenshot');
+          result = await executor.execute({
+            id: `browser-screenshot-${Date.now()}`,
+            type: ActionType.BROWSER_SCREENSHOT,
+            description: 'Take screenshot',
+            params: {},
+          });
+          break;
+        default:
+          return {
+            success: false,
+            error: { code: 'UNKNOWN_ACTION', message: `Unknown action: ${params.action}` },
+          };
+      }
+
+      const duration = Date.now() - startTime;
+      agent?.sendNodeComplete('browser', params.action, result, duration);
+      if (result.success) {
+        logger.logToolResult('browser', result, duration, 'main-agent', params.action);
+      } else {
+        logger.logToolResult(
+          'browser',
+          result,
+          duration,
+          'main-agent',
+          params.action,
+          result.error?.message
+        );
+      }
+      return result;
+    } catch (error: any) {
+      const duration = Date.now() - startTime;
+      console.error('[BrowserTool] Error:', error);
+      agent?.sendNodeComplete('browser', params.action, { error: error.message }, duration);
+      logger.logToolResult(
+        'browser',
+        { error: error.message },
+        duration,
+        'main-agent',
+        params.action,
+        error.message
+      );
+      return { success: false, error: { code: 'BROWSER_ERROR', message: error.message } };
+    }
+  },
+  {
+    name: 'browser',
+    description: '浏览器操作工具，支持 goto/click/input/wait/extract/screenshot',
+    schema: z.object({
+      action: z.enum(['goto', 'click', 'input', 'wait', 'extract', 'screenshot']),
+      url: z.string().optional(),
+      selector: z.string().optional(),
+      text: z.string().optional(),
+      timeout: z.number().optional(),
+      index: z.number().optional(),
+    }),
+  }
+);
+
+// CLI Tool 定义
+const cliTool = tool(
+  async (params: { command: string; args?: string[]; workingDir?: string }) => {
+    const logger = getLogger();
+    const startTime = Date.now();
+    const agent = getAgent();
+
+    agent?.sendNodeStart('cli', 'execute', {
+      command: params.command,
+      args: params.args,
+      workingDir: params.workingDir,
+    });
+
+    logger.logToolCall(
+      'cli',
+      { command: params.command, args: params.args },
+      'main-agent',
+      params.command
+    );
+
+    try {
+      const executor = getCLIExecutor();
+      const result = await executor.execute({
+        id: `cli-${Date.now()}`,
+        type: ActionType.CLI_EXECUTE,
+        description: `Execute CLI: ${params.command}`,
+        params: {
+          command: params.command,
+          workingDir: params.workingDir,
+        },
+      } as any);
+      const duration = Date.now() - startTime;
+
+      agent?.sendNodeComplete('cli', 'execute', result, duration);
+
+      if (result.success) {
+        logger.logToolResult('cli', result, duration, 'main-agent', params.command);
+      } else {
+        logger.logToolResult(
+          'cli',
+          result,
+          duration,
+          'main-agent',
+          params.command,
+          result.error?.message
+        );
+      }
+      return result;
+    } catch (error: any) {
+      const duration = Date.now() - startTime;
+      console.error('[CLITool] Error:', error);
+      agent?.sendNodeComplete('cli', 'execute', { error: error.message }, duration);
+      logger.logToolResult(
+        'cli',
+        { error: error.message },
+        duration,
+        'main-agent',
+        params.command,
+        error.message
+      );
+      return { success: false, error: { code: 'CLI_ERROR', message: error.message } };
+    }
+  },
+  {
+    name: 'cli',
+    description: '系统命令执行工具',
+    schema: z.object({
+      command: z.string(),
+      args: z.array(z.string()).optional(),
+      workingDir: z.string().optional(),
+    }),
+  }
+);
+
+// Vision Tool 定义 (TODO: 等待 VisionExecutor 实现)
+const visionTool = tool(
+  async (params: { action: string; target?: string }) => {
+    const logger = getLogger();
+    const startTime = Date.now();
+    logger.logToolCall('vision', params, 'main-agent', params.action);
+    console.log('[VisionTool] Executing:', params);
+    const result = {
+      success: true,
+      action: params.action,
+      result: 'Vision operation completed (placeholder)',
+    };
+    const duration = Date.now() - startTime;
+    logger.logToolResult('vision', result, duration, 'main-agent', params.action);
+    return result;
+  },
+  {
+    name: 'vision',
+    description: '视觉处理工具 (TODO: 等待 VisionExecutor 实现)',
+    schema: z.object({
+      action: z.enum(['ocr', 'analyze', 'screenshot']),
+      target: z.string().optional(),
+    }),
+  }
+);
+
+// Planner Tool 定义 (TODO: 使用现有 TaskPlanner)
+const plannerTool = tool(
+  async (params: { task: string; context?: string }) => {
+    const logger = getLogger();
+    const startTime = Date.now();
+    logger.logToolCall('planner', params, 'main-agent', params.task);
+    console.log('[PlannerTool] Executing:', params);
+    const result = { success: true, task: params.task, result: 'Planning completed (placeholder)' };
+    const duration = Date.now() - startTime;
+    logger.logToolResult('planner', result, duration, 'main-agent', params.task);
+    return result;
+  },
+  {
+    name: 'planner',
+    description: '任务规划工具 (TODO: 集成现有 TaskPlanner)',
+    schema: z.object({
+      task: z.string(),
+      context: z.string().optional(),
+    }),
+  }
+);
+
+const availableTools = [browserTool, cliTool, visionTool, plannerTool];
+
+const STATE_MODIFIER = `你是一个浏览器自动化助手，擅长理解用户任务并分解执行。
+
+可用工具：
+1. browser - 用于浏览器操作（打开网页、点击、输入、提取内容）
+2. cli - 用于执行系统命令
+3. vision - 用于分析图片和屏幕内容
+4. planner - 用于分析和规划复杂任务
+
+根据用户任务，选择合适的工具来完成任务。
+如果任务需要多个步骤，请按顺序执行。`;
+
+export class MainAgent {
+  private agent: any;
+  private config: AgentConfig;
+  private threadId: string;
+  private model: ChatOpenAI;
+  private checkpointer: AgentCheckpointer;
+  private checkpointerEnabled: boolean;
+  private logger: ReturnType<typeof getLogger>;
+
+  private mainWindow: BrowserWindow | null = null;
+  private previewWindow: BrowserWindow | null = null;
+  private status: AgentStatus = 'idle';
+  private cancelRequested: boolean = false;
+  private pauseRequested: boolean = false;
+  private currentTask: string = '';
+
+  constructor(config: AgentConfig = {}) {
+    this.config = {
+      modelName: config.modelName,
+      temperature: config.temperature ?? 0,
+      checkpointerEnabled: config.checkpointerEnabled !== false,
+    };
+    this.threadId = config.threadId || `thread-${Date.now()}`;
+    const llmConfig = loadLLMConfig();
+    this.model = new ChatOpenAI({
+      model: this.config.modelName || llmConfig.model || 'gpt-4-turbo',
+      temperature: this.config.temperature ?? 0,
+      apiKey: llmConfig.apiKey,
+      configuration: {
+        baseURL: llmConfig.baseUrl,
+      },
+      timeout: llmConfig.timeout || 60000,
+      maxRetries: llmConfig.maxRetries || 3,
+    });
+    this.checkpointer = getCheckpointer({ type: 'memory' });
+    this.checkpointerEnabled = this.config.checkpointerEnabled ?? true;
+    this.logger = getLogger(config.logger);
+  }
+
+  setMainWindow(window: BrowserWindow | null): void {
+    this.mainWindow = window;
+  }
+
+  setPreviewWindow(window: BrowserWindow | null): void {
+    this.previewWindow = window;
+  }
+
+  getThreadId(): string {
+    return this.threadId;
+  }
+
+  setThreadId(threadId: string): void {
+    this.threadId = threadId;
+  }
+
+  getStatus(): AgentStatus {
+    return this.status;
+  }
+
+  isRunning(): boolean {
+    return this.status === 'running';
+  }
+
+  requestCancel(): void {
+    this.cancelRequested = true;
+    this.status = 'cancelled';
+    this.logger.logEvent({
+      threadId: this.threadId,
+      eventType: 'error',
+      level: 'warn',
+      task: this.currentTask,
+      error: 'Cancel requested',
+    });
+  }
+
+  pause(): void {
+    this.pauseRequested = true;
+    this.status = 'paused';
+  }
+
+  resume(): void {
+    this.pauseRequested = false;
+    this.status = 'running';
+  }
+
+  private sendToRenderer(channel: string, data: any): void {
+    try {
+      if (this.mainWindow && !this.mainWindow.isDestroyed()) {
+        this.mainWindow.webContents.send(channel, data);
+        console.log(`[MainAgent] Sent to mainWindow: ${channel}`);
+      }
+    } catch (error) {
+      console.error('[MainAgent] Failed to send to renderer:', error);
+    }
+  }
+
+  sendNodeStart(toolName: string, action: string, input: any): void {
+    this.sendToRenderer('task:nodeStart', {
+      type: 'node_start',
+      node: {
+        id: `${toolName}-${action}-${Date.now()}`,
+        action: {
+          type: action,
+          description: `${toolName} ${action}`,
+          params: input,
+        },
+      },
+      handleId: this.threadId,
+    });
+  }
+
+  sendNodeComplete(toolName: string, action: string, output: any, duration: number): void {
+    this.sendToRenderer('task:nodeComplete', {
+      type: 'node_complete',
+      node: {
+        id: `${toolName}-${action}`,
+        action: {
+          type: action,
+        },
+        result: output,
+        duration,
+      },
+      handleId: this.threadId,
+    });
+  }
+
+  private sendTaskCompleted(result: any): void {
+    this.sendToRenderer('task:completed', {
+      type: 'task_completed',
+      handleId: this.threadId,
+      result,
+    });
+  }
+
+  private sendTaskError(error: string): void {
+    this.sendToRenderer('task:error', {
+      type: 'task_error',
+      handleId: this.threadId,
+      error,
+    });
+  }
+
+  async initialize(): Promise<void> {
+    this.agent = createReactAgent({
+      llm: this.model,
+      tools: availableTools,
+      stateModifier: STATE_MODIFIER,
+      checkpointer: this.checkpointerEnabled ? this.checkpointer.getCheckpointer() : undefined,
+    });
+
+    this.logger.logAgentStart(this.threadId, 'initialize');
+    console.log('[MainAgent] Initialized, thread:', this.threadId);
+  }
+
+  async run(task: string): Promise<AgentResult> {
+    if (!this.agent) {
+      await this.initialize();
+    }
+
+    this.status = 'running';
+    this.currentTask = task;
+    this.cancelRequested = false;
+    currentAgentInstance = this;
+
+    this.logger.logAgentStart(this.threadId, task);
+    console.log('[MainAgent] Running task:', task);
+
+    const steps: AgentStep[] = [];
+
+    if (this.cancelRequested) {
+      this.status = 'cancelled';
+      this.logger.logError('Task cancelled before start', { task }, this.threadId, task);
+      return { success: false, error: 'Task cancelled' };
+    }
+
+    try {
+      const startTime = Date.now();
+      const result = await this.agent.invoke(
+        { messages: [{ role: 'user', content: task }] },
+        { configurable: { thread_id: this.threadId } }
+      );
+      const duration = Date.now() - startTime;
+
+      if (this.cancelRequested) {
+        this.status = 'cancelled';
+        this.logger.logError(
+          'Task cancelled during execution',
+          { task, duration },
+          this.threadId,
+          task
+        );
+        return { success: false, error: 'Task cancelled' };
+      }
+
+      this.status = 'completed';
+      this.logger.logAgentEnd(this.threadId, result, task);
+      console.log('[MainAgent] Task completed');
+
+      let steps: AgentStep[] = [];
+      let finalMessage = '';
+
+      try {
+        steps = this.extractSteps(result.messages);
+        finalMessage = this.extractFinalMessage(result.messages);
+      } catch (error: any) {
+        console.error('[MainAgent] Failed to extract steps:', error);
+      }
+
+      this.sendTaskCompleted({
+        result: {
+          success: true,
+          output: result,
+          duration,
+          steps,
+          finalMessage,
+        },
+      });
+
+      return {
+        success: true,
+        output: result,
+        messages: result.messages,
+        duration,
+        steps,
+        finalMessage,
+      };
+    } catch (error: any) {
+      this.status = 'error';
+      this.logger.logError(error.message, { task, threadId: this.threadId }, this.threadId, task);
+      console.error('[MainAgent] Task failed:', error);
+
+      this.sendTaskError(error.message || 'Unknown error');
+
+      return {
+        success: false,
+        error: error.message || 'Unknown error',
+      };
+    }
+  }
+
+  private extractSteps(messages: any[]): AgentStep[] {
+    const steps: AgentStep[] = [];
+
+    for (const msg of messages) {
+      const toolCalls = msg.tool_calls || msg.additional_kwargs?.tool_calls;
+
+      if (toolCalls) {
+        for (const tc of toolCalls) {
+          if (!tc.function) continue;
+
+          let args = {};
+          try {
+            args = JSON.parse(tc.function.arguments || '{}');
+          } catch {
+            args = { raw: tc.function.arguments };
+          }
+
+          const step: AgentStep = {
+            id: tc.id,
+            toolName: tc.function.name || 'unknown',
+            args,
+            status: 'completed',
+          };
+          steps.push(step);
+        }
+      }
+
+      if (msg.lc_direct_tool_output === true && msg.tool_call_id) {
+        const step = steps.find((s) => s.id === msg.tool_call_id);
+        if (step) {
+          try {
+            step.result = JSON.parse(msg.content);
+          } catch {
+            step.result = msg.content;
+          }
+        }
+      }
+    }
+
+    return steps;
+  }
+
+  private extractFinalMessage(messages: any[]): string {
+    const aiMessages = messages.filter(
+      (m) => m.type === 'ai' || m.constructor.name === 'AIMessage'
+    );
+    const lastAI = aiMessages[aiMessages.length - 1];
+    return lastAI?.content || '';
+  }
+
+  isCheckpointerEnabled(): boolean {
+    return this.checkpointerEnabled;
+  }
+}
+
+export async function createMainAgent(config?: AgentConfig): Promise<MainAgent> {
+  const agent = new MainAgent(config);
+  await agent.initialize();
+  return agent;
+}
+
+export default MainAgent;

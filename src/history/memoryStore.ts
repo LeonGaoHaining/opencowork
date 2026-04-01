@@ -19,15 +19,26 @@ function deepClone<T>(obj: T): T {
   return cloned;
 }
 
+const DEFAULT_MAX_SIZE = 1000;
+
 export class MemoryStore {
   private store: Map<string, TaskHistoryRecord> = new Map();
   private namespace: string[] = [];
+  private maxSize: number;
 
-  constructor(namespace: string[] = ['current']) {
+  constructor(namespace: string[] = ['current'], maxSize: number = DEFAULT_MAX_SIZE) {
     this.namespace = namespace;
+    this.maxSize = maxSize;
   }
 
   async put(namespace: string[], key: string, value: TaskHistoryRecord): Promise<void> {
+    if (this.store.size >= this.maxSize) {
+      const oldestKey = this.store.keys().next().value;
+      if (oldestKey) {
+        this.store.delete(oldestKey);
+        console.log('[MemoryStore] Max size reached, evicted oldest record');
+      }
+    }
     const fullKey = this.makeKey(namespace, key);
     this.store.set(fullKey, deepClone(value));
   }

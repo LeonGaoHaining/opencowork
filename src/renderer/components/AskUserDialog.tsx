@@ -11,7 +11,7 @@ export function AskUserDialog() {
     if (!askUserRequest) return;
 
     setRemainingTime(askUserRequest.timeout);
-    
+
     const timer = setInterval(() => {
       setRemainingTime((prev) => {
         if (prev <= 1000) {
@@ -43,31 +43,31 @@ export function AskUserDialog() {
   };
 
   const handleCancel = () => {
-    if (window.electron) {
-      window.electron.invoke('ask:user:response', {
-        requestId: askUserRequest.requestId,
-        answer: '',
-        cancelled: true,
-      });
+    try {
+      if (window.electron) {
+        window.electron.invoke('ask:user:response', {
+          requestId: askUserRequest.requestId,
+          answer: '',
+          cancelled: true,
+        });
+      }
+      setAskUserRequest(null);
+    } catch (error) {
+      console.error('[AskUserDialog] handleCancel error:', error);
     }
-    setAskUserRequest(null);
   };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
       <div className="w-[400px] rounded-lg bg-[var(--color-surface)] p-6 shadow-lg">
         <div className="mb-4 flex items-center justify-between">
-          <h3 className="text-lg font-semibold text-[var(--color-text-primary)]">
-            需要确认
-          </h3>
+          <h3 className="text-lg font-semibold text-[var(--color-text-primary)]">需要确认</h3>
           <span className="text-sm text-[var(--color-text-muted)]">
             剩余时间: {formatTime(remainingTime)}
           </span>
         </div>
 
-        <p className="mb-6 text-[var(--color-text-secondary)]">
-          {askUserRequest.question}
-        </p>
+        <p className="mb-6 text-[var(--color-text-secondary)]">{askUserRequest.question}</p>
 
         {askUserRequest.options && askUserRequest.options.length > 0 ? (
           <form onSubmit={handleSubmit}>

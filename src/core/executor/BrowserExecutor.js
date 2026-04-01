@@ -23,6 +23,12 @@ export class BrowserExecutor {
             maxHeight: 450,
         });
     }
+    async launchBrowser() {
+        await this.ensureBrowser();
+    }
+    async closeBrowser() {
+        await this.cleanup();
+    }
     async execute(action) {
         const startTime = Date.now();
         try {

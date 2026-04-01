@@ -27,6 +27,9 @@ export class TaskQueue extends EventEmitter {
   private runningCount = 0;
   private isProcessing = false;
   private executor?: (task: QueuedTask) => Promise<TaskExecutionResult>;
+  private consecutiveEmptyChecks = 0;
+  private maxConsecutiveEmptyChecks = 100;
+  private emptyCheckDelay = 100;
 
   constructor(config: Partial<TaskQueueConfig> = {}) {
     super();
@@ -120,7 +123,20 @@ export class TaskQueue extends EventEmitter {
       this.queue.length > 0 &&
       this.runningCount >= this.config.maxConcurrent
     ) {
-      setTimeout(() => this.processQueue(), 100);
+      setTimeout(() => this.processQueue(), this.emptyCheckDelay);
+    }
+
+    // Track consecutive empty queue checks to reduce CPU usage
+    if (this.queue.length === 0) {
+      this.consecutiveEmptyChecks++;
+      if (this.consecutiveEmptyChecks > this.maxConsecutiveEmptyChecks) {
+        console.log('[TaskQueue] Queue empty for extended period, reducing check frequency');
+        this.emptyCheckDelay = 5000;
+        this.consecutiveEmptyChecks = 0;
+      }
+    } else {
+      this.consecutiveEmptyChecks = 0;
+      this.emptyCheckDelay = 100;
     }
   }
 

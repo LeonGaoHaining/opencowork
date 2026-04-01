@@ -63,6 +63,7 @@ export class ExecutorRouter {
   async cleanup(): Promise<void> {
     await this.browserExecutor.cleanup();
     this.askUserExecutor.cancelAll();
+    console.log('[ExecutorRouter] Cleaned up');
   }
 }
 

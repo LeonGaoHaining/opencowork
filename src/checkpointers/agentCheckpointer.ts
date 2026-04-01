@@ -5,6 +5,9 @@
  * 支持:
  * - MemorySaver: 内存存储 (默认，用于开发/测试)
  * - SQLiteSaver: SQLite 存储 (生产环境推荐)
+ *
+ * 注意: MemorySaver 由外部库提供，无内置限制
+ * 如需限制，建议使用 SQLite 存储或将 checkpointer 定期重建
  */
 
 import { MemorySaver, BaseCheckpointSaver } from '@langchain/langgraph-checkpoint';
@@ -44,6 +47,11 @@ export class AgentCheckpointer {
   getConfig(): CheckpointerConfig {
     return this.config;
   }
+
+  cleanup(): void {
+    console.log('[Checkpointer] Cleaning up...');
+    this.checkpointer = this.createCheckpointer();
+  }
 }
 
 let checkpointerInstance: AgentCheckpointer | null = null;
@@ -57,6 +65,13 @@ export function getCheckpointer(config?: CheckpointerConfig): AgentCheckpointer 
 
 export function createCheckpointer(config?: CheckpointerConfig): AgentCheckpointer {
   return new AgentCheckpointer(config);
+}
+
+export function resetCheckpointer(): void {
+  if (checkpointerInstance) {
+    checkpointerInstance.cleanup();
+    checkpointerInstance = null;
+  }
 }
 
 export default AgentCheckpointer;

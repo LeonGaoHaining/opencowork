@@ -3,6 +3,8 @@
 import { QueuedTask, TaskExecutionResult, ExecutorMode, ExecutorConfig } from './types';
 import { HistoryService } from '../history/historyService';
 
+const DEFAULT_TASK_TIMEOUT = 300000; // 5 minutes
+
 export class TaskExecutor {
   private historyService: HistoryService;
   private config: ExecutorConfig;
@@ -15,10 +17,18 @@ export class TaskExecutor {
   async execute(task: QueuedTask): Promise<TaskExecutionResult> {
     const scheduledTask = task.scheduledTask;
     const startTime = Date.now();
+    const timeout = scheduledTask.execution?.timeout || DEFAULT_TASK_TIMEOUT;
 
-    console.log('[TaskExecutor] Starting scheduled task:', scheduledTask.name);
+    console.log('[TaskExecutor] Starting scheduled task:', scheduledTask.name, 'timeout:', timeout);
 
     let historyRecordId: string | null = null;
+
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(
+        () => reject(new Error(`Task ${scheduledTask.id} timed out after ${timeout}ms`)),
+        timeout
+      );
+    });
 
     try {
       const historyRecord = await this.historyService.createTask(
@@ -33,17 +43,20 @@ export class TaskExecutor {
 
       await this.historyService.startTaskById(historyRecord.id);
 
+      let executionResult: Promise<void>;
       if (this.config.mode === ExecutorMode.INTEGRATED) {
-        await this.executeWithMainAgent(
+        executionResult = this.executeWithMainAgent(
           scheduledTask.execution.taskDescription,
           scheduledTask.execution.timeout
         );
       } else {
-        await this.executeStandalone(
+        executionResult = this.executeStandalone(
           scheduledTask.execution.taskDescription,
           scheduledTask.execution.timeout
         );
       }
+
+      await Promise.race([executionResult, timeoutPromise]);
 
       await this.historyService.completeTask(historyRecord.id, {
         success: true,

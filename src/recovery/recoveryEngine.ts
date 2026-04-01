@@ -46,15 +46,45 @@ export class RecoveryEngine {
   private page: Page;
   private llmClient = getLLMClient();
   private strategyHistory: Map<string, RecoveryStrategy[]> = new Map();
-
+  private strategyHistoryOrder: string[] = [];
   private llmCallCount: Map<string, number> = new Map();
+  private llmCallOrder: string[] = [];
   private readonly MAX_LLM_CALLS_PER_ACTION = 1;
+  private readonly MAX_STRATEGY_HISTORY = 100;
+  private readonly MAX_LLM_CALLS = 500;
 
   private globalLLMCallCount = 0;
   private readonly GLOBAL_LLM_LIMIT = 10;
 
   constructor(page: Page) {
     this.page = page;
+  }
+
+  private cleanupStrategyHistory(): void {
+    while (this.strategyHistoryOrder.length > this.MAX_STRATEGY_HISTORY) {
+      const oldest = this.strategyHistoryOrder.shift();
+      if (oldest) {
+        this.strategyHistory.delete(oldest);
+      }
+    }
+  }
+
+  private cleanupLlmCallCount(): void {
+    while (this.llmCallOrder.length > this.MAX_LLM_CALLS) {
+      const oldest = this.llmCallOrder.shift();
+      if (oldest) {
+        this.llmCallCount.delete(oldest);
+      }
+    }
+  }
+
+  cleanup(): void {
+    this.strategyHistory.clear();
+    this.strategyHistoryOrder = [];
+    this.llmCallCount.clear();
+    this.llmCallOrder = [];
+    this.globalLLMCallCount = 0;
+    this.page = null as any;
   }
 
   async decide(context: RecoveryContext): Promise<RecoveryAction> {
@@ -223,6 +253,10 @@ Generate a precise CSS selector. Output ONLY the selector string.`;
 
         if (isValid) {
           this.llmCallCount.set(actionKey, currentCalls + 1);
+          this.cleanupLlmCallCount();
+          if (!this.llmCallOrder.includes(actionKey)) {
+            this.llmCallOrder.push(actionKey);
+          }
           this.globalLLMCallCount++;
           console.log('[RecoveryEngine] LLM generated and validated selector:', selector);
           return selector;
@@ -274,9 +308,13 @@ Generate a precise CSS selector. Output ONLY the selector string.`;
   }
 
   recordStrategy(nodeId: string, strategy: RecoveryStrategy): void {
+    this.cleanupStrategyHistory();
     const history = this.strategyHistory.get(nodeId) || [];
     history.push(strategy);
     this.strategyHistory.set(nodeId, history);
+    if (!this.strategyHistoryOrder.includes(nodeId)) {
+      this.strategyHistoryOrder.push(nodeId);
+    }
   }
 
   getStrategyHistory(nodeId: string): RecoveryStrategy[] {
@@ -285,5 +323,10 @@ Generate a precise CSS selector. Output ONLY the selector string.`;
 
   getPage(): Page {
     return this.page;
+  }
+
+  clearLlmCallCount(actionKey: string): void {
+    this.llmCallCount.delete(actionKey);
+    this.llmCallOrder = this.llmCallOrder.filter((k) => k !== actionKey);
   }
 }

@@ -191,6 +191,11 @@ export class SkillRunner {
   setConfig(config: Partial<SkillRunnerConfig>): void {
     this.config = { ...this.config, ...config };
   }
+
+  cleanup(): void {
+    this.sessionId = '';
+    console.log('[SkillRunner] Cleaned up');
+  }
 }
 
 let skillRunnerInstance: SkillRunner | null = null;
@@ -207,6 +212,18 @@ export function getSkillRunner(config?: SkillRunnerConfig): SkillRunner {
 }
 
 export function createSkillRunner(config?: SkillRunnerConfig): SkillRunner {
+  const oldRunner = skillRunnerInstance;
   skillRunnerInstance = new SkillRunner(config);
+  if (oldRunner) {
+    oldRunner.cleanup();
+  }
   return skillRunnerInstance;
+}
+
+export function resetSkillRunner(): void {
+  if (skillRunnerInstance) {
+    skillRunnerInstance.cleanup();
+    skillRunnerInstance = null;
+  }
+  skillRunnerConfig = undefined;
 }

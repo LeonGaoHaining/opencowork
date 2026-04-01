@@ -2,6 +2,8 @@ import { TaskHistoryRecord, HistoryQueryOptions } from './taskHistory';
 import { MemoryStore } from './memoryStore';
 import { SQLiteStore } from './sqliteStore';
 
+const MAX_PENDING_WRITES = 500;
+
 export class HistoryStore {
   private memoryStore: MemoryStore;
   private sqliteStore: SQLiteStore;
@@ -23,6 +25,12 @@ export class HistoryStore {
 
   private scheduleSqliteSync(record: TaskHistoryRecord): void {
     this.pendingSqliteWrites.push(record);
+
+    if (this.pendingSqliteWrites.length >= MAX_PENDING_WRITES) {
+      this.flushToSqlite();
+      return;
+    }
+
     if (this.syncToSqliteTimer) {
       clearTimeout(this.syncToSqliteTimer);
       this.syncToSqliteTimer = null;
@@ -126,6 +134,16 @@ export class HistoryStore {
     this.retryCounts.clear();
     await this.memoryStore.clear();
     await this.sqliteStore.clear();
+  }
+
+  async flushPendingWrites(): Promise<void> {
+    if (this.pendingSqliteWrites.length > 0) {
+      console.log(
+        '[HistoryStore] Flushing pending writes on shutdown:',
+        this.pendingSqliteWrites.length
+      );
+      await this.flushToSqlite();
+    }
   }
 
   async getTotalCount(): Promise<number> {

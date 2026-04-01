@@ -33,7 +33,9 @@ export const useHistoryStore = create<HistoryState>((set, get) => ({
 
   setFilter: (filter) => {
     set({ filter });
-    get().loadTasks(filter);
+    get()
+      .loadTasks(filter)
+      .catch((err) => console.error('[historyStore] loadTasks failed:', err));
   },
 
   setSelectedTaskId: (taskId) => {

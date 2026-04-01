@@ -41,6 +41,7 @@ export interface LoggerConfig {
   logDir?: string;
   maxFiles?: number;
   maxEventsInMemory?: number;
+  maxToolDurations?: number;
 }
 
 export interface AgentStats {
@@ -52,6 +53,8 @@ export interface AgentStats {
   endTime?: string;
 }
 
+const DEFAULT_MAX_TOOL_DURATIONS = 100;
+
 class AgentLogger {
   private enabled: boolean = true;
   private level: LogLevel = 'info';
@@ -59,6 +62,7 @@ class AgentLogger {
   private logDir: string = 'logs';
   private maxFiles: number = 7;
   private maxEventsInMemory: number = 1000;
+  private maxToolDurations: number = DEFAULT_MAX_TOOL_DURATIONS;
   private currentDate: string;
   private events: AgentLogEvent[] = [];
   private toolCallCounts: Record<string, number> = {};
@@ -73,6 +77,7 @@ class AgentLogger {
     this.logDir = config.logDir ?? 'logs';
     this.maxFiles = config.maxFiles ?? 7;
     this.maxEventsInMemory = config.maxEventsInMemory ?? 1000;
+    this.maxToolDurations = config.maxToolDurations ?? DEFAULT_MAX_TOOL_DURATIONS;
     this.currentDate = this.getDateString();
     this.startTime = new Date().toISOString();
 
@@ -242,6 +247,9 @@ class AgentLogger {
           this.toolDurations[event.toolName] = [];
         }
         this.toolDurations[event.toolName].push(event.duration);
+        if (this.toolDurations[event.toolName].length > this.maxToolDurations) {
+          this.toolDurations[event.toolName].shift();
+        }
       }
     }
 
@@ -390,7 +398,11 @@ class AgentLogger {
 
   exportToFile(filePath?: string): string {
     const targetPath = filePath || path.join(this.logDir, `agent-export-${Date.now()}.json`);
-    fs.writeFileSync(targetPath, this.exportLogs(), 'utf-8');
+    try {
+      fs.writeFileSync(targetPath, this.exportLogs(), 'utf-8');
+    } catch (err) {
+      console.error('[AgentLogger] Failed to export to file:', err);
+    }
     return targetPath;
   }
 

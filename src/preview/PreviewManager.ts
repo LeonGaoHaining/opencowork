@@ -152,7 +152,9 @@ export class PreviewManager {
     const bounds = this.mainWindow.getBounds();
 
     if (this.isExpanded) {
-      const expandedHeight = Math.floor(bounds.height * this.config.collapsible.expandedHeightRatio);
+      const expandedHeight = Math.floor(
+        bounds.height * this.config.collapsible.expandedHeightRatio
+      );
       this.previewView.setBounds({
         x: 0,
         y: 0,
@@ -219,9 +221,10 @@ export class PreviewManager {
   }
 
   private loadPreviewContent(): void {
-    const previewUrl = process.env.NODE_ENV === 'development'
-      ? 'http://localhost:3000/preview.html'
-      : path.join(__dirname, '../../renderer/preview.html');
+    const previewUrl =
+      process.env.NODE_ENV === 'development'
+        ? 'http://localhost:3000/preview.html'
+        : path.join(__dirname, '../../renderer/preview.html');
 
     if (this.previewView) {
       if (process.env.NODE_ENV === 'development') {
@@ -298,15 +301,18 @@ export class PreviewManager {
 
   cleanup(): void {
     this.closeDetachedWindow();
-    if (this.previewView && this.mainWindow) {
+    if (this.previewView && this.mainWindow && !this.mainWindow.isDestroyed()) {
       try {
         this.mainWindow.removeBrowserView(this.previewView);
+        console.log('[PreviewManager] Removed BrowserView');
       } catch (e) {
-        console.log('[PreviewManager] Could not remove BrowserView during cleanup');
+        console.warn('[PreviewManager] Could not remove BrowserView during cleanup:', e);
       }
     }
     this.previewView = null;
+    this.previewWindow = null;
     this.mainWindow = null;
+    console.log('[PreviewManager] Cleaned up');
   }
 }
 

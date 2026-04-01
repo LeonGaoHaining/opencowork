@@ -1,5 +1,8 @@
 import { create } from 'zustand';
 
+const MAX_SESSIONS = 100;
+const MAX_MESSAGES_PER_SESSION = 200;
+
 export interface SessionMeta {
   id: string;
   name: string;
@@ -46,8 +49,12 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       if (window.electron) {
         const { data } = await window.electron.invoke('session:list');
         if (data?.meta?.sessions) {
+          let sessions = data.meta.sessions;
+          if (sessions.length > MAX_SESSIONS) {
+            sessions = sessions.slice(-MAX_SESSIONS);
+          }
           set({
-            sessions: data.meta.sessions,
+            sessions,
             activeSessionId: data.meta.activeSessionId,
           });
           if (data.meta.activeSessionId) {
@@ -68,8 +75,8 @@ export const useSessionStore = create<SessionState>((set, get) => ({
         const { data } = await window.electron.invoke('session:create', { name });
         if (data?.session) {
           const session = data.session;
-          set((state) => ({
-            sessions: [
+          set((state) => {
+            let sessions = [
               ...state.sessions,
               {
                 id: session.id,
@@ -79,10 +86,16 @@ export const useSessionStore = create<SessionState>((set, get) => ({
                 messageCount: 0,
                 taskCount: 0,
               },
-            ],
-            activeSessionId: session.id,
-            activeSession: session,
-          }));
+            ];
+            if (sessions.length > MAX_SESSIONS) {
+              sessions = sessions.slice(-MAX_SESSIONS);
+            }
+            return {
+              sessions,
+              activeSessionId: session.id,
+              activeSession: session,
+            };
+          });
           return session;
         }
       }
@@ -109,7 +122,10 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   updateSession: async (sessionId: string, data: Partial<SessionData>) => {
     try {
       if (window.electron) {
-        const { data: result } = await window.electron.invoke('session:update', { sessionId, data });
+        const { data: result } = await window.electron.invoke('session:update', {
+          sessionId,
+          data,
+        });
         if (result?.session) {
           set((state) => ({
             sessions: state.sessions.map((s) =>
@@ -123,8 +139,10 @@ export const useSessionStore = create<SessionState>((set, get) => ({
                   }
                 : s
             ),
-            activeSessionId: state.activeSessionId === sessionId ? sessionId : state.activeSessionId,
-            activeSession: state.activeSessionId === sessionId ? result.session : state.activeSession,
+            activeSessionId:
+              state.activeSessionId === sessionId ? sessionId : state.activeSessionId,
+            activeSession:
+              state.activeSessionId === sessionId ? result.session : state.activeSession,
           }));
         }
       }
@@ -165,11 +183,18 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     const { activeSessionId, activeSession } = get();
     if (!activeSessionId || !activeSession) return;
 
-    const newMessages = [...activeSession.messages, {
-      ...message,
-      id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      timestamp: Date.now(),
-    }];
+    let newMessages = [
+      ...(activeSession.messages || []),
+      {
+        ...message,
+        id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        timestamp: Date.now(),
+      },
+    ];
+
+    if (newMessages.length > MAX_MESSAGES_PER_SESSION) {
+      newMessages = newMessages.slice(-MAX_MESSAGES_PER_SESSION);
+    }
 
     await get().updateSession(activeSessionId, { messages: newMessages });
   },

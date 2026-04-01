@@ -34,11 +34,14 @@ export function setAskUserMainWindow(window: BrowserWindow | null): void {
 }
 
 export class AskUserExecutor {
-  private pendingRequests: Map<string, {
-    resolve: (value: any) => void;
-    reject: (error: any) => void;
-    timeout: NodeJS.Timeout;
-  }> = new Map();
+  private pendingRequests: Map<
+    string,
+    {
+      resolve: (value: any) => void;
+      reject: (error: any) => void;
+      timeout: NodeJS.Timeout;
+    }
+  > = new Map();
 
   constructor() {
     // 使用模块级标志防止重复注册
@@ -49,11 +52,10 @@ export class AskUserExecutor {
   }
 
   private setupIpcHandlers(): void {
-
     ipcMain.handle(ASK_USER_RESPONSE_CHANNEL, async (event, response) => {
       const { requestId, answer, cancelled } = response;
       const pending = this.pendingRequests.get(requestId);
-      
+
       if (!pending) {
         console.warn('[AskUserExecutor] No pending request for response:', requestId);
         return;
@@ -108,6 +110,8 @@ export class AskUserExecutor {
 
       this.pendingRequests.set(requestId, {
         resolve: (response) => {
+          clearTimeout(timeoutHandle);
+          this.pendingRequests.delete(requestId);
           console.log('[AskUserExecutor] User responded:', response);
           resolve({
             success: true,
@@ -116,6 +120,8 @@ export class AskUserExecutor {
           });
         },
         reject: (error) => {
+          clearTimeout(timeoutHandle);
+          this.pendingRequests.delete(requestId);
           console.log('[AskUserExecutor] User cancelled or error:', error.message);
           resolve({
             success: false,

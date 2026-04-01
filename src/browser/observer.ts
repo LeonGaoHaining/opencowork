@@ -108,6 +108,15 @@ export class Observer {
     this.config = { ...this.config, ...config };
     console.log('[Observer] Config updated:', this.config);
   }
+
+  /**
+   * 释放资源
+   */
+  destroy(): void {
+    this.page = null as any;
+    this.lastGraph = null;
+    console.log('[Observer] Destroyed');
+  }
 }
 
 export { Observer as PageObserver };

@@ -3,6 +3,8 @@
 import { create } from 'zustand';
 import { ScheduledTask, CreateScheduledTaskInput, ScheduleType } from '../../scheduler/types';
 
+const MAX_TASKS = 200;
+
 interface SchedulerState {
   tasks: ScheduledTask[];
   isLoading: boolean;
@@ -32,7 +34,11 @@ export const useSchedulerStore = create<SchedulerState>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       const tasks = await window.electron.invoke('scheduler:list');
-      set({ tasks, isLoading: false });
+      let limitedTasks = tasks;
+      if (tasks.length > MAX_TASKS) {
+        limitedTasks = tasks.slice(-MAX_TASKS);
+      }
+      set({ tasks: limitedTasks, isLoading: false });
     } catch (error) {
       set({ error: String(error), isLoading: false });
     }
@@ -94,7 +100,9 @@ export const useSchedulerStore = create<SchedulerState>((set, get) => ({
   setOpen: (open) => {
     set({ isOpen: open });
     if (open) {
-      get().loadTasks();
+      get()
+        .loadTasks()
+        .catch((err) => console.error('[schedulerStore] loadTasks failed:', err));
     }
   },
 }));

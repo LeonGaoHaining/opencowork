@@ -1,4 +1,13 @@
-import { AnyAction, Plan, PlanNode, generateId, ActionType, AskUserAction, ActionResult, ActionConstraints } from '../action/ActionSchema';
+import {
+  AnyAction,
+  Plan,
+  PlanNode,
+  generateId,
+  ActionType,
+  AskUserAction,
+  ActionResult,
+  ActionConstraints,
+} from '../action/ActionSchema';
 import { getLLMClient } from '../../llm/OpenAIResponses';
 import { LLMMessage } from '../../llm/LLMClient';
 import { AskUserExecutor } from '../executor/AskUserExecutor';
@@ -53,7 +62,13 @@ export interface ModifiedNode {
 
 export interface RecoveryDecision {
   shouldRetry: boolean;
-  strategy: 'retry_same' | 'regenerate_selector' | 'simplify_action' | 'skip_step' | 'ask_user' | 'give_up';
+  strategy:
+    | 'retry_same'
+    | 'regenerate_selector'
+    | 'simplify_action'
+    | 'skip_step'
+    | 'ask_user'
+    | 'give_up';
   reason: string;
   newSelector?: string;
   newAction?: AnyAction;
@@ -79,12 +94,12 @@ export class Replanner {
 
     try {
       const result: ActionResult = await this.askUserExecutor.execute(askUserAction);
-      
+
       if (result.success && result.output) {
         console.log('[Replanner] User answered:', result.output);
         return result.output.answer || null;
       }
-      
+
       console.log('[Replanner] AskUser failed or cancelled:', result.error);
       return null;
     } catch (error) {
@@ -130,7 +145,7 @@ export class Replanner {
 
     try {
       const selectorResult = await this.generateNewSelector(pageContent, error.message);
-      
+
       if (!selectorResult.selectors || selectorResult.selectors.length === 0) {
         return {
           success: false,
@@ -140,8 +155,8 @@ export class Replanner {
       }
 
       const modifiedNodes: ModifiedNode[] = remainingPlan.nodes
-        .filter(node => node.id === request.failedNodeId)
-        .map(node => ({
+        .filter((node) => node.id === request.failedNodeId)
+        .map((node) => ({
           nodeId: node.id,
           newSelector: selectorResult.selectors[0],
           fallbackSelectors: selectorResult.selectors,
@@ -164,7 +179,10 @@ export class Replanner {
     }
   }
 
-  private async generateNewSelector(pageContent: string, errorMessage: string): Promise<{ selectors: string[]; strategy: string }> {
+  private async generateNewSelector(
+    pageContent: string,
+    errorMessage: string
+  ): Promise<{ selectors: string[]; strategy: string }> {
     const systemPrompt = `你是一个CSS选择器生成专家。根据页面HTML和错误信息，生成针对目标元素的选择器。
 
 要求：
@@ -179,7 +197,7 @@ export class Replanner {
 只输出一个JSON对象，不要其他内容。
 格式：
 {"selectors": ["选择器1", "选择器2"], "strategy": "选择的策略说明"}`;
-    
+
     const userPrompt = `页面HTML片段：
 ${pageContent.substring(0, 8000)}
 
@@ -207,9 +225,16 @@ ${pageContent.substring(0, 8000)}
         }
       }
 
-      const fallbackSelectors = content.split('\n').filter(line => 
-        line.startsWith('.') || line.startsWith('#') || line.startsWith('[') || line.startsWith('/')
-      ).slice(0, 3);
+      const fallbackSelectors = content
+        .split('\n')
+        .filter(
+          (line) =>
+            line.startsWith('.') ||
+            line.startsWith('#') ||
+            line.startsWith('[') ||
+            line.startsWith('/')
+        )
+        .slice(0, 3);
 
       return {
         selectors: fallbackSelectors.length > 0 ? fallbackSelectors : ['body'],
@@ -226,7 +251,7 @@ ${pageContent.substring(0, 8000)}
 
   private async handleNavigationError(request: ReplanRequest): Promise<ReplanResult> {
     const { error, executionState } = request;
-    
+
     const suggestions: string[] = [];
 
     if (executionState.pageUrl) {
@@ -254,14 +279,14 @@ ${pageContent.substring(0, 8000)}
     const { remainingPlan, error } = request;
 
     const timeoutActions = ['browser:wait'];
-    const skipableNodes = remainingPlan.nodes.filter(node => 
-      node.action && timeoutActions.includes(node.action.type)
+    const skipableNodes = remainingPlan.nodes.filter(
+      (node) => node.action && timeoutActions.includes(node.action.type)
     );
 
     if (skipableNodes.length > 0) {
       return {
         success: true,
-        modifiedNodes: skipableNodes.map(node => ({
+        modifiedNodes: skipableNodes.map((node) => ({
           nodeId: node.id,
           retryCount: 0,
         })),
@@ -304,11 +329,11 @@ ${pageContent.substring(0, 8000)}
 
   async validateSelector(selector: string, pageContent?: string): Promise<boolean> {
     if (!selector) return false;
-    
+
     if (selector.startsWith('/') || selector.startsWith('(')) {
       return true;
     }
-    
+
     if (selector.startsWith('.') || selector.startsWith('#') || selector.startsWith('[')) {
       return true;
     }
@@ -318,10 +343,13 @@ ${pageContent.substring(0, 8000)}
 
   private async llmDecideRecovery(request: ReplanRequest): Promise<RecoveryDecision> {
     const { trigger, error, executionState, remainingPlan } = request;
-    
-    const failedNode = remainingPlan.nodes.find(n => n.id === request.failedNodeId);
-    const nodeDescription = failedNode?.metadata?.description || failedNode?.action?.type || '未知节点';
-    const actionParams = failedNode?.action?.params ? JSON.stringify(failedNode.action.params).substring(0, 200) : '无参数';
+
+    const failedNode = remainingPlan.nodes.find((n) => n.id === request.failedNodeId);
+    const nodeDescription =
+      failedNode?.metadata?.description || failedNode?.action?.type || '未知节点';
+    const actionParams = failedNode?.action?.params
+      ? JSON.stringify(failedNode.action.params).substring(0, 200)
+      : '无参数';
 
     const systemPrompt = `你是一个智能任务恢复专家。当任务执行失败时，你需要分析失败原因并决定如何恢复。`;
 
@@ -403,18 +431,22 @@ ${pageContent.substring(0, 8000)}
       case 'retry_same':
         return {
           success: true,
-          modifiedNodes: request.failedNodeId ? [{
-            nodeId: request.failedNodeId,
-            retryCount: retryCount + 1,
-          }] : [],
+          modifiedNodes: request.failedNodeId
+            ? [
+                {
+                  nodeId: request.failedNodeId,
+                  retryCount: retryCount + 1,
+                },
+              ]
+            : [],
           canContinue: true,
         };
 
       case 'regenerate_selector':
         if (decision.newSelector) {
           const modifiedNodes = request.remainingPlan.nodes
-            .filter(node => node.id === request.failedNodeId)
-            .map(node => ({
+            .filter((node) => node.id === request.failedNodeId)
+            .map((node) => ({
               nodeId: node.id,
               newSelector: decision.newSelector,
               retryCount: retryCount + 1,
@@ -429,16 +461,18 @@ ${pageContent.substring(0, 8000)}
 
       case 'simplify_action':
         if (request.failedNodeId) {
-          const failedNode = request.remainingPlan.nodes.find(n => n.id === request.failedNodeId);
+          const failedNode = request.remainingPlan.nodes.find((n) => n.id === request.failedNodeId);
           if (failedNode?.action) {
             const simplifiedAction = this.simplifyAction(failedNode.action);
             return {
               success: true,
-              modifiedNodes: [{
-                nodeId: request.failedNodeId,
-                newAction: simplifiedAction,
-                retryCount: retryCount + 1,
-              }],
+              modifiedNodes: [
+                {
+                  nodeId: request.failedNodeId,
+                  newAction: simplifiedAction,
+                  retryCount: retryCount + 1,
+                },
+              ],
               canContinue: true,
             };
           }
@@ -453,10 +487,12 @@ ${pageContent.substring(0, 8000)}
         if (request.failedNodeId) {
           return {
             success: true,
-            modifiedNodes: [{
-              nodeId: request.failedNodeId,
-              retryCount: -1,
-            }],
+            modifiedNodes: [
+              {
+                nodeId: request.failedNodeId,
+                retryCount: -1,
+              },
+            ],
             canContinue: true,
           };
         }
@@ -468,14 +504,14 @@ ${pageContent.substring(0, 8000)}
 
       case 'ask_user':
         console.log('[Replanner] Executing ask_user strategy, waiting for user response...');
-        
-        const userAnswer = await this.executeAskUser(
-          '任务执行遇到问题，是否继续尝试？',
-          ['继续重试', '停止任务']
-        );
-        
+
+        const userAnswer = await this.executeAskUser('任务执行遇到问题，是否继续尝试？', [
+          '继续重试',
+          '停止任务',
+        ]);
+
         console.log('[Replanner] User answer:', userAnswer);
-        
+
         if (userAnswer === '继续重试') {
           return {
             success: true,
@@ -483,7 +519,7 @@ ${pageContent.substring(0, 8000)}
             reason: '用户选择继续重试',
           };
         }
-        
+
         return {
           success: false,
           canContinue: false,
@@ -510,6 +546,11 @@ ${pageContent.substring(0, 8000)}
       };
     }
     return action;
+  }
+
+  cleanup(): void {
+    this.askUserExecutor.cancelAll();
+    console.log('[Replanner] Cleaned up');
   }
 }
 

@@ -16,6 +16,8 @@ let cliExecutor: CLIExecutor | null = null;
 let sharedMainAgent: MainAgent | null = null;
 let sharedThreadId: string = 'main-session';
 let isAgentInitializing: boolean = false;
+let agentInitPromise: Promise<void> | null = null;
+let agentInitResolver: (() => void) | null = null;
 
 function getBrowserExecutor(): BrowserExecutor {
   if (!browserExecutor) {
@@ -64,21 +66,52 @@ export const IPC_HANDLERS: Record<string, IpcHandler> = {
   'task:start': async (mainWindow, previewWindow, { task, threadId }) => {
     console.log('[IPC] task:start:', task, 'threadId:', threadId);
 
+    const AGENT_INIT_TIMEOUT_MS = 60000;
+
     try {
       if (!sharedMainAgent && !isAgentInitializing) {
         isAgentInitializing = true;
         console.log('[IPC] Creating shared MainAgent...');
-        sharedMainAgent = await createMainAgent({
+        agentInitPromise = new Promise((resolve) => {
+          agentInitResolver = resolve;
+        });
+
+        const initPromise = createMainAgent({
           logger: { level: 'debug', output: 'console' },
         });
-        sharedMainAgent.setMainWindow(mainWindow);
-        sharedMainAgent.setPreviewWindow(previewWindow);
-        isAgentInitializing = false;
-        console.log('[IPC] Shared MainAgent created, threadId:', sharedMainAgent.getThreadId());
-      } else if (isAgentInitializing) {
+
+        const timeoutPromise = new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('Agent initialization timeout')), AGENT_INIT_TIMEOUT_MS)
+        );
+
+        try {
+          sharedMainAgent = await Promise.race([initPromise, timeoutPromise]);
+          sharedMainAgent.setMainWindow(mainWindow);
+          sharedMainAgent.setPreviewWindow(previewWindow);
+          isAgentInitializing = false;
+          console.log('[IPC] Shared MainAgent created, threadId:', sharedMainAgent.getThreadId());
+          if (agentInitResolver) {
+            agentInitResolver();
+            agentInitPromise = null;
+            agentInitResolver = null;
+          }
+        } catch (initError) {
+          isAgentInitializing = false;
+          agentInitPromise = null;
+          agentInitResolver = null;
+          throw initError;
+        }
+      } else if (isAgentInitializing && agentInitPromise) {
         console.log('[IPC] Agent is still initializing, waiting...');
-        while (isAgentInitializing) {
-          await new Promise((resolve) => setTimeout(resolve, 100));
+        try {
+          await Promise.race([
+            agentInitPromise,
+            new Promise<never>((_, reject) =>
+              setTimeout(() => reject(new Error('Agent init wait timeout')), AGENT_INIT_TIMEOUT_MS)
+            ),
+          ]);
+        } catch (timeoutError) {
+          console.warn('[IPC] Agent init wait timeout, continuing anyway');
         }
       }
 

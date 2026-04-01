@@ -62,6 +62,11 @@ function getAgent(): MainAgent | null {
   return currentAgentInstance;
 }
 
+export function clearAgentInstance(): void {
+  currentAgentInstance = null;
+  console.log('[MainAgent] Instance cleared');
+}
+
 // Browser Tool 定义
 const browserTool = tool(
   async (params: {
@@ -622,10 +627,18 @@ export class MainAgent {
 
     try {
       const startTime = Date.now();
-      const result = await this.agent.invoke(
+      const TASK_TIMEOUT_MS = 300000; // 5 minutes
+
+      const invokePromise = this.agent.invoke(
         { messages: [{ role: 'user', content: task }] },
         { configurable: { thread_id: this.threadId } }
       );
+
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('Task timeout after 5 minutes')), TASK_TIMEOUT_MS)
+      );
+
+      const result = await Promise.race([invokePromise, timeoutPromise]);
       const duration = Date.now() - startTime;
 
       if (this.cancelRequested) {
@@ -682,6 +695,8 @@ export class MainAgent {
         success: false,
         error: error.message || 'Unknown error',
       };
+    } finally {
+      clearAgentInstance();
     }
   }
 
@@ -700,10 +715,19 @@ export class MainAgent {
       if (msg.tool_calls && Array.isArray(msg.tool_calls)) {
         console.log(`[MainAgent] Found ${msg.tool_calls.length} tool_calls in message ${i}`);
         for (const tc of msg.tool_calls) {
+          let parsedArgs = tc.args || {};
+          if (typeof tc.args === 'string') {
+            try {
+              parsedArgs = JSON.parse(tc.args || '{}');
+            } catch (e) {
+              console.warn('[MainAgent] Failed to parse tool args:', e);
+              parsedArgs = {};
+            }
+          }
           const step: AgentStep = {
             id: tc.id || `tc-${steps.length}`,
             toolName: tc.name || 'unknown',
-            args: typeof tc.args === 'string' ? JSON.parse(tc.args || '{}') : tc.args || {},
+            args: parsedArgs,
             status: 'completed',
           };
           steps.push(step);

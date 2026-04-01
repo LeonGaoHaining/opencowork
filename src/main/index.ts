@@ -3,7 +3,11 @@ import * as path from 'path';
 import { setupIPC } from './ipc';
 import { createMainWindow, createPreviewWindow } from './window';
 import { setupShortcuts } from './shortcuts';
-import { setTaskEnginePreviewWindow, setTaskEngineMainWindow, getPreviewManager } from './ipcHandlers';
+import {
+  setTaskEnginePreviewWindow,
+  setTaskEngineMainWindow,
+  getPreviewManager,
+} from './ipcHandlers';
 import { setAskUserMainWindow } from '../core/executor/AskUserExecutor';
 import { setBrowserExecutorMainWindow } from '../core/executor/BrowserExecutor';
 
@@ -47,8 +51,10 @@ async function bootstrap() {
   }
 
   mainWindow.on('closed', () => {
+    const previewManager = getPreviewManager();
+    previewManager.cleanup();
     mainWindow = null;
-    if (previewWindow) {
+    if (previewWindow && !previewWindow.isDestroyed()) {
       previewWindow.close();
     }
   });
@@ -75,11 +81,14 @@ app.on('activate', () => {
   }
 });
 
-// 错误处理
+// 错误处理 - AI设备场景下需要退出让系统重启
 process.on('uncaughtException', (error) => {
   console.error('[OpenCowork] Uncaught exception:', error);
+  console.error('[OpenCowork] Stack:', error.stack);
+  app.exit(1);
 });
 
 process.on('unhandledRejection', (reason) => {
   console.error('[OpenCowork] Unhandled rejection:', reason);
+  // AI设备场景：记录但不一定退出，因为可能是异步操作未完成
 });

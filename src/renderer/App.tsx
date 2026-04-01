@@ -87,124 +87,154 @@ function App() {
 
     unsubscribers.push(
       window.electron.on('task:nodeStart', (event: any) => {
-        console.log('[Renderer] Received task:nodeStart', event);
-        const node = event.node;
-        if (node?.action) {
-          const stepId = node.id || `step-${Date.now()}`;
-          const action = node.action;
-          addActiveStep({
-            id: stepId,
-            toolName: action.type || 'unknown',
-            args: action.params || {},
-            status: 'running',
-          });
-          updateCurrentStep(
-            `${action.type}: ${action.params ? JSON.stringify(action.params).substring(0, 50) : ''}`
-          );
-          addLog({ type: 'step', message: `执行步骤: ${action.type}` });
+        try {
+          console.log('[Renderer] Received task:nodeStart', event);
+          const node = event.node;
+          if (node?.action) {
+            const stepId = node.id || `step-${Date.now()}`;
+            const action = node.action;
+            addActiveStep({
+              id: stepId,
+              toolName: action.type || 'unknown',
+              args: action.params || {},
+              status: 'running',
+            });
+            updateCurrentStep(
+              `${action.type}: ${action.params ? JSON.stringify(action.params).substring(0, 50) : ''}`
+            );
+            addLog({ type: 'step', message: `执行步骤: ${action.type}` });
+          }
+        } catch (error) {
+          console.error('[Renderer] task:nodeStart handler error:', error);
         }
       })
     );
 
     unsubscribers.push(
       window.electron.on('task:nodeComplete', (event: any) => {
-        console.log('[Renderer] Received task:nodeComplete', event);
-        const node = event.node;
-        if (node?.id) {
-          const isError = node.result?.error || node.result?.success === false;
-          updateActiveStep(node.id, {
-            status: isError ? 'error' : 'completed',
-            result: node.result,
-            duration: node.duration,
-          });
-          addLog({ type: 'success', message: `完成: ${node.action?.type || '步骤'}` });
+        try {
+          console.log('[Renderer] Received task:nodeComplete', event);
+          const node = event.node;
+          if (node?.id) {
+            const isError = node.result?.error || node.result?.success === false;
+            updateActiveStep(node.id, {
+              status: isError ? 'error' : 'completed',
+              result: node.result,
+              duration: node.duration,
+            });
+            addLog({ type: 'success', message: `完成: ${node.action?.type || '步骤'}` });
+          }
+        } catch (error) {
+          console.error('[Renderer] task:nodeComplete handler error:', error);
         }
       })
     );
 
     unsubscribers.push(
       window.electron.on('task:completed', (event: any) => {
-        console.log('[Renderer] Received task:completed', event);
-        console.log('[Renderer] event.result:', JSON.stringify(event.result).substring(0, 500));
-        updateTaskStatus('completed');
+        try {
+          console.log('[Renderer] Received task:completed', event);
+          console.log('[Renderer] event.result:', JSON.stringify(event.result).substring(0, 500));
+          updateTaskStatus('completed');
 
-        const { activeSteps } = useTaskStore.getState();
-        const innerResult = event.result?.result || event.result || event.data || {};
-        const resultText = innerResult.finalMessage || '任务已完成';
-        console.log('[Renderer] finalMessage:', resultText);
-        const steps = Array.isArray(innerResult.steps) ? innerResult.steps : [];
+          const { activeSteps } = useTaskStore.getState();
+          const innerResult = event.result?.result || event.result || event.data || {};
+          const resultText = innerResult.finalMessage || '任务已完成';
+          console.log('[Renderer] finalMessage:', resultText);
+          const steps = Array.isArray(innerResult.steps) ? innerResult.steps : [];
 
-        const finalSteps =
-          activeSteps.length > 0 ? activeSteps : steps.length > 0 ? steps : undefined;
-        addMessage({
-          role: 'ai',
-          content: resultText,
-          steps: finalSteps,
-        });
-        clearActiveSteps();
-        addLog({ type: 'success', message: '任务执行完成' });
-        saveMessages(useTaskStore.getState().messages);
+          const finalSteps =
+            activeSteps.length > 0 ? activeSteps : steps.length > 0 ? steps : undefined;
+          addMessage({
+            role: 'ai',
+            content: resultText,
+            steps: finalSteps,
+          });
+          clearActiveSteps();
+          addLog({ type: 'success', message: '任务执行完成' });
+          saveMessages(useTaskStore.getState().messages);
+        } catch (error) {
+          console.error('[Renderer] task:completed handler error:', error);
+        }
       })
     );
 
     unsubscribers.push(
       window.electron.on('task:error', (event: any) => {
-        console.log('[Renderer] Received task:error', event);
-        const errorMsg = event.error?.message || event.error || '未知错误';
-        setTaskError(errorMsg);
-        updateTaskStatus('failed');
-        clearActiveSteps();
-        addMessage({
-          role: 'ai',
-          content: `任务执行失败: ${errorMsg}`,
-        });
-        addLog({ type: 'error', message: `错误: ${errorMsg}` });
-        saveMessages(useTaskStore.getState().messages);
+        try {
+          console.log('[Renderer] Received task:error', event);
+          const errorMsg = event.error?.message || event.error || '未知错误';
+          setTaskError(errorMsg);
+          updateTaskStatus('failed');
+          clearActiveSteps();
+          addMessage({
+            role: 'ai',
+            content: `任务执行失败: ${errorMsg}`,
+          });
+          addLog({ type: 'error', message: `错误: ${errorMsg}` });
+          saveMessages(useTaskStore.getState().messages);
+        } catch (error) {
+          console.error('[Renderer] task:error handler error:', error);
+        }
       })
     );
 
     unsubscribers.push(
       window.electron.on('ask:user:request', (event: any) => {
-        console.log('[Renderer] Received ask:user:request', event);
-        setAskUserRequest({
-          requestId: event.requestId,
-          question: event.question,
-          options: event.options,
-          defaultResponse: event.defaultResponse,
-          timeout: event.timeout,
-        });
-        updateTaskStatus('waiting_confirm');
-        addLog({ type: 'info', message: `等待用户确认: ${event.question}` });
+        try {
+          console.log('[Renderer] Received ask:user:request', event);
+          setAskUserRequest({
+            requestId: event.requestId,
+            question: event.question,
+            options: event.options,
+            defaultResponse: event.defaultResponse,
+            timeout: event.timeout,
+          });
+          updateTaskStatus('waiting_confirm');
+          addLog({ type: 'info', message: `等待用户确认: ${event.question}` });
+        } catch (error) {
+          console.error('[Renderer] ask:user:request handler error:', error);
+        }
       })
     );
 
     unsubscribers.push(
       window.electron.on('task:statusUpdate', (event: any) => {
-        console.log('[Renderer] Received task:statusUpdate', event);
-        if (event.status === 'replanning') {
-          useTaskStore
-            .getState()
-            .addLog({ type: 'info', message: event.message || '正在重新规划' });
+        try {
+          console.log('[Renderer] Received task:statusUpdate', event);
+          if (event.status === 'replanning') {
+            useTaskStore
+              .getState()
+              .addLog({ type: 'info', message: event.message || '正在重新规划' });
+          }
+        } catch (error) {
+          console.error('[Renderer] task:statusUpdate handler error:', error);
         }
       })
     );
 
     unsubscribers.push(
       window.electron.on('task:waiting_login', (event: any) => {
-        console.log('[Renderer] Received task:waiting_login', event);
-        updateTaskStatus('waiting_confirm');
-        addLog({ type: 'info', message: event.message || '等待处理登录弹窗' });
+        try {
+          console.log('[Renderer] Received task:waiting_login', event);
+          updateTaskStatus('waiting_confirm');
+          addLog({ type: 'info', message: event.message || '等待处理登录弹窗' });
+        } catch (error) {
+          console.error('[Renderer] task:waiting_login handler error:', error);
+        }
       })
     );
 
-    // Listen for screenshot updates
     unsubscribers.push(
       window.electron.on('preview:screenshot', (data: any) => {
-        // 支持两种格式：1. { screenshot: base64 } 2. 直接 base64 字符串
-        const screenshot = data?.screenshot || data;
-        console.log('[Renderer] Received preview:screenshot, length:', screenshot?.length);
-        setScreenshot(screenshot);
-        setImageKey((k) => k + 1); // 强制刷新图片
+        try {
+          const screenshot = data?.screenshot || data;
+          console.log('[Renderer] Received preview:screenshot, length:', screenshot?.length);
+          setScreenshot(screenshot);
+          setImageKey((k) => k + 1);
+        } catch (error) {
+          console.error('[Renderer] preview:screenshot handler error:', error);
+        }
       })
     );
 
