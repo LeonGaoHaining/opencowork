@@ -35,7 +35,6 @@ export class BrowserExecutor {
   private context: any = null;
   private page: any = null;
   private llmClient = getLLMClient();
-  private retryCount = 0;
   private screencast: ScreencastService;
 
   constructor() {
@@ -221,7 +220,6 @@ export class BrowserExecutor {
 
   private async click(action: BrowserClickAction, startTime: number): Promise<ActionResult> {
     const { selector, index = 0, textMatch, fallbackSelectors } = action.params;
-    this.retryCount = 0;
 
     console.log(`[BrowserExecutor] Clicking: ${selector}[${index}]`);
 
@@ -292,7 +290,6 @@ export class BrowserExecutor {
       fallbackSelectors,
       pressEnter = false,
     } = action.params;
-    this.retryCount = 0;
 
     console.log(`[BrowserExecutor] Input to: ${selector}, pressEnter: ${pressEnter}`);
 

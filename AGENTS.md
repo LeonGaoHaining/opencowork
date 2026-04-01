@@ -452,8 +452,6 @@ describe('CLIExecutor', () => {
 | P2-2 | `core/action/ActionSchema.ts`        | 已完成（generateId 使用 Date.now + random） |
 | P2-3 | `im/DispatchService.ts`              | 已完成（已有 MAX_STATUS_MAP_SIZE 限制）     |
 
----
-
 ### 2026-04-01 第七轮代码审核修复 (v0.7.1)
 
 #### P0 关键问题修复
@@ -473,13 +471,42 @@ describe('CLIExecutor', () => {
 | P1-1 | `main/ipcHandlers.ts:104-116`        | 初始化超时返回错误而非继续执行                                |
 | P1-2 | `main/ipcHandlers.ts:118`            | 添加 agent 非空检查                                           |
 | P1-3 | `history/historyStore.ts:26-41`      | scheduleSqliteSync 改为 async，批量写入时 await flushToSqlite |
-| P1-4 | `core/runtime/TaskEngine.ts:473-476` | executePlan catch 添加 throw error (待验证)                   |
+| P1-4 | `core/runtime/TaskEngine.ts:473-476` | executePlan catch 添加 throw error                            |
+| P1-5 | `core/runtime/TaskEngine.ts:222`     | executePlan 开始时深拷贝 plan                                 |
+| P1-6 | `core/planner/Replanner.ts:79`       | maxRetries 添加注释说明由外部控制                             |
+| P1-7 | `main/SessionManager.ts:93-117`      | saveMeta 添加 3 次重试机制                                    |
+| P1-8 | `main/SessionManager.ts:123`         | create() 添加 createLock 防止并发创建                         |
 
 #### P2 代码质量修复
 
 | 问题 | 文件                                   | 修复内容                        |
 | ---- | -------------------------------------- | ------------------------------- |
 | P2-1 | `core/planner/PlanExecutor.ts:304-306` | cleanup() 添加 stopScreencast() |
+| P2-2 | `core/executor/BrowserExecutor.ts:38`  | 移除未使用的 retryCount         |
+
+---
+
+### 2026-04-01 第七轮代码审核修复 - 续 (v0.7.2)
+
+#### P0 关键问题修复
+
+| 问题 | 文件                                 | 修复内容                           |
+| ---- | ------------------------------------ | ---------------------------------- |
+| P0-1 | `core/runtime/TaskEngine.ts:473-476` | executePlan catch 添加 throw error |
+
+#### P1 功能问题修复
+
+| 问题 | 文件                                 | 修复内容                          |
+| ---- | ------------------------------------ | --------------------------------- |
+| P1-1 | `main/SessionManager.ts:93-117`      | saveMeta 添加 3 次重试 + 指数退避 |
+| P1-2 | `main/SessionManager.ts:123`         | create() 添加 createLock 防止并发 |
+| P1-3 | `core/runtime/TaskEngine.ts:222-259` | executePlan 深拷贝 plan 后执行    |
+
+#### P2 代码质量修复
+
+| 问题 | 文件                                  | 修复内容                     |
+| ---- | ------------------------------------- | ---------------------------- |
+| P2-1 | `core/executor/BrowserExecutor.ts:38` | 移除未使用的 retryCount 属性 |
 
 ---
 

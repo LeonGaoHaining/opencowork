@@ -55,6 +55,7 @@ class SessionManager {
   private metaPath: string;
   private meta: SessionMeta;
   private updateLocks: Map<string, boolean> = new Map();
+  private createLock: boolean = false;
 
   constructor() {
     const userDataPath = app.getPath('userData');
@@ -91,11 +92,29 @@ class SessionManager {
   }
 
   private saveMeta(): void {
-    try {
-      fs.writeFileSync(this.metaPath, JSON.stringify(this.meta, null, 2), 'utf-8');
-    } catch (err) {
-      console.error('[SessionManager] Failed to save meta:', err);
+    const maxRetries = 3;
+    let lastError: Error | null = null;
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        fs.writeFileSync(this.metaPath, JSON.stringify(this.meta, null, 2), 'utf-8');
+        return;
+      } catch (err) {
+        lastError = err as Error;
+        console.error(
+          `[SessionManager] Failed to save meta (attempt ${attempt}/${maxRetries}):`,
+          err
+        );
+        if (attempt < maxRetries) {
+          const delay = Math.min(100 * attempt, 500);
+          const start = Date.now();
+          while (Date.now() - start < delay) {
+            /* spin wait */
+          }
+        }
+      }
     }
+    console.error('[SessionManager] Meta save failed after all retries:', lastError);
   }
 
   private getSessionPath(sessionId: string): string {
@@ -103,50 +122,63 @@ class SessionManager {
   }
 
   create(name?: string): SessionData {
-    const session: SessionData = {
-      id: generateId(),
-      name: name || `会话 ${new Date().toLocaleString('zh-CN')}`,
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-      messages: [],
-      tasks: [],
-    };
-
-    const sessionDir = path.join(this.sessionsDir, session.id);
-    fs.mkdirSync(sessionDir, { recursive: true });
+    if (this.createLock) {
+      throw new Error('Session creation in progress, please wait');
+    }
+    this.createLock = true;
 
     try {
-      fs.writeFileSync(this.getSessionPath(session.id), JSON.stringify(session, null, 2), 'utf-8');
-    } catch (err) {
-      console.error('[SessionManager] Failed to write session file:', err);
-      throw err;
-    }
+      const session: SessionData = {
+        id: generateId(),
+        name: name || `会话 ${new Date().toLocaleString('zh-CN')}`,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+        messages: [],
+        tasks: [],
+      };
 
-    this.meta.sessions.push({
-      id: session.id,
-      name: session.name,
-      createdAt: session.createdAt,
-      updatedAt: session.updatedAt,
-      messageCount: 0,
-      taskCount: 0,
-    });
+      const sessionDir = path.join(this.sessionsDir, session.id);
+      fs.mkdirSync(sessionDir, { recursive: true });
 
-    if (this.meta.sessions.length > MAX_SESSIONS) {
-      const removed = this.meta.sessions.shift();
-      if (removed) {
-        const removedDir = path.join(this.sessionsDir, removed.id);
-        if (fs.existsSync(removedDir)) {
-          fs.rmSync(removedDir, { recursive: true, force: true });
-        }
-        console.log('[SessionManager] Max sessions reached, removed oldest:', removed.id);
+      try {
+        fs.writeFileSync(
+          this.getSessionPath(session.id),
+          JSON.stringify(session, null, 2),
+          'utf-8'
+        );
+      } catch (err) {
+        console.error('[SessionManager] Failed to write session file:', err);
+        throw err;
       }
+
+      this.meta.sessions.push({
+        id: session.id,
+        name: session.name,
+        createdAt: session.createdAt,
+        updatedAt: session.updatedAt,
+        messageCount: 0,
+        taskCount: 0,
+      });
+
+      if (this.meta.sessions.length > MAX_SESSIONS) {
+        const removed = this.meta.sessions.shift();
+        if (removed) {
+          const removedDir = path.join(this.sessionsDir, removed.id);
+          if (fs.existsSync(removedDir)) {
+            fs.rmSync(removedDir, { recursive: true, force: true });
+          }
+          console.log('[SessionManager] Max sessions reached, removed oldest:', removed.id);
+        }
+      }
+
+      this.meta.activeSessionId = session.id;
+      this.saveMeta();
+
+      console.log('[SessionManager] Created session:', session.id);
+      return session;
+    } finally {
+      this.createLock = false;
     }
-
-    this.meta.activeSessionId = session.id;
-    this.saveMeta();
-
-    console.log('[SessionManager] Created session:', session.id);
-    return session;
   }
 
   get(sessionId: string): SessionData | null {

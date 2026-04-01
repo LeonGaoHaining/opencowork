@@ -223,6 +223,9 @@ export class TaskEngine {
     const handle = this.tasks.get(handleId);
     if (!handle || !handle.plan) return;
 
+    // 深拷贝 plan 防止执行期间被修改
+    const planCopy = JSON.parse(JSON.stringify(handle.plan));
+
     // AI设备场景：添加任务执行超时保护（默认30分钟）
     const TASK_TIMEOUT = 30 * 60 * 1000; // 30 minutes
     let timeoutId: NodeJS.Timeout | null = null;
@@ -253,7 +256,7 @@ export class TaskEngine {
     startTimeout();
 
     try {
-      for await (const event of this.executor.execute(handle.plan)) {
+      for await (const event of this.executor.execute(planCopy)) {
         switch (event.type) {
           case 'node_start':
             handle.progress.current++;
@@ -474,6 +477,7 @@ export class TaskEngine {
       console.error(`[TaskEngine] Plan execution failed:`, error);
       handle.status = TaskStatus.FAILED;
       this.sendToRenderer('task:error', { handleId, error: error.message || 'Unknown error' });
+      throw error;
     } finally {
       clearTaskTimeout();
       // 不再停止预览传输，而是保持低 fps 继续传输

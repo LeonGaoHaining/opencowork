@@ -76,7 +76,7 @@ export interface RecoveryDecision {
 
 export class Replanner {
   private llmClient = getLLMClient();
-  private maxRetries = 3;
+  private maxRetries = 3; // 保留，由外部(TaskEngine)控制重试次数
   private askUserExecutor: AskUserExecutor;
 
   constructor() {
