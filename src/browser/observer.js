@@ -62,7 +62,12 @@ export class Observer {
         const removed = previous.elements.filter((e) => !currentIds.has(e.id));
         const changed = current.elements.filter((e) => {
             const prev = previous.elements.find((p) => p.id === e.id);
-            return prev && JSON.stringify(prev) !== JSON.stringify(e);
+            if (!prev)
+                return false;
+            // 比较关键字段
+            const prevStr = `${prev.role || ''}${prev.label || ''}${prev.selector || ''}`;
+            const currStr = `${e.role || ''}${e.label || ''}${e.selector || ''}`;
+            return prevStr !== currStr;
         });
         console.log(`[Observer] Diff: +${added.length}, -${removed.length}, ~${changed.length}`);
         return { added, removed, changed };
@@ -85,6 +90,14 @@ export class Observer {
     updateConfig(config) {
         this.config = { ...this.config, ...config };
         console.log('[Observer] Config updated:', this.config);
+    }
+    /**
+     * 释放资源
+     */
+    destroy() {
+        this.page = null;
+        this.lastGraph = null;
+        console.log('[Observer] Destroyed');
     }
 }
 export { Observer as PageObserver };

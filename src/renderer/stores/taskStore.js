@@ -1,4 +1,7 @@
 import { create } from 'zustand';
+const MAX_MESSAGES = 500;
+const MAX_LOGS = 1000;
+const MAX_ACTIVE_STEPS = 200;
 export const useTaskStore = create((set) => ({
     // Session
     sessionId: null,
@@ -7,7 +10,7 @@ export const useTaskStore = create((set) => ({
     messages: [],
     addMessage: (message) => set((state) => ({
         messages: [
-            ...state.messages,
+            ...state.messages.slice(-(MAX_MESSAGES - 1)),
             {
                 ...message,
                 id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
@@ -35,7 +38,7 @@ export const useTaskStore = create((set) => ({
     // Active Steps
     activeSteps: [],
     addActiveStep: (step) => set((state) => ({
-        activeSteps: [...state.activeSteps, step],
+        activeSteps: [...state.activeSteps.slice(-(MAX_ACTIVE_STEPS - 1)), step],
     })),
     updateActiveStep: (id, updates) => set((state) => ({
         activeSteps: state.activeSteps.map((s) => (s.id === id ? { ...s, ...updates } : s)),
@@ -45,7 +48,7 @@ export const useTaskStore = create((set) => ({
     logs: [],
     addLog: (log) => set((state) => ({
         logs: [
-            ...state.logs,
+            ...state.logs.slice(-(MAX_LOGS - 1)),
             {
                 ...log,
                 timestamp: Date.now(),
@@ -64,12 +67,17 @@ export const useTaskStore = create((set) => ({
     setAskUserRequest: (request) => set({ askUserRequest: request }),
     respondToAskUser: (answer) => {
         const request = useTaskStore.getState().askUserRequest;
-        if (request && window.electron) {
-            window.electron.invoke('ask:user:response', {
-                requestId: request.requestId,
-                answer,
-                cancelled: false,
-            });
+        try {
+            if (request && window.electron) {
+                window.electron.invoke('ask:user:response', {
+                    requestId: request.requestId,
+                    answer,
+                    cancelled: false,
+                });
+            }
+        }
+        catch (error) {
+            console.error('[taskStore] respondToAskUser error:', error);
         }
         set({ askUserRequest: null });
     },
@@ -77,8 +85,13 @@ export const useTaskStore = create((set) => ({
     previewMode: 'sidebar',
     setPreviewMode: (mode) => {
         set({ previewMode: mode });
-        if (window.electron) {
-            window.electron.invoke('preview:setMode', { mode });
+        try {
+            if (window.electron) {
+                window.electron.invoke('preview:setMode', { mode });
+            }
+        }
+        catch (error) {
+            console.error('[taskStore] setPreviewMode error:', error);
         }
     },
 }));

@@ -16,13 +16,25 @@ function deepClone(obj) {
     }
     return cloned;
 }
+const DEFAULT_MAX_SIZE = 1000;
 export class MemoryStore {
     store = new Map();
     namespace = [];
-    constructor(namespace = ['current']) {
+    maxSize;
+    constructor(namespace = ['current'], maxSize = DEFAULT_MAX_SIZE) {
         this.namespace = namespace;
+        this.maxSize = maxSize;
     }
     async put(namespace, key, value) {
+        if (this.store.size >= this.maxSize) {
+            const oldestKey = this.store.keys().next().value;
+            if (!oldestKey) {
+                console.warn('[MemoryStore] No oldest key to evict');
+                return;
+            }
+            this.store.delete(oldestKey);
+            console.log('[MemoryStore] Max size reached, evicted oldest record');
+        }
         const fullKey = this.makeKey(namespace, key);
         this.store.set(fullKey, deepClone(value));
     }

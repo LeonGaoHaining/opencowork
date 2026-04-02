@@ -1,9 +1,11 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { parseSkillFrontmatter, validateSkillManifest, } from './skillManifest';
+const MAX_MANIFEST_CACHE = 200;
 export class SkillLoader {
     skillsDirs;
     manifestCache = new Map();
+    manifestCacheOrder = [];
     skillsCache = null;
     skillsCacheTime = 0;
     CACHE_TTL_MS = 5000;
@@ -51,6 +53,15 @@ export class SkillLoader {
             console.warn(`[SkillLoader] Skill ${name} has validation issues:`, validation.errors);
         }
         this.manifestCache.set(name, manifest);
+        if (!this.manifestCacheOrder.includes(name)) {
+            this.manifestCacheOrder.push(name);
+        }
+        while (this.manifestCacheOrder.length > MAX_MANIFEST_CACHE) {
+            const oldest = this.manifestCacheOrder.shift();
+            if (oldest) {
+                this.manifestCache.delete(oldest);
+            }
+        }
         const skill = {
             manifest,
             path: skillPath,

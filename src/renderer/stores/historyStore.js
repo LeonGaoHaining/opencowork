@@ -10,7 +10,9 @@ export const useHistoryStore = create((set, get) => ({
     setIsOpen: (isOpen) => set({ isOpen }),
     setFilter: (filter) => {
         set({ filter });
-        get().loadTasks(filter);
+        get()
+            .loadTasks(filter)
+            .catch((err) => console.error('[historyStore] loadTasks failed:', err));
     },
     setSelectedTaskId: (taskId) => {
         set({ selectedTaskId: taskId });

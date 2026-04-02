@@ -138,4 +138,8 @@ export class ShortTermMemory {
         this.currentTrajectory = null;
         console.log('[Memory] Cleared all entries');
     }
+    cleanup() {
+        this.clear();
+        console.log('[ShortTermMemory] Cleaned up');
+    }
 }

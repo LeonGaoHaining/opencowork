@@ -37,14 +37,19 @@ export function AskUserDialog() {
         }
     };
     const handleCancel = () => {
-        if (window.electron) {
-            window.electron.invoke('ask:user:response', {
-                requestId: askUserRequest.requestId,
-                answer: '',
-                cancelled: true,
-            });
+        try {
+            if (window.electron) {
+                window.electron.invoke('ask:user:response', {
+                    requestId: askUserRequest.requestId,
+                    answer: '',
+                    cancelled: true,
+                });
+            }
+            setAskUserRequest(null);
         }
-        setAskUserRequest(null);
+        catch (error) {
+            console.error('[AskUserDialog] handleCancel error:', error);
+        }
     };
     return (_jsx("div", { className: "fixed inset-0 z-50 flex items-center justify-center bg-black/70", children: _jsxs("div", { className: "w-[400px] rounded-lg bg-[var(--color-surface)] p-6 shadow-lg", children: [_jsxs("div", { className: "mb-4 flex items-center justify-between", children: [_jsx("h3", { className: "text-lg font-semibold text-[var(--color-text-primary)]", children: "\u9700\u8981\u786E\u8BA4" }), _jsxs("span", { className: "text-sm text-[var(--color-text-muted)]", children: ["\u5269\u4F59\u65F6\u95F4: ", formatTime(remainingTime)] })] }), _jsx("p", { className: "mb-6 text-[var(--color-text-secondary)]", children: askUserRequest.question }), askUserRequest.options && askUserRequest.options.length > 0 ? (_jsxs("form", { onSubmit: handleSubmit, children: [_jsx("div", { className: "mb-4 space-y-2", children: askUserRequest.options.map((option, index) => (_jsx("button", { type: "button", onClick: () => setSelectedOption(option), className: `w-full rounded-md p-3 text-left transition-colors ${selectedOption === option
                                     ? 'bg-[var(--color-primary)] text-white'

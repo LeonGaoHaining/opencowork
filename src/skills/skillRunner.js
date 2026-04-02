@@ -63,6 +63,8 @@ export class SkillRunner {
         return arg.replace(/[;&|`$(){}[\]<>\\!#*?"']/g, '\\$&');
     }
     async executeContent(content, skill, context) {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const _ctx = context;
         const lines = content.split('\n');
         const outputs = [];
         const shell = skill.manifest.frontmatter.shell === 'powershell' ? 'powershell' : 'bash';
@@ -138,6 +140,10 @@ export class SkillRunner {
     setConfig(config) {
         this.config = { ...this.config, ...config };
     }
+    cleanup() {
+        this.sessionId = '';
+        console.log('[SkillRunner] Cleaned up');
+    }
 }
 let skillRunnerInstance = null;
 let skillRunnerConfig;
@@ -151,6 +157,17 @@ export function getSkillRunner(config) {
     return skillRunnerInstance;
 }
 export function createSkillRunner(config) {
+    const oldRunner = skillRunnerInstance;
     skillRunnerInstance = new SkillRunner(config);
+    if (oldRunner) {
+        oldRunner.cleanup();
+    }
     return skillRunnerInstance;
+}
+export function resetSkillRunner() {
+    if (skillRunnerInstance) {
+        skillRunnerInstance.cleanup();
+        skillRunnerInstance = null;
+    }
+    skillRunnerConfig = undefined;
 }

@@ -225,6 +225,10 @@ export class PreviewManager {
         this.currentUrl = url;
         if (this.previewView) {
             try {
+                if (this.previewView.webContents.isDestroyed()) {
+                    console.warn('[PreviewManager] Preview view already destroyed');
+                    return;
+                }
                 await this.previewView.webContents.loadURL(url);
             }
             catch (e) {
@@ -234,16 +238,19 @@ export class PreviewManager {
     }
     cleanup() {
         this.closeDetachedWindow();
-        if (this.previewView && this.mainWindow) {
+        if (this.previewView && this.mainWindow && !this.mainWindow.isDestroyed()) {
             try {
                 this.mainWindow.removeBrowserView(this.previewView);
+                console.log('[PreviewManager] Removed BrowserView');
             }
             catch (e) {
-                console.log('[PreviewManager] Could not remove BrowserView during cleanup');
+                console.warn('[PreviewManager] Could not remove BrowserView during cleanup:', e);
             }
         }
         this.previewView = null;
+        this.previewWindow = null;
         this.mainWindow = null;
+        console.log('[PreviewManager] Cleaned up');
     }
 }
 export default PreviewManager;

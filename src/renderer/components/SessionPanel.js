@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { useSessionStore } from '../stores/sessionStore';
 import { useTaskStore } from '../stores/taskStore';
 export function SessionPanel() {
-    const { sessions, activeSessionId, isLoading, loadSessions, createSession, selectSession, deleteSession, renameSession } = useSessionStore();
+    const { sessions, activeSessionId, isLoading, loadSessions, createSession, selectSession, deleteSession, renameSession, } = useSessionStore();
     const { setMessages, setSessionId } = useTaskStore();
     const [editingId, setEditingId] = useState(null);
     const [editingName, setEditingName] = useState('');
@@ -11,39 +11,66 @@ export function SessionPanel() {
         loadSessions();
     }, []);
     const handleCreateSession = async () => {
-        const session = await createSession();
-        if (session) {
-            setSessionId(session.id);
+        try {
+            const session = await createSession();
+            if (session) {
+                setSessionId(session.id);
+            }
+        }
+        catch (error) {
+            console.error('[SessionPanel] handleCreateSession error:', error);
         }
     };
     const handleSelectSession = async (sessionId) => {
-        await selectSession(sessionId);
-        const { activeSession } = useSessionStore.getState();
-        if (activeSession?.messages) {
-            setMessages(activeSession.messages);
+        try {
+            await selectSession(sessionId);
+            const { activeSession } = useSessionStore.getState();
+            if (activeSession?.messages) {
+                setMessages(activeSession.messages);
+            }
+            setSessionId(sessionId);
         }
-        setSessionId(sessionId);
+        catch (error) {
+            console.error('[SessionPanel] handleSelectSession error:', error);
+        }
     };
     const handleRename = (sessionId, currentName) => {
         setEditingId(sessionId);
         setEditingName(currentName);
     };
     const handleRenameSubmit = async () => {
-        if (editingId && editingName.trim()) {
-            await renameSession(editingId, editingName.trim());
+        try {
+            if (editingId && editingName.trim()) {
+                await renameSession(editingId, editingName.trim());
+            }
         }
-        setEditingId(null);
-        setEditingName('');
+        catch (error) {
+            console.error('[SessionPanel] handleRenameSubmit error:', error);
+        }
+        finally {
+            setEditingId(null);
+            setEditingName('');
+        }
     };
     const handleDelete = async (sessionId, e) => {
-        e.stopPropagation();
-        if (confirm('确定删除此会话？')) {
-            await deleteSession(sessionId);
+        try {
+            e.stopPropagation();
+            if (confirm('确定删除此会话？')) {
+                await deleteSession(sessionId);
+            }
+        }
+        catch (error) {
+            console.error('[SessionPanel] handleDelete error:', error);
         }
     };
     const formatTime = (timestamp) => {
         const date = new Date(timestamp);
-        return date.toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+        return date.toLocaleString('zh-CN', {
+            month: 'numeric',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+        });
     };
     if (isLoading && sessions.length === 0) {
         return (_jsx("div", { className: "w-64 border-r border-border bg-surface p-4", children: _jsx("div", { className: "text-sm text-text-muted", children: "\u52A0\u8F7D\u4E2D..." }) }));

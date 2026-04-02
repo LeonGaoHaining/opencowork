@@ -187,9 +187,19 @@ export class PlanExecutor {
         return await this.router.execute(action);
     }
     async waitForResume() {
+        const TIMEOUT_MS = 300000;
+        let settled = false;
         return new Promise((resolve) => {
+            const timeoutId = setTimeout(() => {
+                settled = true;
+                console.warn('[PlanExecutor] waitForResume timeout after 5 minutes');
+                resolve();
+            }, TIMEOUT_MS);
             const check = () => {
+                if (settled)
+                    return;
                 if (!this.paused) {
+                    clearTimeout(timeoutId);
                     resolve();
                 }
                 else {
@@ -230,13 +240,16 @@ export class PlanExecutor {
         console.log(`[PlanExecutor] Cancelled`);
     }
     async cleanup() {
+        this.stopScreencast();
         await this.router.cleanup();
     }
     async getScreenshot() {
         return await this.router.browserExecutor.getScreenshot();
     }
     getBrowserPage() {
-        return this.router.browserExecutor.getPage();
+        if (!this.router?.browserExecutor)
+            return null;
+        return this.router.browserExecutor.getPage() || null;
     }
 }
 export default PlanExecutor;

@@ -5,10 +5,13 @@ const PRIORITY_MAP = {
     normal: 5,
     high: 1,
 };
+const MAX_STATUS_MAP_SIZE = 1000;
+const MAX_TASK_QUEUE_SIZE = 500;
 export class DispatchService extends EventEmitter {
     bot;
     taskQueue = [];
     statusMap = new Map();
+    statusInsertionOrder = [];
     constructor(bot) {
         super();
         this.bot = bot;
@@ -77,6 +80,10 @@ export class DispatchService extends EventEmitter {
         await this.forwardToDesktop(task);
     }
     enqueueTask(task) {
+        if (this.taskQueue.length >= MAX_TASK_QUEUE_SIZE) {
+            this.taskQueue.shift();
+            console.log('[DispatchService] Task queue limit reached, removed oldest task');
+        }
         const priority = PRIORITY_MAP[task.priority];
         const index = this.taskQueue.findIndex((t) => PRIORITY_MAP[t.priority] > priority);
         if (index === -1) {
@@ -89,18 +96,23 @@ export class DispatchService extends EventEmitter {
     }
     async forwardToDesktop(task) {
         try {
-            const { ipcRenderer } = require('electron');
-            const result = await ipcRenderer.invoke('feishu:execute', {
-                taskId: task.id,
-                description: task.description,
-                userId: task.userId,
-                priority: task.priority,
-            });
-            if (result.success) {
-                this.updateTaskStatus(task.id, { status: 'executing' });
+            if (typeof window !== 'undefined' && window.electron) {
+                const result = await window.electron.invoke('feishu:execute', {
+                    taskId: task.id,
+                    description: task.description,
+                    userId: task.userId,
+                    priority: task.priority,
+                });
+                if (result.success) {
+                    this.updateTaskStatus(task.id, { status: 'executing' });
+                }
+                else {
+                    this.updateTaskStatus(task.id, { status: 'failed', message: result.error });
+                }
             }
             else {
-                this.updateTaskStatus(task.id, { status: 'failed', message: result.error });
+                console.warn('[DispatchService] Window.electron not available, task not forwarded');
+                this.updateTaskStatus(task.id, { status: 'failed', message: 'Desktop API not available' });
             }
         }
         catch (error) {
@@ -152,13 +164,20 @@ export class DispatchService extends EventEmitter {
             return;
         }
         try {
-            const { ipcRenderer } = require('electron');
-            const result = await ipcRenderer.invoke('feishu:takeover', { taskId, userId: msg.userId });
-            if (result.success) {
-                await this.bot.sendMessage(msg.conversationId, `🔐 已接管任务\n\n任务ID: ${taskId}`);
+            if (typeof window !== 'undefined' && window.electron) {
+                const result = await window.electron.invoke('feishu:takeover', {
+                    taskId,
+                    userId: msg.userId,
+                });
+                if (result.success) {
+                    await this.bot.sendMessage(msg.conversationId, `🔐 已接管任务\n\n任务ID: ${taskId}`);
+                }
+                else {
+                    await this.bot.sendMessage(msg.conversationId, `❌ 接管失败: ${result.error}`);
+                }
             }
             else {
-                await this.bot.sendMessage(msg.conversationId, `❌ 接管失败: ${result.error}`);
+                await this.bot.sendMessage(msg.conversationId, '❌ 接管失败: Desktop API not available');
             }
         }
         catch (error) {
@@ -168,13 +187,17 @@ export class DispatchService extends EventEmitter {
     }
     async handleReturn(msg) {
         try {
-            const { ipcRenderer } = require('electron');
-            const result = await ipcRenderer.invoke('feishu:return', { userId: msg.userId });
-            if (result.success) {
-                await this.bot.sendMessage(msg.conversationId, '🔄 已交还控制权给AI');
+            if (typeof window !== 'undefined' && window.electron) {
+                const result = await window.electron.invoke('feishu:return', { userId: msg.userId });
+                if (result.success) {
+                    await this.bot.sendMessage(msg.conversationId, '🔄 已交还控制权给AI');
+                }
+                else {
+                    await this.bot.sendMessage(msg.conversationId, `❌ 交还失败: ${result.error}`);
+                }
             }
             else {
-                await this.bot.sendMessage(msg.conversationId, `❌ 交还失败: ${result.error}`);
+                await this.bot.sendMessage(msg.conversationId, '❌ 交还失败: Desktop API not available');
             }
         }
         catch (error) {
@@ -197,14 +220,18 @@ export class DispatchService extends EventEmitter {
             return;
         }
         try {
-            const { ipcRenderer } = require('electron');
-            const result = await ipcRenderer.invoke('feishu:cancel', { taskId });
-            if (result.success) {
-                this.updateTaskStatus(taskId, { status: 'failed', message: '用户取消' });
-                await this.bot.sendMessage(msg.conversationId, `🗑️ 已取消任务\n\n任务ID: ${taskId}`);
+            if (typeof window !== 'undefined' && window.electron) {
+                const result = await window.electron.invoke('feishu:cancel', { taskId });
+                if (result.success) {
+                    this.updateTaskStatus(taskId, { status: 'failed', message: '用户取消' });
+                    await this.bot.sendMessage(msg.conversationId, `🗑️ 已取消任务\n\n任务ID: ${taskId}`);
+                }
+                else {
+                    await this.bot.sendMessage(msg.conversationId, `❌ 取消失败: ${result.error}`);
+                }
             }
             else {
-                await this.bot.sendMessage(msg.conversationId, `❌ 取消失败: ${result.error}`);
+                await this.bot.sendMessage(msg.conversationId, '❌ 取消失败: Desktop API not available');
             }
         }
         catch (error) {
@@ -217,6 +244,21 @@ export class DispatchService extends EventEmitter {
         await this.bot.sendMessage(msg.conversationId, parser.getHelp());
     }
     updateTaskStatus(taskId, status) {
+        if (status.status === 'completed' || status.status === 'failed') {
+            this.statusMap.delete(taskId);
+            this.statusInsertionOrder = this.statusInsertionOrder.filter((k) => k !== taskId);
+            return;
+        }
+        if (this.statusMap.size >= MAX_STATUS_MAP_SIZE) {
+            const oldestKey = this.statusInsertionOrder.shift();
+            if (oldestKey) {
+                this.statusMap.delete(oldestKey);
+                console.log('[DispatchService] statusMap limit reached, removed oldest entry');
+            }
+        }
+        if (!this.statusMap.has(taskId)) {
+            this.statusInsertionOrder.push(taskId);
+        }
         const existing = this.statusMap.get(taskId);
         if (existing) {
             this.statusMap.set(taskId, { ...existing, ...status, updatedAt: Date.now() });
@@ -230,7 +272,7 @@ export class DispatchService extends EventEmitter {
         return Array.from(this.statusMap.values());
     }
     generateTaskId() {
-        return `ft_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+        return `ft_${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
     }
 }
 let dispatchServiceInstance = null;

@@ -4,12 +4,22 @@ const DEFAULT_CONFIG = {
     maxConcurrent: 3,
     maxQueueSize: 100,
 };
+export const TASK_QUEUE_EVENTS = {
+    TASK_ENQUEUED: 'task:enqueued',
+    TASK_COMPLETED: 'task:completed',
+    TASK_FAILED: 'task:failed',
+    QUEUE_EMPTY: 'queue:empty',
+    QUEUE_PROCESSED: 'queue:processed',
+};
 export class TaskQueue extends EventEmitter {
     config;
     queue = [];
     runningCount = 0;
     isProcessing = false;
     executor;
+    consecutiveEmptyChecks = 0;
+    maxConsecutiveEmptyChecks = 100;
+    emptyCheckDelay = 100;
     constructor(config = {}) {
         super();
         this.config = { ...DEFAULT_CONFIG, ...config };
@@ -39,8 +49,15 @@ export class TaskQueue extends EventEmitter {
             this.queue.splice(insertIndex, 0, task);
         }
         console.log('[TaskQueue] Enqueued task:', task.scheduledTaskId, 'Priority:', task.priority);
+        this.emit(TASK_QUEUE_EVENTS.TASK_ENQUEUED, task);
+        // Trigger processing if there are available slots
+        if (this.runningCount < this.config.maxConcurrent && this.queue.length > 0) {
+            this.processQueue();
+        }
     }
     dequeue() {
+        if (this.queue.length === 0)
+            return undefined;
         return this.queue.shift();
     }
     size() {
@@ -57,19 +74,43 @@ export class TaskQueue extends EventEmitter {
             this.queue.length > 0 &&
             this.executor) {
             const task = this.peekNextExecutable();
-            if (!task)
+            if (!task) {
+                // No executable tasks (waiting for executeAt time)
                 break;
+            }
             this.runningCount++;
             const dequeuedTask = this.dequeue();
             if (dequeuedTask) {
                 this.executeTask(dequeuedTask).finally(() => {
                     this.runningCount--;
-                    this.processQueue();
+                    // After task completes, try to process more
+                    if (this.queue.length > 0 && this.runningCount < this.config.maxConcurrent) {
+                        this.processQueue();
+                    }
+                    else if (this.queue.length === 0) {
+                        this.emit(TASK_QUEUE_EVENTS.QUEUE_EMPTY);
+                    }
                 });
             }
         }
-        if (this.isProcessing) {
-            setTimeout(() => this.processQueue(), 100);
+        // Only schedule next check if queue has pending tasks but no available slots
+        if (this.isProcessing &&
+            this.queue.length > 0 &&
+            this.runningCount >= this.config.maxConcurrent) {
+            setTimeout(() => this.processQueue(), this.emptyCheckDelay);
+        }
+        // Track consecutive empty queue checks to reduce CPU usage
+        if (this.queue.length === 0) {
+            this.consecutiveEmptyChecks++;
+            if (this.consecutiveEmptyChecks > this.maxConsecutiveEmptyChecks) {
+                console.log('[TaskQueue] Queue empty for extended period, reducing check frequency');
+                this.emptyCheckDelay = 5000;
+                this.consecutiveEmptyChecks = 0;
+            }
+        }
+        else {
+            this.consecutiveEmptyChecks = 0;
+            this.emptyCheckDelay = 100;
         }
     }
     peekNextExecutable() {

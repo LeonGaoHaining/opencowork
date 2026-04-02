@@ -54,6 +54,8 @@ export class ExecutorRouter {
     async cleanup() {
         await this.browserExecutor.cleanup();
         this.askUserExecutor.cancelAll();
+        // CLIExecutor 当前无需清理（如有需要可添加 cliExecutor.cleanup()
+        console.log('[ExecutorRouter] Cleaned up');
     }
 }
 export default ExecutorRouter;

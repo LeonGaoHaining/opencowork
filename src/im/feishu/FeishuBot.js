@@ -6,9 +6,15 @@ export class FeishuBot {
     messageHandler;
     tenantAccessToken = null;
     tokenExpireTime = 0;
-    TOKEN_REFRESH_BEFORE = 300000;
+    TOKEN_REFRESH_BEFORE;
+    DEFAULT_TIMEOUT = 30000;
+    axiosInstance;
     constructor(config) {
         this.config = config;
+        this.TOKEN_REFRESH_BEFORE = config.tokenRefreshBefore ?? 300000;
+        this.axiosInstance = axios.create({
+            timeout: this.DEFAULT_TIMEOUT,
+        });
     }
     async initialize() {
         await this.getTenantAccessToken();
@@ -19,7 +25,7 @@ export class FeishuBot {
             return;
         }
         try {
-            const response = await axios.post('https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal', {
+            const response = await this.axiosInstance.post('https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal', {
                 app_id: this.config.appId,
                 app_secret: this.config.appSecret,
             });
@@ -45,24 +51,41 @@ export class FeishuBot {
         }
     }
     async handleMessageEvent(event) {
-        if (!this.isMentionedBot(event))
+        if (!this.shouldProcessMessage(event))
             return;
         const message = this.parseMessage(event);
         if (this.messageHandler) {
             this.messageHandler(message);
         }
     }
+    shouldProcessMessage(event) {
+        const isDirectChat = event.message.chat_id.startsWith('im_dm');
+        const isGroupChat = event.message.chat_id.startsWith('im_') && !isDirectChat;
+        if (isDirectChat) {
+            return true;
+        }
+        if (isGroupChat) {
+            return this.isMentionedBot(event);
+        }
+        return false;
+    }
     isMentionedBot(event) {
         return (event.message?.mentions?.some((m) => m.sender_id?.user_id === this.config.appId) ?? false);
     }
     parseMessage(event) {
-        const content = JSON.parse(event.message.content);
+        let content = {};
+        try {
+            content = JSON.parse(event.message.content);
+        }
+        catch (err) {
+            console.warn('[FeishuBot] Failed to parse message content:', err);
+        }
         const text = content.text || '';
         return {
             id: event.message.message_id,
             platform: 'feishu',
             userId: event.sender.sender_id.user_id,
-            content: text.replace(/@[\s]+\s*/, '').trim(),
+            content: text.replace(/@[^\s]+\s*/, '').trim(),
             type: event.message.msg_type,
             timestamp: event.message.create_time,
             conversationId: event.message.chat_id,
@@ -76,7 +99,7 @@ export class FeishuBot {
         const payload = typeof message === 'string'
             ? { msg_type: 'text', content: { text: message } }
             : this.buildCardMessage(message);
-        await axios.post('https://open.feishu.cn/open-apis/im/v1/messages', payload, {
+        await this.axiosInstance.post('https://open.feishu.cn/open-apis/im/v1/messages', payload, {
             params: { receive_id_type: 'chat_id' },
             headers: { Authorization: `Bearer ${this.tenantAccessToken}` },
         });
@@ -162,7 +185,7 @@ export class FeishuBot {
     async getUserOpenId(userId) {
         await this.ensureToken();
         try {
-            const response = await axios.get(`https://open.feishu.cn/open-apis/contact/v3/user_id_mapping?user_id=${encodeURIComponent(userId)}`, { headers: { Authorization: `Bearer ${this.tenantAccessToken}` } });
+            const response = await this.axiosInstance.get(`https://open.feishu.cn/open-apis/contact/v3/user_id_mapping?user_id=${encodeURIComponent(userId)}`, { headers: { Authorization: `Bearer ${this.tenantAccessToken}` } });
             return response.data.data?.open_id;
         }
         catch (error) {
@@ -198,11 +221,11 @@ export class FeishuBot {
             console.warn('[FeishuBot] encryptKey not configured, skipping verification');
             return true;
         }
-        const signStr = timestamp + '\n' + this.config.encryptKey;
-        const hmac = crypto.createHmac('sha256', signStr);
-        const hash = hmac.update('').digest('hex');
-        const expectedSignature = crypto.createHash('sha256').update(hash).digest('hex');
-        return expectedSignature === signature;
+        const expected = crypto
+            .createHmac('sha256', this.config.encryptKey)
+            .update(timestamp)
+            .digest('hex');
+        return expected === signature;
     }
 }
 let feishuBotInstance = null;

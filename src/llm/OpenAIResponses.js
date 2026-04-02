@@ -27,9 +27,7 @@ export class OpenAIResponsesClient {
         };
     }
     async complete(prompt) {
-        return this.chat([
-            { role: 'user', content: prompt },
-        ]);
+        return this.chat([{ role: 'user', content: prompt }]);
     }
     async makeRequest(url, body) {
         const controller = new AbortController();
@@ -39,7 +37,7 @@ export class OpenAIResponsesClient {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${this.apiKey}`,
+                    Authorization: `Bearer ${this.apiKey}`,
                     'api-key': this.apiKey,
                 },
                 body: JSON.stringify(body),
@@ -67,4 +65,8 @@ export function getLLMClient() {
         clientInstance = new OpenAIResponsesClient();
     }
     return clientInstance;
+}
+export function resetLLMClient() {
+    clientInstance = null;
+    console.log('[OpenAIResponses] Client reset');
 }

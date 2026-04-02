@@ -2,16 +2,32 @@
  * AgentMemory - 简单内存存储封装
  * 用于跨会话记忆存储
  */
+const MAX_ENTRIES = 1000;
 export class AgentMemory {
     entries = new Map();
+    entryOrder = [];
     namespace;
     constructor(namespace = 'default') {
         this.namespace = namespace;
     }
     async put(entry) {
+        if (this.entries.size >= MAX_ENTRIES && !this.hasEntry(entry.id, entry.type)) {
+            const oldestKey = this.entryOrder.shift();
+            if (oldestKey) {
+                this.entries.delete(oldestKey);
+                console.log('[AgentMemory] Max entries reached, evicted oldest');
+            }
+        }
         const key = `${this.namespace}_${entry.type}_${entry.id}`;
         this.entries.set(key, entry);
+        if (!this.entryOrder.includes(key)) {
+            this.entryOrder.push(key);
+        }
         console.log(`[AgentMemory] Stored: ${key}`);
+    }
+    hasEntry(id, type) {
+        const key = `${this.namespace}_${type}_${id}`;
+        return this.entries.has(key);
     }
     async get(id, type) {
         if (type) {
@@ -39,12 +55,14 @@ export class AgentMemory {
         if (type) {
             const key = `${this.namespace}_${type}_${id}`;
             this.entries.delete(key);
+            this.entryOrder = this.entryOrder.filter((k) => k !== key);
             console.log(`[AgentMemory] Deleted: ${key}`);
         }
         else {
             for (const [key, entry] of this.entries) {
                 if (entry.id === id) {
                     this.entries.delete(key);
+                    this.entryOrder = this.entryOrder.filter((k) => k !== key);
                     console.log(`[AgentMemory] Deleted: ${key}`);
                     return;
                 }
@@ -118,5 +136,11 @@ export function getMemory() {
 }
 export function createMemory(namespace) {
     return new AgentMemory(namespace);
+}
+export function resetMemory() {
+    if (memoryInstance) {
+        memoryInstance.clear();
+        memoryInstance = null;
+    }
 }
 export default AgentMemory;

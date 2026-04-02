@@ -1,17 +1,28 @@
 // src/scheduler/taskStore.ts
 import * as fs from 'fs';
 import * as path from 'path';
+import crypto from 'crypto';
 export class TaskStore {
     dbPath;
     tasks = new Map();
+    initialized = false;
     constructor(dbPath = './data/scheduled_tasks.json') {
         this.dbPath = dbPath;
-        this.load();
     }
-    load() {
+    async initialize() {
+        if (this.initialized)
+            return;
+        await this.load();
+        this.initialized = true;
+    }
+    async load() {
         try {
+            const dir = path.dirname(this.dbPath);
+            if (!fs.existsSync(dir)) {
+                await fs.promises.mkdir(dir, { recursive: true });
+            }
             if (fs.existsSync(this.dbPath)) {
-                const data = fs.readFileSync(this.dbPath, 'utf-8');
+                const data = await fs.promises.readFile(this.dbPath, 'utf-8');
                 const tasks = JSON.parse(data);
                 for (const task of tasks) {
                     this.tasks.set(task.id, task);

@@ -4,6 +4,7 @@
  */
 import * as fs from 'fs';
 import * as path from 'path';
+const DEFAULT_MAX_TOOL_DURATIONS = 100;
 class AgentLogger {
     enabled = true;
     level = 'info';
@@ -11,6 +12,7 @@ class AgentLogger {
     logDir = 'logs';
     maxFiles = 7;
     maxEventsInMemory = 1000;
+    maxToolDurations = DEFAULT_MAX_TOOL_DURATIONS;
     currentDate;
     events = [];
     toolCallCounts = {};
@@ -24,6 +26,7 @@ class AgentLogger {
         this.logDir = config.logDir ?? 'logs';
         this.maxFiles = config.maxFiles ?? 7;
         this.maxEventsInMemory = config.maxEventsInMemory ?? 1000;
+        this.maxToolDurations = config.maxToolDurations ?? DEFAULT_MAX_TOOL_DURATIONS;
         this.currentDate = this.getDateString();
         this.startTime = new Date().toISOString();
         if (this.output !== 'console') {
@@ -165,6 +168,9 @@ class AgentLogger {
                     this.toolDurations[event.toolName] = [];
                 }
                 this.toolDurations[event.toolName].push(event.duration);
+                if (this.toolDurations[event.toolName].length > this.maxToolDurations) {
+                    this.toolDurations[event.toolName].shift();
+                }
             }
         }
         if (event.level === 'error') {
@@ -276,7 +282,13 @@ class AgentLogger {
     }
     exportToFile(filePath) {
         const targetPath = filePath || path.join(this.logDir, `agent-export-${Date.now()}.json`);
-        fs.writeFileSync(targetPath, this.exportLogs(), 'utf-8');
+        try {
+            fs.writeFileSync(targetPath, this.exportLogs(), 'utf-8');
+        }
+        catch (err) {
+            console.error('[AgentLogger] Failed to export to file:', err);
+            throw err;
+        }
         return targetPath;
     }
     clear() {

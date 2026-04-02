@@ -2,7 +2,7 @@ const DEFAULT_CONFIG = {
     fps: 24, // 默认 fps
     quality: 20, // 降低质量提高压缩率
     maxWidth: 800, // 降低分辨率
-    maxHeight: 0, // 0 表示不限制高度，由 CSS 自动填充
+    maxHeight: 0, // 0 表示使用 CSS 自动填充高度
 };
 export class ScreencastService {
     page = null;
@@ -90,7 +90,7 @@ export class ScreencastService {
             }
         }
         catch (error) {
-            // 静默处理错误，避免频繁打印
+            console.warn('[Screencast] Capture frame failed:', error?.message || error);
         }
     }
     updateConfig(config) {

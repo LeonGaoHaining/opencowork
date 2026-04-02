@@ -5,24 +5,19 @@ export var TakeoverReason;
     TakeoverReason["USER_MOUSE"] = "user_mouse";
     TakeoverReason["USER_REMOTE"] = "user_remote";
 })(TakeoverReason || (TakeoverReason = {}));
+const MAX_LISTENERS = 100;
 export class TakeoverManager {
     takeoverState = null;
     listeners = new Set();
-    triggerTakeover(reason, context = {}) {
-        console.log(`[TakeoverManager] Takeover triggered:`, reason);
-        this.takeoverState = {
-            reason,
-            timestamp: Date.now(),
-            currentNode: context.currentNode || null,
-            completedActions: context.completedActions || [],
-            pendingNodes: context.pendingNodes || [],
-            aiContext: context.aiContext || {
-                currentTask: '',
-                conversationHistory: [],
-                variables: {},
-            },
-        };
-        this.notifyListeners();
+    addListener(listener) {
+        if (this.listeners.size >= MAX_LISTENERS) {
+            const oldest = this.listeners.keys().next().value;
+            if (oldest) {
+                this.listeners.delete(oldest);
+                console.log('[TakeoverManager] Max listeners reached, removed oldest');
+            }
+        }
+        this.listeners.add(listener);
     }
     resumeFromTakeover(action) {
         console.log(`[TakeoverManager] Resuming from takeover`);
@@ -38,14 +33,23 @@ export class TakeoverManager {
     isInTakeover() {
         return this.takeoverState !== null;
     }
-    addListener(listener) {
-        this.listeners.add(listener);
-    }
     removeListener(listener) {
         this.listeners.delete(listener);
     }
+    destroy() {
+        this.listeners.clear();
+        this.takeoverState = null;
+        console.log('[TakeoverManager] Destroyed');
+    }
     notifyListeners() {
-        this.listeners.forEach((listener) => listener(this.takeoverState));
+        this.listeners.forEach((listener) => {
+            try {
+                listener(this.takeoverState);
+            }
+            catch (err) {
+                console.error('[TakeoverManager] Listener error:', err);
+            }
+        });
     }
 }
 export default TakeoverManager;

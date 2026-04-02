@@ -9,11 +9,27 @@ export function ControlBar() {
     const handleTakeover = () => {
         setTakeover(true);
     };
-    const handlePause = () => {
+    const handlePause = async () => {
         console.log('Pause task');
+        if (task?.id) {
+            try {
+                await window.electron.invoke('task:pause', { handleId: task.id });
+            }
+            catch (error) {
+                console.error('Pause error:', error);
+            }
+        }
     };
-    const handleStop = () => {
+    const handleStop = async () => {
         console.log('Stop task');
+        if (task?.id) {
+            try {
+                await window.electron.invoke('task:stop', { handleId: task.id });
+            }
+            catch (error) {
+                console.error('Stop error:', error);
+            }
+        }
     };
     const handleCheckLogin = async () => {
         console.log('Checking login popup...');

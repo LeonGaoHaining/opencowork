@@ -5,11 +5,12 @@ const ASK_USER_RESPONSE_CHANNEL = 'ask:user:response';
 let mainWindowRef = null;
 // 模块级标志：防止重复注册 IPC handler
 let ipcHandlerRegistered = false;
+// 模块级 pendingRequests Map，支持多个 AskUserExecutor 实例
+let pendingRequests = new Map();
 export function setAskUserMainWindow(window) {
     mainWindowRef = window;
 }
 export class AskUserExecutor {
-    pendingRequests = new Map();
     constructor() {
         // 使用模块级标志防止重复注册
         if (!ipcHandlerRegistered) {
@@ -20,13 +21,13 @@ export class AskUserExecutor {
     setupIpcHandlers() {
         ipcMain.handle(ASK_USER_RESPONSE_CHANNEL, async (event, response) => {
             const { requestId, answer, cancelled } = response;
-            const pending = this.pendingRequests.get(requestId);
+            const pending = pendingRequests.get(requestId);
             if (!pending) {
                 console.warn('[AskUserExecutor] No pending request for response:', requestId);
                 return;
             }
             clearTimeout(pending.timeout);
-            this.pendingRequests.delete(requestId);
+            pendingRequests.delete(requestId);
             if (cancelled) {
                 pending.reject(new Error('USER_CANCELLED'));
             }
@@ -54,7 +55,7 @@ export class AskUserExecutor {
         console.log(`[AskUserExecutor] Requesting user input:`, params.question);
         return new Promise((resolve) => {
             const timeoutHandle = setTimeout(() => {
-                this.pendingRequests.delete(requestId);
+                pendingRequests.delete(requestId);
                 console.warn('[AskUserExecutor] User response timeout');
                 resolve({
                     success: false,
@@ -66,8 +67,10 @@ export class AskUserExecutor {
                     duration: Date.now() - startTime,
                 });
             }, timeout);
-            this.pendingRequests.set(requestId, {
+            pendingRequests.set(requestId, {
                 resolve: (response) => {
+                    clearTimeout(timeoutHandle);
+                    pendingRequests.delete(requestId);
                     console.log('[AskUserExecutor] User responded:', response);
                     resolve({
                         success: true,
@@ -76,6 +79,8 @@ export class AskUserExecutor {
                     });
                 },
                 reject: (error) => {
+                    clearTimeout(timeoutHandle);
+                    pendingRequests.delete(requestId);
                     console.log('[AskUserExecutor] User cancelled or error:', error.message);
                     resolve({
                         success: false,
@@ -113,17 +118,17 @@ export class AskUserExecutor {
         });
     }
     cancelRequest(requestId) {
-        const pending = this.pendingRequests.get(requestId);
+        const pending = pendingRequests.get(requestId);
         if (pending) {
             clearTimeout(pending.timeout);
-            this.pendingRequests.delete(requestId);
+            pendingRequests.delete(requestId);
         }
     }
     cancelAll() {
-        for (const [requestId, pending] of this.pendingRequests) {
+        for (const [requestId, pending] of pendingRequests) {
             clearTimeout(pending.timeout);
         }
-        this.pendingRequests.clear();
+        pendingRequests.clear();
     }
 }
 export default AskUserExecutor;

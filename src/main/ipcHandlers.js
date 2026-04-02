@@ -13,6 +13,8 @@ let cliExecutor = null;
 let sharedMainAgent = null;
 let sharedThreadId = 'main-session';
 let isAgentInitializing = false;
+let agentInitPromise = null;
+let agentInitResolver = null;
 function getBrowserExecutor() {
     if (!browserExecutor) {
         browserExecutor = new BrowserExecutor();
@@ -46,25 +48,61 @@ export const IPC_HANDLERS = {
     // 任务相关 (v0.4 - 使用 MainAgent)
     'task:start': async (mainWindow, previewWindow, { task, threadId }) => {
         console.log('[IPC] task:start:', task, 'threadId:', threadId);
+        const AGENT_INIT_TIMEOUT_MS = 60000;
         try {
             if (!sharedMainAgent && !isAgentInitializing) {
                 isAgentInitializing = true;
                 console.log('[IPC] Creating shared MainAgent...');
-                sharedMainAgent = await createMainAgent({
+                agentInitPromise = new Promise((resolve) => {
+                    agentInitResolver = resolve;
+                });
+                const initPromise = createMainAgent({
                     logger: { level: 'debug', output: 'console' },
                 });
-                sharedMainAgent.setMainWindow(mainWindow);
-                sharedMainAgent.setPreviewWindow(previewWindow);
-                isAgentInitializing = false;
-                console.log('[IPC] Shared MainAgent created, threadId:', sharedMainAgent.getThreadId());
+                const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Agent initialization timeout')), AGENT_INIT_TIMEOUT_MS));
+                try {
+                    sharedMainAgent = await Promise.race([initPromise, timeoutPromise]);
+                    sharedMainAgent.setMainWindow(mainWindow);
+                    sharedMainAgent.setPreviewWindow(previewWindow);
+                    isAgentInitializing = false;
+                    console.log('[IPC] Shared MainAgent created, threadId:', sharedMainAgent.getThreadId());
+                    if (agentInitResolver) {
+                        agentInitResolver();
+                        agentInitPromise = null;
+                        agentInitResolver = null;
+                    }
+                }
+                catch (initError) {
+                    isAgentInitializing = false;
+                    agentInitPromise = null;
+                    agentInitResolver = null;
+                    throw initError;
+                }
             }
-            else if (isAgentInitializing) {
+            else if (isAgentInitializing && agentInitPromise) {
                 console.log('[IPC] Agent is still initializing, waiting...');
-                while (isAgentInitializing) {
-                    await new Promise((resolve) => setTimeout(resolve, 100));
+                try {
+                    await Promise.race([
+                        agentInitPromise,
+                        new Promise((_, reject) => setTimeout(() => reject(new Error('Agent init wait timeout')), AGENT_INIT_TIMEOUT_MS)),
+                    ]);
+                }
+                catch (timeoutError) {
+                    console.error('[IPC] Agent init wait timeout');
+                    return {
+                        success: false,
+                        error: 'Agent initialization timeout',
+                    };
                 }
             }
             const agent = sharedMainAgent;
+            if (!agent) {
+                console.error('[IPC] Agent not initialized');
+                return {
+                    success: false,
+                    error: 'Agent initialization failed',
+                };
+            }
             if (threadId) {
                 agent.setThreadId(threadId);
                 sharedThreadId = threadId;
@@ -312,6 +350,9 @@ export const IPC_HANDLERS = {
     },
     'feishu:execute': async (mainWindow, previewWindow, payload) => {
         try {
+            if (!payload?.taskId || !payload?.description) {
+                return { success: false, error: 'Missing taskId or description' };
+            }
             const { getScheduler } = await import('../scheduler/scheduler');
             const scheduler = getScheduler();
             const task = await scheduler.addTask({
@@ -334,8 +375,12 @@ export const IPC_HANDLERS = {
             return { success: false, error: error.message };
         }
     },
-    'feishu:takeover': async (mainWindow, previewWindow, { taskId, userId }) => {
+    'feishu:takeover': async (mainWindow, previewWindow, payload) => {
         try {
+            const { taskId, userId } = payload || {};
+            if (!taskId || !userId) {
+                return { success: false, error: 'Missing taskId or userId' };
+            }
             const taskEngine = getTaskEngine();
             const result = await taskEngine.takeover(taskId);
             return { success: result !== null, error: result ? undefined : 'Task not found' };
@@ -345,8 +390,12 @@ export const IPC_HANDLERS = {
             return { success: false, error: error.message };
         }
     },
-    'feishu:return': async (mainWindow, previewWindow, { userId }) => {
+    'feishu:return': async (mainWindow, previewWindow, payload) => {
         try {
+            const { userId } = payload || {};
+            if (!userId) {
+                return { success: false, error: 'Missing userId' };
+            }
             const taskEngine = getTaskEngine();
             await taskEngine.resume(userId);
             return { success: true };
@@ -356,8 +405,12 @@ export const IPC_HANDLERS = {
             return { success: false, error: error.message };
         }
     },
-    'feishu:cancel': async (mainWindow, previewWindow, { taskId }) => {
+    'feishu:cancel': async (mainWindow, previewWindow, payload) => {
         try {
+            const { taskId } = payload || {};
+            if (!taskId) {
+                return { success: false, error: 'Missing taskId' };
+            }
             const taskEngine = getTaskEngine();
             await taskEngine.cancel(taskId);
             return { success: true };
@@ -367,8 +420,12 @@ export const IPC_HANDLERS = {
             return { success: false, error: error.message };
         }
     },
-    'feishu:bind': async (mainWindow, previewWindow, { imUserId, desktopUserId }) => {
+    'feishu:bind': async (mainWindow, previewWindow, payload) => {
         try {
+            const { imUserId, desktopUserId } = payload || {};
+            if (!imUserId || !desktopUserId) {
+                return { success: false, error: 'Missing imUserId or desktopUserId' };
+            }
             const { getBindingStore } = await import('../im/store/bindingStore');
             const bindingStore = getBindingStore();
             bindingStore.set(imUserId, {

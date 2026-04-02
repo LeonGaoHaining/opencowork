@@ -1,5 +1,6 @@
 import { MemoryStore } from './memoryStore';
 import { SQLiteStore } from './sqliteStore';
+const MAX_PENDING_WRITES = 500;
 export class HistoryStore {
     memoryStore;
     sqliteStore;
@@ -14,10 +15,14 @@ export class HistoryStore {
     }
     async saveTask(record) {
         await this.memoryStore.put(['current'], `task_${record.id}`, record);
-        this.scheduleSqliteSync(record);
+        await this.scheduleSqliteSync(record);
     }
-    scheduleSqliteSync(record) {
+    async scheduleSqliteSync(record) {
         this.pendingSqliteWrites.push(record);
+        if (this.pendingSqliteWrites.length >= MAX_PENDING_WRITES) {
+            await this.flushToSqlite();
+            return;
+        }
         if (this.syncToSqliteTimer) {
             clearTimeout(this.syncToSqliteTimer);
             this.syncToSqliteTimer = null;
@@ -112,6 +117,12 @@ export class HistoryStore {
         this.retryCounts.clear();
         await this.memoryStore.clear();
         await this.sqliteStore.clear();
+    }
+    async flushPendingWrites() {
+        if (this.pendingSqliteWrites.length > 0) {
+            console.log('[HistoryStore] Flushing pending writes on shutdown:', this.pendingSqliteWrites.length);
+            await this.flushToSqlite();
+        }
     }
     async getTotalCount() {
         return await this.sqliteStore.size();

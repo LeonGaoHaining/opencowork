@@ -58,6 +58,9 @@ export class HistoryService {
         }
         return this.taskMutexes.get(taskId);
     }
+    releaseTaskMutex(taskId) {
+        this.taskMutexes.delete(taskId);
+    }
     async createTask(task, metadata) {
         return this.globalMutex.lock(async () => {
             const now = Date.now();
@@ -148,6 +151,7 @@ export class HistoryService {
             task.duration = now - task.startTime;
             task.result = result;
             await this.store.saveTask(task);
+            this.releaseTaskMutex(taskId);
         });
     }
     async cancelTask(taskId, reason) {
@@ -163,6 +167,7 @@ export class HistoryService {
             task.duration = now - task.startTime;
             task.result = { success: false, error: reason || 'Cancelled by user' };
             await this.store.saveTask(task);
+            this.releaseTaskMutex(taskId);
         });
     }
     async getTask(taskId) {

@@ -10,7 +10,7 @@ const CLI_WHITELIST = {
     ls: ['-la', '-l', '-a', '-R'],
     pwd: [],
     echo: ['*'],
-    cat: ['*'],
+    cat: [],
     mkdir: ['-p'],
     cd: [],
     touch: ['*'],
@@ -56,39 +56,71 @@ export class CLIExecutor {
             if (env) {
                 options.env = { ...process.env, ...env };
             }
-            exec(command, options, async (error, stdout, stderr) => {
-                if (error) {
-                    console.error(`[CLIExecutor] Command failed:`, error.message);
-                    if (error.killed) {
+            let timeoutId = null;
+            const commandTimeout = cliAction.params.timeout || 60000;
+            timeoutId = setTimeout(() => {
+                console.error('[CLIExecutor] Command timed out:', command);
+                resolve({
+                    success: false,
+                    error: {
+                        code: 'TIMEOUT',
+                        message: `Command timed out after ${commandTimeout}ms`,
+                        recoverable: true,
+                    },
+                    duration: Date.now() - startTime,
+                });
+            }, commandTimeout);
+            exec(command, options, (error, stdout, stderr) => {
+                if (timeoutId) {
+                    clearTimeout(timeoutId);
+                    timeoutId = null;
+                }
+                try {
+                    if (error) {
+                        console.error(`[CLIExecutor] Command failed:`, error.message);
+                        if (error.killed) {
+                            resolve({
+                                success: false,
+                                error: {
+                                    code: 'TIMEOUT',
+                                    message: 'Command timed out after 60 seconds',
+                                    recoverable: true,
+                                },
+                                duration: Date.now() - startTime,
+                            });
+                            return;
+                        }
                         resolve({
                             success: false,
+                            output: stdout.toString(),
                             error: {
-                                code: 'TIMEOUT',
-                                message: 'Command timed out after 60 seconds',
+                                code: 'COMMAND_FAILED',
+                                message: (stderr ? stderr.toString() : '') || error.message,
                                 recoverable: true,
                             },
                             duration: Date.now() - startTime,
                         });
                         return;
                     }
+                    console.log(`[CLIExecutor] Command succeeded`);
+                    resolve({
+                        success: true,
+                        output: stdout.toString(),
+                        duration: Date.now() - startTime,
+                    });
+                }
+                catch (callbackError) {
+                    console.error('[CLIExecutor] Callback error:', callbackError);
                     resolve({
                         success: false,
-                        output: stdout.toString(),
                         error: {
-                            code: 'COMMAND_FAILED',
-                            message: (stderr ? stderr.toString() : '') || error.message,
+                            code: 'CALLBACK_ERROR',
+                            message: callbackError.message || String(callbackError),
                             recoverable: true,
                         },
                         duration: Date.now() - startTime,
                     });
-                    return;
                 }
-                console.log(`[CLIExecutor] Command succeeded`);
-                resolve({
-                    success: true,
-                    output: stdout.toString(),
-                    duration: Date.now() - startTime,
-                });
             });
         });
     }

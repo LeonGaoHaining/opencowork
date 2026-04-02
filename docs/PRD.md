@@ -1,15 +1,15 @@
 # OpenCowork 产品需求文档 (PRD)
 
-| 项目         | 内容                                                                                                                                                  |
-| ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 产品名称     | OpenCowork                                                                                                                                            |
-| 文档版本     | v3.0                                                                                                                                                  |
-| 更新日期     | 2026-03-31                                                                                                                                            |
-| 文档状态     | v2.0 规划完成                                                                                                                                         |
-| 基于竞品     | Claude Cowork + 原有AI Browser PRD                                                                                                                    |
-| 技术规格     | [SPEC v0.3](./SPEC_v0.3.md), [SPEC v0.4](./SPEC_v0.4.md), [SPEC v0.5](./SPEC_v0.5.md), [SPEC_v0.6.md](./SPEC_v0.6.md), [SPEC_v0.7.md](./SPEC_v0.7.md) |
-| **部署场景** | **AI 专用设备**（安全限制放宽）                                                                                                                       |
-| **安全级别** | **内部信任环境**（非公开部署）                                                                                                                        |
+| 项目         | 内容                                                                                                                                                                         |
+| ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 产品名称     | OpenCowork                                                                                                                                                                   |
+| 文档版本     | v3.1                                                                                                                                                                         |
+| 更新日期     | 2026-04-02                                                                                                                                                                   |
+| 文档状态     | v2.0 规划完成                                                                                                                                                                |
+| 基于竞品     | Claude Cowork + 原有AI Browser PRD                                                                                                                                           |
+| 技术规格     | [SPEC v0.3](./SPEC_v0.3.md), [SPEC v0.4](./SPEC_v0.4.md), [SPEC v0.5](./SPEC_v0.5.md), [SPEC v0.6](./SPEC_v0.6.md), [SPEC v0.7](./SPEC_v0.7.md), [SPEC v0.8](./SPEC_v0.8.md) |
+| **部署场景** | **AI 专用设备**（安全限制放宽）                                                                                                                                              |
+| **安全级别** | **内部信任环境**（非公开部署）                                                                                                                                               |
 
 ---
 
@@ -1988,6 +1988,91 @@ function switchToTakeoverMode() {
 
 **里程碑**: Beta测试版本
 
+### 10.9 v0.8 (WebFetch + 工具增强)
+
+> 更新日期: 2026-04-02
+
+**目标**: 轻量级HTTP工具 + Exa AI搜索集成，为企业数据采集场景提供基础能力
+
+| 功能                | 周期       | 交付标准                   | 优先级 |
+| ------------------- | ---------- | -------------------------- | ------ |
+| **WebFetch 工具**   | Week 39-40 | 基础HTTP GET/POST + UA重试 | P0     |
+| **WebSearch 集成**  | Week 40-41 | Exa AI搜索接入             | P0     |
+| **Cookie/代理支持** | Week 41-42 | 高级配置选项               | P1     |
+| **工具链完善**      | Week 42-43 | 文档 + 单元测试            | P1     |
+
+#### 10.9.1 WebFetch Tool 功能规格
+
+| 参数              | 类型    | 默认值     | 说明                                                |
+| ----------------- | ------- | ---------- | --------------------------------------------------- |
+| `url`             | string  | **必填**   | 目标URL                                             |
+| `format`          | enum    | `markdown` | 返回格式：text / markdown / html                    |
+| `timeout`         | number  | `30`       | 超时秒数，最大120                                   |
+| `method`          | enum    | `GET`      | 请求方法：GET / POST / HEAD                         |
+| `headers`         | object  | `{}`       | 自定义请求头                                        |
+| `retryOnUAChange` | boolean | `true`     | Cloudflare拦截时UA重试                              |
+| `redirect`        | enum    | `follow`   | follow(自动跟随) / error(报错) / manual(手动)       |
+| `cookieJar`       | boolean | `true`     | 保持Cookie/Session                                  |
+| `proxy`           | string  | `null`     | 代理地址，支持认证格式 `http://user:pass@host:port` |
+
+#### 10.9.2 UA重试机制
+
+```typescript
+const USER_AGENTS = [
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:136.0) Gecko/20100101 Firefox/136.0',
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.3 Safari/605.1.15',
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36 Edg/143.0.0.0',
+  'opencode/1.0',
+];
+
+// Cloudflare challenge 检测: response.status === 403 && headers.get('cf-mitigated') === 'challenge'
+```
+
+#### 10.9.3 返回结构
+
+```typescript
+interface WebFetchResult {
+  title: string; // URL + Content-Type
+  output: string; // 格式化内容
+  metadata: {
+    statusCode: number;
+    contentType: string;
+    contentLength: number;
+    finalUA: string; // 最终使用的UA
+    retryAttempted: boolean; // 是否进行了UA重试
+    finalUrl: string; // 重定向后的最终URL
+    headers: Record<string, string>;
+  };
+  attachments?: {
+    // 图片时返回
+    type: 'file';
+    mime: string;
+    url: string; // data:base64,xxx
+  }[];
+}
+```
+
+#### 10.9.4 技术选型
+
+| 项目          | 选择                       | 理由                                    |
+| ------------- | -------------------------- | --------------------------------------- |
+| HTML→Markdown | turndown                   | OpenCode生产验证，GFM完整支持，开箱即用 |
+| HTTP库        | 原生fetch                  | Node.js 18+ 原生支持，无需额外依赖      |
+| 代理格式      | http://user:pass@host:port | 原生fetch直接支持                       |
+
+#### 10.9.5 与浏览器工具对比
+
+| 维度           | Browser工具      | WebFetch工具      |
+| -------------- | ---------------- | ----------------- |
+| 启动开销       | 大（完整浏览器） | 小（原生HTTP）    |
+| 适用场景       | 网页操作、交互   | 数据采集、API调用 |
+| 内容提取       | DOM解析          | HTML文本处理      |
+| 速度           | 2-5s             | <1s               |
+| JavaScript渲染 | 支持             | 不支持            |
+
+**里程碑**: 工具完备版本
+
 ### 10.8 v1.0 (正式版)
 
 **目标**: 开源营销 + 社区建设，打造开放生态
@@ -2135,16 +2220,17 @@ class BrowserSessionManager {
 
 ## 文档历史
 
-| 版本 | 日期       | 修改内容                                                                                                                                                                                                                                                                           |
-| ---- | ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| v1.0 | 2026-03-25 | 初始PRD，AI Browser定位                                                                                                                                                                                                                                                            |
-| v2.0 | 2026-03-27 | 重大更新：<br>- 新增产品名称OpenCowork<br>- 新增多端协同Dispatch系统<br>- 新增定时任务调度系统<br>- 借鉴Claude Cowork的Plugins生态<br>- 借鉴Cowork的安全和权限设计<br>- 调整技术架构<br>- 更新路线图                                                                               |
-| v2.1 | 2026-03-27 | 新增浏览器预览模块：<br>- 新增3.6节PreviewManager技术架构<br>- 新增8.6节浏览器预览模块UI设计<br>- 新增场景4：实时观看浏览器操作<br>- 更新7.4节接管机制（观看模式/接管模式）<br>- 更新路线图（v0.1独立窗口→v0.3侧边预览→v0.5可折叠）                                                |
-| v2.2 | 2026-03-27 | PRD评审修复：<br>- 修复代码重复问题（TakeoverResult/TakeoverOption）<br>- 添加isExpanded属性声明<br>- 添加PreviewConfig配置接口，替代硬编码尺寸<br>- 细化画面同步技术描述（CDP会话绑定）<br>- 简化模块结构为方法模式<br>- 补充控制栏[×]关闭按钮说明<br>- 补充预览可关闭/可配置特性 |
-| v2.5 | 2026-03-30 | v0.4 LangGraph重构架构确认：<br>- createReactAgent 代替完整 StateGraph（已确认）<br>- agentLogger 代替 LangSmith（已确认）<br>- MemorySaver 代替 SQLite Checkpointer（已确认）                                                                                                     |
-| v2.8 | 2026-03-31 | v0.7 飞书机器人方案确认：<br>- 飞书机器人替代独立Mobile App<br>- 企业消息订阅实现主动推送<br>- IM抽象接口预留（支持未来钉钉/企业微信）<br>- Week 29-38 详细实施计划                                                                                                                |
-| v2.9 | 2026-03-31 | v1.0 开源营销规划：<br>- 独立站点 opencowork.ai<br>- GitHub repo优化、开发者社区建设<br>- WhatsApp用户群组运营                                                                                                                                                                     |
-| v3.0 | 2026-03-31 | v2.0 完整浏览器规划：<br>- 浏览器预览区升级为真实浏览器<br>- 新增地址栏、标签页、前进后退<br>- AI/用户控制权切换<br>- 共享 BrowserContext<br>- Week 39-45 实施计划                                                                                                                 |
+| 版本 | 日期       | 修改内容                                                                                                                                                                                                                                                                                                   |
+| ---- | ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| v1.0 | 2026-03-25 | 初始PRD，AI Browser定位                                                                                                                                                                                                                                                                                    |
+| v2.0 | 2026-03-27 | 重大更新：<br>- 新增产品名称OpenCowork<br>- 新增多端协同Dispatch系统<br>- 新增定时任务调度系统<br>- 借鉴Claude Cowork的Plugins生态<br>- 借鉴Cowork的安全和权限设计<br>- 调整技术架构<br>- 更新路线图                                                                                                       |
+| v2.1 | 2026-03-27 | 新增浏览器预览模块：<br>- 新增3.6节PreviewManager技术架构<br>- 新增8.6节浏览器预览模块UI设计<br>- 新增场景4：实时观看浏览器操作<br>- 更新7.4节接管机制（观看模式/接管模式）<br>- 更新路线图（v0.1独立窗口→v0.3侧边预览→v0.5可折叠）                                                                        |
+| v2.2 | 2026-03-27 | PRD评审修复：<br>- 修复代码重复问题（TakeoverResult/TakeoverOption）<br>- 添加isExpanded属性声明<br>- 添加PreviewConfig配置接口，替代硬编码尺寸<br>- 细化画面同步技术描述（CDP会话绑定）<br>- 简化模块结构为方法模式<br>- 补充控制栏[×]关闭按钮说明<br>- 补充预览可关闭/可配置特性                         |
+| v2.5 | 2026-03-30 | v0.4 LangGraph重构架构确认：<br>- createReactAgent 代替完整 StateGraph（已确认）<br>- agentLogger 代替 LangSmith（已确认）<br>- MemorySaver 代替 SQLite Checkpointer（已确认）                                                                                                                             |
+| v2.8 | 2026-03-31 | v0.7 飞书机器人方案确认：<br>- 飞书机器人替代独立Mobile App<br>- 企业消息订阅实现主动推送<br>- IM抽象接口预留（支持未来钉钉/企业微信）<br>- Week 29-38 详细实施计划                                                                                                                                        |
+| v2.9 | 2026-03-31 | v1.0 开源营销规划：<br>- 独立站点 opencowork.ai<br>- GitHub repo优化、开发者社区建设<br>- WhatsApp用户群组运营                                                                                                                                                                                             |
+| v3.0 | 2026-03-31 | v2.0 完整浏览器规划：<br>- 浏览器预览区升级为真实浏览器<br>- 新增地址栏、标签页、前进后退<br>- AI/用户控制权切换<br>- 共享 BrowserContext<br>- Week 39-45 实施计划                                                                                                                                         |
+| v3.1 | 2026-04-02 | v0.8 WebFetch工具规划：<br>- 新增10.9节 v0.8 (WebFetch + 工具增强)<br>- WebFetch Tool完整功能规格（URL/format/timeout/method/headers/retryOnUAChange/redirect/cookieJar/proxy）<br>- UA重试机制（5个User-Agent轮换）<br>- turndown作为HTML→Markdown转换库<br>- 支持认证型代理格式<br>- Week 39-43 实施计划 |
 
 ---
 

@@ -39,7 +39,7 @@ export class ProgressEmitter extends EventEmitter {
             executing: `🔄 执行中: ${event.message || ''}`,
             completed: '✅ 任务完成',
             failed: '❌ 任务失败',
-        }[event.status];
+        }[event.status] || `未知状态: ${event.status}`;
         const notification = {
             title: event.taskId,
             content: statusText,

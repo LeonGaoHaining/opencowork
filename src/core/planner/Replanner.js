@@ -1,4 +1,4 @@
-import { generateId, ActionType } from '../action/ActionSchema';
+import { generateId, ActionType, } from '../action/ActionSchema';
 import { getLLMClient } from '../../llm/OpenAIResponses';
 import { AskUserExecutor } from '../executor/AskUserExecutor';
 export var ReplanTrigger;
@@ -11,7 +11,7 @@ export var ReplanTrigger;
 })(ReplanTrigger || (ReplanTrigger = {}));
 export class Replanner {
     llmClient = getLLMClient();
-    maxRetries = 3;
+    maxRetries = 3; // 保留，由外部(TaskEngine)控制重试次数
     askUserExecutor;
     constructor() {
         this.askUserExecutor = new AskUserExecutor();
@@ -79,8 +79,8 @@ export class Replanner {
                 };
             }
             const modifiedNodes = remainingPlan.nodes
-                .filter(node => node.id === request.failedNodeId)
-                .map(node => ({
+                .filter((node) => node.id === request.failedNodeId)
+                .map((node) => ({
                 nodeId: node.id,
                 newSelector: selectorResult.selectors[0],
                 fallbackSelectors: selectorResult.selectors,
@@ -140,7 +140,13 @@ ${pageContent.substring(0, 8000)}
                     };
                 }
             }
-            const fallbackSelectors = content.split('\n').filter(line => line.startsWith('.') || line.startsWith('#') || line.startsWith('[') || line.startsWith('/')).slice(0, 3);
+            const fallbackSelectors = content
+                .split('\n')
+                .filter((line) => line.startsWith('.') ||
+                line.startsWith('#') ||
+                line.startsWith('[') ||
+                line.startsWith('/'))
+                .slice(0, 3);
             return {
                 selectors: fallbackSelectors.length > 0 ? fallbackSelectors : ['body'],
                 strategy: 'fallback from lines',
@@ -177,11 +183,11 @@ ${pageContent.substring(0, 8000)}
     async handleTimeout(request) {
         const { remainingPlan, error } = request;
         const timeoutActions = ['browser:wait'];
-        const skipableNodes = remainingPlan.nodes.filter(node => node.action && timeoutActions.includes(node.action.type));
+        const skipableNodes = remainingPlan.nodes.filter((node) => node.action && timeoutActions.includes(node.action.type));
         if (skipableNodes.length > 0) {
             return {
                 success: true,
-                modifiedNodes: skipableNodes.map(node => ({
+                modifiedNodes: skipableNodes.map((node) => ({
                     nodeId: node.id,
                     retryCount: 0,
                 })),
@@ -216,6 +222,8 @@ ${pageContent.substring(0, 8000)}
             canContinue: false,
         };
     }
+    // 保留 validateSelector 供外部使用（如果有需要）
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     async validateSelector(selector, pageContent) {
         if (!selector)
             return false;
@@ -229,9 +237,11 @@ ${pageContent.substring(0, 8000)}
     }
     async llmDecideRecovery(request) {
         const { trigger, error, executionState, remainingPlan } = request;
-        const failedNode = remainingPlan.nodes.find(n => n.id === request.failedNodeId);
+        const failedNode = remainingPlan.nodes.find((n) => n.id === request.failedNodeId);
         const nodeDescription = failedNode?.metadata?.description || failedNode?.action?.type || '未知节点';
-        const actionParams = failedNode?.action?.params ? JSON.stringify(failedNode.action.params).substring(0, 200) : '无参数';
+        const actionParams = failedNode?.action?.params
+            ? JSON.stringify(failedNode.action.params).substring(0, 200)
+            : '无参数';
         const systemPrompt = `你是一个智能任务恢复专家。当任务执行失败时，你需要分析失败原因并决定如何恢复。`;
         const userPrompt = `任务执行失败，需要你决定如何恢复。
 
@@ -303,17 +313,21 @@ ${pageContent.substring(0, 8000)}
             case 'retry_same':
                 return {
                     success: true,
-                    modifiedNodes: request.failedNodeId ? [{
-                            nodeId: request.failedNodeId,
-                            retryCount: retryCount + 1,
-                        }] : [],
+                    modifiedNodes: request.failedNodeId
+                        ? [
+                            {
+                                nodeId: request.failedNodeId,
+                                retryCount: retryCount + 1,
+                            },
+                        ]
+                        : [],
                     canContinue: true,
                 };
             case 'regenerate_selector':
                 if (decision.newSelector) {
                     const modifiedNodes = request.remainingPlan.nodes
-                        .filter(node => node.id === request.failedNodeId)
-                        .map(node => ({
+                        .filter((node) => node.id === request.failedNodeId)
+                        .map((node) => ({
                         nodeId: node.id,
                         newSelector: decision.newSelector,
                         retryCount: retryCount + 1,
@@ -327,16 +341,18 @@ ${pageContent.substring(0, 8000)}
                 return await this.handleSelectorFailure(request);
             case 'simplify_action':
                 if (request.failedNodeId) {
-                    const failedNode = request.remainingPlan.nodes.find(n => n.id === request.failedNodeId);
+                    const failedNode = request.remainingPlan.nodes.find((n) => n.id === request.failedNodeId);
                     if (failedNode?.action) {
                         const simplifiedAction = this.simplifyAction(failedNode.action);
                         return {
                             success: true,
-                            modifiedNodes: [{
+                            modifiedNodes: [
+                                {
                                     nodeId: request.failedNodeId,
                                     newAction: simplifiedAction,
                                     retryCount: retryCount + 1,
-                                }],
+                                },
+                            ],
                             canContinue: true,
                         };
                     }
@@ -350,10 +366,12 @@ ${pageContent.substring(0, 8000)}
                 if (request.failedNodeId) {
                     return {
                         success: true,
-                        modifiedNodes: [{
+                        modifiedNodes: [
+                            {
                                 nodeId: request.failedNodeId,
                                 retryCount: -1,
-                            }],
+                            },
+                        ],
                         canContinue: true,
                     };
                 }
@@ -364,7 +382,10 @@ ${pageContent.substring(0, 8000)}
                 };
             case 'ask_user':
                 console.log('[Replanner] Executing ask_user strategy, waiting for user response...');
-                const userAnswer = await this.executeAskUser('任务执行遇到问题，是否继续尝试？', ['继续重试', '停止任务']);
+                const userAnswer = await this.executeAskUser('任务执行遇到问题，是否继续尝试？', [
+                    '继续重试',
+                    '停止任务',
+                ]);
                 console.log('[Replanner] User answer:', userAnswer);
                 if (userAnswer === '继续重试') {
                     return {
@@ -397,6 +418,10 @@ ${pageContent.substring(0, 8000)}
             };
         }
         return action;
+    }
+    cleanup() {
+        this.askUserExecutor.cancelAll();
+        console.log('[Replanner] Cleaned up');
     }
 }
 export default Replanner;

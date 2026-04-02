@@ -138,8 +138,10 @@ ${context.previousTaskResult.content.substring(0, 500)}`
                 { role: 'system', content: this.systemPrompt },
                 { role: 'user', content: userPrompt },
             ];
+            const LLM_TIMEOUT_MS = 120000;
+            const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('LLM planning timeout after 2 minutes')), LLM_TIMEOUT_MS));
             console.log('[TaskPlanner] Calling LLM...');
-            const response = await llm.chat(messages);
+            const response = await Promise.race([llm.chat(messages), timeoutPromise]);
             console.log('[TaskPlanner] LLM response:', response.content);
             const plan = this.parseLLMResponse(response.content, task);
             if (plan && plan.nodes.length > 0) {
@@ -410,44 +412,50 @@ ${context.previousTaskResult.content.substring(0, 500)}`
         };
     }
     simpleDecompose(task) {
-        const taskLower = task.toLowerCase();
-        const urlMap = {
-            百度: 'https://www.baidu.com',
-            google: 'https://www.google.com',
-            谷歌: 'https://www.google.com',
-            淘宝: 'https://www.taobao.com',
-            天猫: 'https://www.tmall.com',
-            京东: 'https://www.jd.com',
-            github: 'https://github.com',
-            bilibili: 'https://www.bilibili.com',
-            知乎: 'https://www.zhihu.com',
-        };
-        if (taskLower.includes('打开') || taskLower.includes('导航') || taskLower.includes('访问')) {
-            const urlMatch = task.match(/https?:\/\/[^\s]+/);
-            if (urlMatch) {
-                return [
-                    {
-                        id: generateId(),
-                        type: ActionType.BROWSER_NAVIGATE,
-                        description: `导航到 ${urlMatch[0]}`,
-                        params: { url: urlMatch[0], waitUntil: 'domcontentloaded' },
-                    },
-                ];
-            }
-            for (const [keyword, url] of Object.entries(urlMap)) {
-                if (taskLower.includes(keyword)) {
+        try {
+            const taskLower = task.toLowerCase();
+            const urlMap = {
+                百度: 'https://www.baidu.com',
+                google: 'https://www.google.com',
+                谷歌: 'https://www.google.com',
+                淘宝: 'https://www.taobao.com',
+                天猫: 'https://www.tmall.com',
+                京东: 'https://www.jd.com',
+                github: 'https://github.com',
+                bilibili: 'https://www.bilibili.com',
+                知乎: 'https://www.zhihu.com',
+            };
+            if (taskLower.includes('打开') || taskLower.includes('导航') || taskLower.includes('访问')) {
+                const urlMatch = task.match(/https?:\/\/[^\s]+/);
+                if (urlMatch) {
                     return [
                         {
                             id: generateId(),
                             type: ActionType.BROWSER_NAVIGATE,
-                            description: `导航到 ${keyword}`,
-                            params: { url, waitUntil: 'domcontentloaded' },
+                            description: `导航到 ${urlMatch[0]}`,
+                            params: { url: urlMatch[0], waitUntil: 'domcontentloaded' },
                         },
                     ];
                 }
+                for (const [keyword, url] of Object.entries(urlMap)) {
+                    if (taskLower.includes(keyword)) {
+                        return [
+                            {
+                                id: generateId(),
+                                type: ActionType.BROWSER_NAVIGATE,
+                                description: `导航到 ${keyword}`,
+                                params: { url, waitUntil: 'domcontentloaded' },
+                            },
+                        ];
+                    }
+                }
             }
+            return [];
         }
-        return [];
+        catch (error) {
+            console.error('[TaskPlanner] simpleDecompose error:', error);
+            return [];
+        }
     }
 }
 export default TaskPlanner;

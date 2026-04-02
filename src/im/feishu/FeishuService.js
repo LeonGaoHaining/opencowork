@@ -44,5 +44,8 @@ export function getFeishuService() {
 }
 export function createFeishuService(config) {
     feishuServiceInstance = new FeishuService();
+    feishuServiceInstance.initialize(config).catch((err) => {
+        console.error('[FeishuService] Initialize failed:', err);
+    });
     return feishuServiceInstance;
 }

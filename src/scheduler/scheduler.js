@@ -17,6 +17,7 @@ export class Scheduler extends EventEmitter {
     taskExecutor;
     cronJobs = new Map();
     intervalTimers = new Map();
+    oneTimeTimers = new Map();
     isRunning = false;
     constructor(config = {}) {
         super();
@@ -25,6 +26,9 @@ export class Scheduler extends EventEmitter {
         this.taskQueue = new TaskQueue({ maxConcurrent: this.config.maxConcurrentTasks });
         this.taskExecutor = new TaskExecutor({ mode: this.config.executorMode });
         this.setupEventHandlers();
+    }
+    async initialize() {
+        await this.taskStore.initialize();
     }
     setupEventHandlers() {
         this.taskQueue.on('task:completed', async (task, result) => {
@@ -59,6 +63,8 @@ export class Scheduler extends EventEmitter {
     async start() {
         if (this.isRunning)
             return;
+        // Ensure taskStore is initialized before starting
+        await this.taskStore.initialize();
         this.isRunning = true;
         this.taskQueue.setExecutor(async (task) => {
             return await this.taskExecutor.execute(task);
@@ -74,6 +80,8 @@ export class Scheduler extends EventEmitter {
         if (!this.isRunning)
             return;
         this.isRunning = false;
+        this.taskQueue.removeAllListeners('task:completed');
+        this.taskQueue.removeAllListeners('task:failed');
         for (const [id, job] of this.cronJobs) {
             job.stop();
         }
@@ -82,6 +90,10 @@ export class Scheduler extends EventEmitter {
             clearInterval(timer);
         }
         this.intervalTimers.clear();
+        for (const [id, timer] of this.oneTimeTimers) {
+            clearTimeout(timer);
+        }
+        this.oneTimeTimers.clear();
         this.taskQueue.stop();
         console.log('[Scheduler] Stopped');
     }
@@ -138,7 +150,12 @@ export class Scheduler extends EventEmitter {
         if (!task.schedule.cron)
             return;
         const job = cron.schedule(task.schedule.cron, async () => {
-            await this.enqueueTask(task);
+            try {
+                await this.enqueueTask(task);
+            }
+            catch (error) {
+                console.error('[Scheduler] Cron task enqueue failed:', error);
+            }
         }, {
             timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         });
@@ -148,7 +165,12 @@ export class Scheduler extends EventEmitter {
         if (!task.schedule.intervalMs)
             return;
         const timer = setInterval(async () => {
-            await this.enqueueTask(task);
+            try {
+                await this.enqueueTask(task);
+            }
+            catch (error) {
+                console.error('[Scheduler] Interval task enqueue failed:', error);
+            }
         }, task.schedule.intervalMs);
         this.intervalTimers.set(task.id, timer);
     }
@@ -159,9 +181,15 @@ export class Scheduler extends EventEmitter {
         if (delay <= 0)
             return;
         const timer = setTimeout(async () => {
-            await this.enqueueTask(task);
+            try {
+                await this.enqueueTask(task);
+            }
+            catch (error) {
+                console.error('[Scheduler] One-time task enqueue failed:', error);
+            }
+            this.oneTimeTimers.delete(task.id);
         }, delay);
-        this.intervalTimers.set(task.id, timer);
+        this.oneTimeTimers.set(task.id, timer);
     }
     async unscheduleTask(id) {
         const cronJob = this.cronJobs.get(id);
@@ -173,6 +201,11 @@ export class Scheduler extends EventEmitter {
         if (intervalTimer) {
             clearInterval(intervalTimer);
             this.intervalTimers.delete(id);
+        }
+        const oneTimeTimer = this.oneTimeTimers.get(id);
+        if (oneTimeTimer) {
+            clearTimeout(oneTimeTimer);
+            this.oneTimeTimers.delete(id);
         }
     }
     async enqueueTask(task) {
@@ -191,12 +224,25 @@ export class Scheduler extends EventEmitter {
         const now = Date.now();
         switch (task.schedule.type) {
             case 'cron':
-                return now + 60000;
+                if (!task.schedule.cron)
+                    return undefined;
+                // For cron tasks, calculate the next valid time
+                // node-cron handles the actual scheduling, this is just for display
+                // Return a reasonable next run time (e.g., 1 minute from now)
+                // In production, you'd parse the cron expression to get exact time
+                return this.getNextCronRunTime(task.schedule.cron);
             case 'interval':
                 return now + (task.schedule.intervalMs || 0);
             case 'one-time':
                 return task.schedule.startTime;
         }
+    }
+    getNextCronRunTime(cronExpression) {
+        // Simple implementation: return next minute
+        // In production, use a cron parser library like 'cron-parser'
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const _cron = cronExpression; // Placeholder for actual implementation
+        return Date.now() + 60000;
     }
     calculatePriority(task) {
         if (task.lastStatus === 'failed') {
@@ -215,4 +261,9 @@ export function getScheduler(config) {
 export function createScheduler(config) {
     schedulerInstance = new Scheduler(config);
     return schedulerInstance;
+}
+export async function initializeScheduler(config) {
+    const scheduler = getScheduler(config);
+    await scheduler.initialize();
+    return scheduler;
 }

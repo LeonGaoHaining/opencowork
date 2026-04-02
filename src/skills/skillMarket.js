@@ -108,6 +108,9 @@ export class SkillMarket {
         }
         return this.skillsDir;
     }
+    cleanup() {
+        console.log('[SkillMarket] Cleaned up');
+    }
 }
 let skillMarketInstance = null;
 export function getSkillMarket() {
@@ -117,6 +120,16 @@ export function getSkillMarket() {
     return skillMarketInstance;
 }
 export function createSkillMarket(skillsDir) {
+    const oldMarket = skillMarketInstance;
     skillMarketInstance = new SkillMarket(skillsDir);
+    if (oldMarket) {
+        oldMarket.cleanup();
+    }
     return skillMarketInstance;
+}
+export function resetSkillMarket() {
+    if (skillMarketInstance) {
+        skillMarketInstance.cleanup();
+        skillMarketInstance = null;
+    }
 }

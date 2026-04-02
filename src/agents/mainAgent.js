@@ -11,8 +11,10 @@ import { getCheckpointer } from '../checkpointers/agentCheckpointer';
 import { getLogger } from './agentLogger';
 import { getBrowserExecutor } from '../main/ipcHandlers';
 import { getCLIExecutor } from '../main/ipcHandlers';
-import { ActionType } from '../core/action/ActionSchema';
+import { ActionType, generateId } from '../core/action/ActionSchema';
 import { loadLLMConfig } from '../llm/config';
+import { webfetchTool } from '../tools/webfetch/WebFetchTool';
+import { websearchTool } from '../tools/websearch/WebSearchTool';
 function cleanHtmlText(text) {
     return text
         .replace(/<[^>]+>/g, '')
@@ -26,6 +28,10 @@ function cleanHtmlText(text) {
 let currentAgentInstance = null;
 function getAgent() {
     return currentAgentInstance;
+}
+export function clearAgentInstance() {
+    currentAgentInstance = null;
+    console.log('[MainAgent] Instance cleared');
 }
 // Browser Tool 定义
 const browserTool = tool(async (params) => {
@@ -75,7 +81,7 @@ const browserTool = tool(async (params) => {
                 });
                 logger.logToolCall('browser', { action: 'input', selector: params.selector, text: params.text }, 'main-agent', params.selector);
                 result = await executor.execute({
-                    id: `browser-input-${Date.now()}`,
+                    id: generateId(),
                     type: ActionType.BROWSER_INPUT,
                     description: 'Input text',
                     params: { selector: params.selector, text: params.text || '', clear: true },
@@ -90,7 +96,7 @@ const browserTool = tool(async (params) => {
                 agent?.sendNodeStart('browser', 'wait', { selector: params.selector });
                 logger.logToolCall('browser', { action: 'wait', selector: params.selector }, 'main-agent', params.selector);
                 result = await executor.execute({
-                    id: `browser-wait-${Date.now()}`,
+                    id: generateId(),
                     type: ActionType.BROWSER_WAIT,
                     description: 'Wait for element',
                     params: { selector: params.selector, timeout: params.timeout || 10000 },
@@ -105,7 +111,7 @@ const browserTool = tool(async (params) => {
                 agent?.sendNodeStart('browser', 'extract', { selector: params.selector });
                 logger.logToolCall('browser', { action: 'extract', selector: params.selector }, 'main-agent', params.selector);
                 result = await executor.execute({
-                    id: `browser-extract-${Date.now()}`,
+                    id: generateId(),
                     type: ActionType.BROWSER_EXTRACT,
                     description: 'Extract content',
                     params: { selector: params.selector, type: 'text', multiple: true },
@@ -128,7 +134,7 @@ const browserTool = tool(async (params) => {
                 agent?.sendNodeStart('browser', 'screenshot', {});
                 logger.logToolCall('browser', { action: 'screenshot' }, 'main-agent', 'screenshot');
                 result = await executor.execute({
-                    id: `browser-screenshot-${Date.now()}`,
+                    id: generateId(),
                     type: ActionType.BROWSER_SCREENSHOT,
                     description: 'Take screenshot',
                     params: {},
@@ -183,7 +189,7 @@ const cliTool = tool(async (params) => {
     try {
         const executor = getCLIExecutor();
         const result = await executor.execute({
-            id: `cli-${Date.now()}`,
+            id: generateId(),
             type: ActionType.CLI_EXECUTE,
             description: `Execute CLI: ${params.command}`,
             params: {
@@ -257,7 +263,7 @@ const plannerTool = tool(async (params) => {
         context: z.string().optional(),
     }),
 });
-const availableTools = [browserTool, cliTool, visionTool, plannerTool];
+const availableTools = [browserTool, cliTool, visionTool, plannerTool, webfetchTool, websearchTool];
 const STATE_MODIFIER = `你是一个浏览器自动化助手，擅长理解用户任务并分解执行。
 
 可用工具：
@@ -267,6 +273,11 @@ const STATE_MODIFIER = `你是一个浏览器自动化助手，擅长理解用�
 2. cli - 用于执行系统命令
 3. vision - 用于分析图片和屏幕内容
 4. planner - 用于分析和规划复杂任务
+5. webfetch - 用于获取指定URL的网页内容（支持text/markdown/html格式）
+   - 适用场景：数据采集、API调用、静态网页内容获取
+   - 特点：比browser工具更轻量更快，但不执行JavaScript
+6. websearch - 用于实时网络搜索（Exa AI）
+   - 适用场景：查询最新信息、新闻、实时数据
 
 执行流程：
 1. 理解用户任务
@@ -276,7 +287,7 @@ const STATE_MODIFIER = `你是一个浏览器自动化助手，擅长理解用�
 重要规则（强制要求）：
 - 你必须为每次用户请求生成一个文字回复
 - 搜索任务流程：
-  1. 使用 extract 工具提取页面内容
+  1. 使用 extract 工具或 webfetch 工具提取页面内容
   2. 分析提取的内容，找到用户问题的答案
   3. 用简洁的语言回答用户的问题
 - 你的最终回复格式：
@@ -470,7 +481,10 @@ export class MainAgent {
         }
         try {
             const startTime = Date.now();
-            const result = await this.agent.invoke({ messages: [{ role: 'user', content: task }] }, { configurable: { thread_id: this.threadId } });
+            const TASK_TIMEOUT_MS = 300000; // 5 minutes
+            const invokePromise = this.agent.invoke({ messages: [{ role: 'user', content: task }] }, { configurable: { thread_id: this.threadId } });
+            const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Task timeout after 5 minutes')), TASK_TIMEOUT_MS));
+            const result = await Promise.race([invokePromise, timeoutPromise]);
             const duration = Date.now() - startTime;
             if (this.cancelRequested) {
                 this.status = 'cancelled';
@@ -517,6 +531,9 @@ export class MainAgent {
                 error: error.message || 'Unknown error',
             };
         }
+        finally {
+            clearAgentInstance();
+        }
     }
     extractSteps(messages) {
         const steps = [];
@@ -530,10 +547,20 @@ export class MainAgent {
             if (msg.tool_calls && Array.isArray(msg.tool_calls)) {
                 console.log(`[MainAgent] Found ${msg.tool_calls.length} tool_calls in message ${i}`);
                 for (const tc of msg.tool_calls) {
+                    let parsedArgs = tc.args || {};
+                    if (typeof tc.args === 'string') {
+                        try {
+                            parsedArgs = JSON.parse(tc.args || '{}');
+                        }
+                        catch (e) {
+                            console.warn('[MainAgent] Failed to parse tool args:', e);
+                            parsedArgs = {};
+                        }
+                    }
                     const step = {
                         id: tc.id || `tc-${steps.length}`,
                         toolName: tc.name || 'unknown',
-                        args: typeof tc.args === 'string' ? JSON.parse(tc.args || '{}') : tc.args || {},
+                        args: parsedArgs,
                         status: 'completed',
                     };
                     steps.push(step);

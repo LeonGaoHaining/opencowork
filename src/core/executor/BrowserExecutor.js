@@ -13,7 +13,6 @@ export class BrowserExecutor {
     context = null;
     page = null;
     llmClient = getLLMClient();
-    retryCount = 0;
     screencast;
     constructor() {
         this.screencast = new ScreencastService({
@@ -85,40 +84,55 @@ export class BrowserExecutor {
                     '--disable-blink-features=AutomationControlled',
                 ],
             });
-            this.context = await this.browser.newContext({
-                viewport: { width: 1280, height: 720 },
-                userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            });
-            this.page = await this.context.newPage();
-            // 手动反检测脚本
-            await this.page.addInitScript(() => {
-                Object.defineProperty(navigator, 'webdriver', {
-                    get: () => undefined,
+            try {
+                this.context = await this.browser.newContext({
+                    viewport: { width: 1280, height: 720 },
+                    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
                 });
-                if (window.navigator.permissions) {
-                    // @ts-ignore
-                    window.navigator.permissions.query = (parameters) => {
-                        if (parameters.name === 'notifications') {
-                            return Promise.resolve({ state: 'default' });
+                try {
+                    this.page = await this.context.newPage();
+                    // 手动反检测脚本
+                    await this.page.addInitScript(() => {
+                        Object.defineProperty(navigator, 'webdriver', {
+                            get: () => undefined,
+                        });
+                        if (window.navigator.permissions) {
+                            // @ts-ignore
+                            window.navigator.permissions.query = (parameters) => {
+                                if (parameters.name === 'notifications') {
+                                    return Promise.resolve({ state: 'default' });
+                                }
+                                return Promise.resolve({ state: 'prompt' });
+                            };
                         }
-                        return Promise.resolve({ state: 'prompt' });
-                    };
+                        Object.defineProperty(navigator, 'plugins', {
+                            get: () => [1, 2, 3, 4, 5],
+                        });
+                        Object.defineProperty(navigator, 'languages', {
+                            get: () => ['zh-CN', 'zh', 'en'],
+                        });
+                    });
+                    // 设置实时截图服务
+                    this.screencast.setPage(this.page);
+                    this.screencast.setMainWindow(mainWindowRef);
+                    this.screencast.start();
+                    console.log('[BrowserExecutor] Browser launched with manual stealth');
                 }
-                Object.defineProperty(navigator, 'plugins', {
-                    get: () => [1, 2, 3, 4, 5],
-                });
-                Object.defineProperty(navigator, 'languages', {
-                    get: () => ['zh-CN', 'zh', 'en'],
-                });
-            });
-            // 设置实时截图服务
-            this.screencast.setPage(this.page);
-            this.screencast.setMainWindow(mainWindowRef);
-            this.screencast.start();
-            console.log('[BrowserExecutor] Browser launched with manual stealth');
+                catch (e) {
+                    await this.browser.close();
+                    this.browser = null;
+                    throw e;
+                }
+            }
+            catch (e) {
+                await this.browser.close();
+                this.browser = null;
+                throw e;
+            }
         }
         catch (error) {
             console.error('[BrowserExecutor] Failed to launch browser:', error);
+            this.browser = null;
             throw error;
         }
     }
@@ -162,7 +176,6 @@ export class BrowserExecutor {
     }
     async click(action, startTime) {
         const { selector, index = 0, textMatch, fallbackSelectors } = action.params;
-        this.retryCount = 0;
         console.log(`[BrowserExecutor] Clicking: ${selector}[${index}]`);
         // 预处理选择器：拆分逗号分隔的选择器，处理 contains 语法
         let processedSelector = selector;
@@ -212,7 +225,6 @@ export class BrowserExecutor {
     }
     async input(action, startTime) {
         const { selector, text, clear = true, delay = 0, textMatch, fallbackSelectors, pressEnter = false, } = action.params;
-        this.retryCount = 0;
         console.log(`[BrowserExecutor] Input to: ${selector}, pressEnter: ${pressEnter}`);
         // 预处理选择器：拆分逗号分隔的选择器
         let processedSelector = selector;
@@ -330,6 +342,7 @@ export class BrowserExecutor {
         };
     }
     async regenerateSelector(oldSelector) {
+        const TIMEOUT_MS = 30000;
         try {
             const html = await this.page.content();
             const htmlSnippet = html.substring(0, 8000);
@@ -344,7 +357,8 @@ ${htmlSnippet}
                 { role: 'system', content: systemPrompt },
                 { role: 'user', content: userPrompt },
             ];
-            const response = await this.llmClient.chat(messages);
+            const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Selector regeneration timeout')), TIMEOUT_MS));
+            const response = await Promise.race([this.llmClient.chat(messages), timeoutPromise]);
             const newSelector = response.content.trim();
             if (newSelector &&
                 (newSelector.startsWith('.') ||
@@ -513,6 +527,9 @@ ${htmlSnippet}
     }
     async cleanup() {
         try {
+            if (this.screencast) {
+                this.screencast.stop();
+            }
             if (this.page) {
                 await this.page.close();
                 this.page = null;
@@ -532,7 +549,7 @@ ${htmlSnippet}
         }
     }
     getPage() {
-        return this.page;
+        return this.page || null;
     }
     async getScreenshot() {
         if (!this.page)

@@ -22,12 +22,40 @@ export class RecoveryEngine {
     page;
     llmClient = getLLMClient();
     strategyHistory = new Map();
+    strategyHistoryOrder = [];
     llmCallCount = new Map();
+    llmCallOrder = [];
     MAX_LLM_CALLS_PER_ACTION = 1;
+    MAX_STRATEGY_HISTORY = 100;
+    MAX_LLM_CALLS = 500;
     globalLLMCallCount = 0;
     GLOBAL_LLM_LIMIT = 10;
     constructor(page) {
         this.page = page;
+    }
+    cleanupStrategyHistory() {
+        while (this.strategyHistoryOrder.length > this.MAX_STRATEGY_HISTORY) {
+            const oldest = this.strategyHistoryOrder.shift();
+            if (oldest) {
+                this.strategyHistory.delete(oldest);
+            }
+        }
+    }
+    cleanupLlmCallCount() {
+        while (this.llmCallOrder.length > this.MAX_LLM_CALLS) {
+            const oldest = this.llmCallOrder.shift();
+            if (oldest) {
+                this.llmCallCount.delete(oldest);
+            }
+        }
+    }
+    cleanup() {
+        this.strategyHistory.clear();
+        this.strategyHistoryOrder = [];
+        this.llmCallCount.clear();
+        this.llmCallOrder = [];
+        this.globalLLMCallCount = 0;
+        this.page = null;
     }
     async decide(context) {
         const { actionResult, retryCount, maxRetries, failedAction } = context;
@@ -161,6 +189,10 @@ Generate a precise CSS selector. Output ONLY the selector string.`;
                 const isValid = await this.validateSelector(selector);
                 if (isValid) {
                     this.llmCallCount.set(actionKey, currentCalls + 1);
+                    this.cleanupLlmCallCount();
+                    if (!this.llmCallOrder.includes(actionKey)) {
+                        this.llmCallOrder.push(actionKey);
+                    }
                     this.globalLLMCallCount++;
                     console.log('[RecoveryEngine] LLM generated and validated selector:', selector);
                     return selector;
@@ -209,14 +241,22 @@ Generate a precise CSS selector. Output ONLY the selector string.`;
         return { strategy: RecoveryStrategy.GIVE_UP, reason };
     }
     recordStrategy(nodeId, strategy) {
+        this.cleanupStrategyHistory();
         const history = this.strategyHistory.get(nodeId) || [];
         history.push(strategy);
         this.strategyHistory.set(nodeId, history);
+        if (!this.strategyHistoryOrder.includes(nodeId)) {
+            this.strategyHistoryOrder.push(nodeId);
+        }
     }
     getStrategyHistory(nodeId) {
         return this.strategyHistory.get(nodeId) || [];
     }
     getPage() {
         return this.page;
+    }
+    clearLlmCallCount(actionKey) {
+        this.llmCallCount.delete(actionKey);
+        this.llmCallOrder = this.llmCallOrder.filter((k) => k !== actionKey);
     }
 }

@@ -12,65 +12,71 @@ import { ElementRole, ElementVisibility, DEFAULT_OBSERVER_CONFIG, } from '../typ
 export async function buildUIGraph(page, config) {
     const fullConfig = { ...DEFAULT_OBSERVER_CONFIG, ...config };
     const domElements = await page.evaluate((cfg) => {
-        const selectors = [
-            'button',
-            'a',
-            'input',
-            'select',
-            'textarea',
-            '[role="button"]',
-            '[role="link"]',
-            '[role="checkbox"]',
-            '[role="radio"]',
-        ];
-        const candidates = document.querySelectorAll(selectors.join(','));
-        const results = [];
-        candidates.forEach((el) => {
-            const rect = el.getBoundingClientRect();
-            if (rect.width < 5 || rect.height < 5)
-                return;
-            const attributeNames = [
-                'id',
-                'name',
-                'data-testid',
-                'aria-label',
-                'aria-labelledby',
-                'role',
-                'type',
-                'class',
+        try {
+            const selectors = [
+                'button',
+                'a',
+                'input',
+                'select',
+                'textarea',
+                '[role="button"]',
+                '[role="link"]',
+                '[role="checkbox"]',
+                '[role="radio"]',
             ];
-            const attributes = {};
-            attributeNames.forEach((attr) => {
-                const value = el.getAttribute(attr);
-                if (value)
-                    attributes[attr] = value;
-            });
-            let parentContext = '';
-            let parent = el.parentElement;
-            for (let i = 0; i < 3 && parent; i++) {
-                if (parent.id) {
-                    parentContext = `#${parent.id}`;
-                    break;
+            const candidates = document.querySelectorAll(selectors.join(','));
+            const results = [];
+            candidates.forEach((el) => {
+                const rect = el.getBoundingClientRect();
+                if (rect.width < 5 || rect.height < 5)
+                    return;
+                const attributeNames = [
+                    'id',
+                    'name',
+                    'data-testid',
+                    'aria-label',
+                    'aria-labelledby',
+                    'role',
+                    'type',
+                    'class',
+                ];
+                const attributes = {};
+                attributeNames.forEach((attr) => {
+                    const value = el.getAttribute(attr);
+                    if (value)
+                        attributes[attr] = value;
+                });
+                let parentContext = '';
+                let parent = el.parentElement;
+                for (let i = 0; i < 3 && parent; i++) {
+                    if (parent.id) {
+                        parentContext = `#${parent.id}`;
+                        break;
+                    }
+                    if (parent.className && typeof parent.className === 'string') {
+                        const cls = parent.className.split(' ')[0];
+                        if (cls)
+                            parentContext = `.${cls}`;
+                        break;
+                    }
+                    parent = parent.parentElement;
                 }
-                if (parent.className && typeof parent.className === 'string') {
-                    const cls = parent.className.split(' ')[0];
-                    if (cls)
-                        parentContext = `.${cls}`;
-                    break;
-                }
-                parent = parent.parentElement;
-            }
-            results.push({
-                tag: el.tagName.toLowerCase(),
-                text: el.innerText?.trim().slice(0, 80) || '',
-                value: el.value || '',
-                attributes,
-                rect: { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
-                parentContext,
-                index: results.length,
+                results.push({
+                    tag: el.tagName.toLowerCase(),
+                    text: el.innerText?.trim().slice(0, 80) || '',
+                    value: el.value || '',
+                    attributes,
+                    rect: { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
+                    parentContext,
+                    index: results.length,
+                });
             });
-        });
-        return results;
+            return results;
+        }
+        catch (e) {
+            console.warn('[buildUIGraph] DOM extraction error:', e);
+            return [];
+        }
     }, fullConfig);
     const elements = domElements.map((dom) => buildUIElement(dom, fullConfig));
     return categorizeElements('', elements);

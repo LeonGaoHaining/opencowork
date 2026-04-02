@@ -1,9 +1,9 @@
-# OpenCowork v0.7 使用说明
+# OpenCowork v0.8 使用说明
 
 | 项目     | 内容       |
 | -------- | ---------- |
-| 版本     | v0.7       |
-| 更新日期 | 2026-04-01 |
+| 版本     | v0.8       |
+| 更新日期 | 2026-04-02 |
 | 状态     | 正式版     |
 
 ---
@@ -11,47 +11,116 @@
 ## 目录
 
 1. [项目简介](#1-项目简介)
-2. [TaskHistory 任务历史](#2-taskhistory-任务历史)
-3. [Skill System 技能系统](#3-skill-system-技能系统)
-4. [IM 消息集成](#4-im-消息集成)
-5. [定时任务调度](#5-定时任务调度)
-6. [WhitelistConfigUI 白名单配置](#6-whitelistconfigui-白名单配置)
-7. [快速开始](#7-快速开始)
-8. [目录结构](#8-目录结构)
-9. [常见问题](#9-常见问题)
+2. [WebFetch 网页获取](#2-webfetch-网页获取)
+3. [WebSearch 网页搜索](#3-websearch-网页搜索)
+4. [TaskHistory 任务历史](#4-taskhistory-任务历史)
+5. [Skill System 技能系统](#5-skill-system-技能系统)
+6. [IM 消息集成](#6-im-消息集成)
+7. [定时任务调度](#7-定时任务调度)
+8. [WhitelistConfigUI 白名单配置](#8-whitelistconfigui-白名单配置)
+9. [快速开始](#9-快速开始)
+10. [目录结构](#10-目录结构)
+11. [常见问题](#11-常见问题)
 
 ---
 
 ## 1. 项目简介
 
-OpenCowork v0.7 是一款 **AI Native Desktop Agent**，让AI像人类一样使用电脑完成复杂任务。
+OpenCowork v0.8 是一款 **AI Native Desktop Agent**，让AI像人类一样使用电脑完成复杂任务。
 
-### v0.7 新增功能
+### v0.8 新增功能
 
-| 功能              | 说明                                      |
-| ----------------- | ----------------------------------------- |
-| **IM 集成**       | 飞书/钉钉/企业微信任务分发                |
-| **定时任务**      | Cron/Interval/One-time 任务调度           |
-| **Takeover 改进** | 完善的人工接管体验                        |
-| **任务恢复**      | Checkpoint 持久化支持                     |
-| **预览模式**      | Sidebar/Collapsible/Detached 多种预览模式 |
+| 功能          | 说明                     |
+| ------------- | ------------------------ |
+| **WebFetch**  | 轻量级HTTP网页获取工具   |
+| **WebSearch** | Exa AI 实时网页搜索      |
+| **UA轮换**    | Cloudflare反爬虫自动绕过 |
+| **代理支持**  | HTTP/HTTPS 代理认证      |
+| **执行日志**  | 完整日志记录便于调试     |
+| **通用重试**  | 网络错误自动重试         |
 
 ### 核心能力
 
 | 能力         | 说明                          |
 | ------------ | ----------------------------- |
 | 浏览器自动化 | AI自主操作浏览器完成网页任务  |
+| 网页获取     | 轻量级HTTP请求获取网页内容    |
+| 实时搜索     | Exa AI 实时网络搜索           |
 | 任务规划     | 将复杂任务分解为可执行步骤    |
 | 实时预览     | 侧边栏实时观看AI操作（24fps） |
 | 人工接管     | 随时接管AI的控制权            |
 | 任务历史     | 完整记录所有任务执行历史      |
 | 技能系统     | 安装和管理自定义技能          |
-| IM 消息      | 支持飞书/钉钉/企业微信        |
+| IM消息       | 支持飞书/钉钉/企业微信        |
 | 定时任务     | Cron/Interval 任务调度        |
 
 ---
 
-## 2. TaskHistory 任务历史
+## 2. WebFetch 网页获取
+
+### 功能特点
+
+- **轻量级HTTP请求**：无需启动浏览器，快速获取网页内容
+- **多格式支持**：text / markdown / html
+- **UA轮换**：Cloudflare反爬虫自动绕过
+- **代理支持**：支持HTTP代理认证
+- **Cookie管理**：自动保持会话状态
+- **响应限制**：最大5MB，超大自动拒绝
+
+### 使用方法
+
+AI会自动根据任务选择使用webfetch或browser工具：
+
+1. **数据采集**：让AI获取指定网页内容
+2. **API调用**：调用REST API获取数据
+3. **内容提取**：提取网页文本进行分析
+
+### 参数说明
+
+| 参数            | 类型    | 默认值   | 说明       |
+| --------------- | ------- | -------- | ---------- |
+| url             | string  | 必填     | 目标URL    |
+| format          | enum    | markdown | 返回格式   |
+| timeout         | number  | 30       | 超时秒数   |
+| method          | enum    | GET      | 请求方法   |
+| retryOnUAChange | boolean | true     | UA重试     |
+| cookieJar       | boolean | true     | Cookie保持 |
+| proxy           | string  | null     | 代理地址   |
+
+---
+
+## 3. WebSearch 网页搜索
+
+### 功能特点
+
+- **实时搜索**：基于Exa AI MCP的实时网络搜索
+- **内容爬取**：自动获取搜索结果详细内容
+- **多种模式**：auto / fast / deep 搜索模式
+- **结果控制**：可配置返回结果数量
+
+### 使用方法
+
+让AI搜索最新信息：
+
+```
+搜索最新的AI新闻
+查找关于OpenCowork的教程
+搜索2026年的技术趋势
+```
+
+### 参数说明
+
+| 参数                 | 类型   | 默认值   | 说明         |
+| -------------------- | ------ | -------- | ------------ |
+| query                | string | 必填     | 搜索关键词   |
+| numResults           | number | 8        | 结果数量     |
+| livecrawl            | enum   | fallback | 实时爬取模式 |
+| type                 | enum   | auto     | 搜索类型     |
+| contextMaxCharacters | number | 10000    | 上下文长度   |
+
+---
+
+## 4. TaskHistory 任务历史
 
 ### 功能特点
 
@@ -388,6 +457,7 @@ opencowork/
 
 ## 版本历史
 
+- **v0.8** (2026-04-02) - WebFetch + WebSearch + 执行日志 + 代码审核修复
 - **v0.7** (2026-04-01) - IM集成 + 定时任务 + Takeover改进 + 代码审核修复
 - **v0.6** (2026-04-01) - 预览模式 + Checkpoint 持久化
 - **v0.5** (2026-03-30) - TaskHistory + Skill System + WhitelistConfigUI
@@ -397,5 +467,5 @@ opencowork/
 
 ---
 
-_OpenCowork v0.7_
-_最后更新: 2026-04-01_
+_OpenCowork v0.8_
+_最后更新: 2026-04-02_

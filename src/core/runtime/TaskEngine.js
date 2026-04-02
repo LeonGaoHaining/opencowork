@@ -18,12 +18,14 @@ export var TaskStatus;
     TaskStatus["FAILED"] = "failed";
     TaskStatus["CANCELLED"] = "cancelled";
 })(TaskStatus || (TaskStatus = {}));
+const MAX_TASKS = 500;
 export class TaskEngine {
     planner;
     executor;
     replanner;
     _takeoverManager;
     tasks = new Map();
+    taskOrder = [];
     mainWindow = null;
     previewWindow = null;
     currentTaskId = null;
@@ -33,6 +35,20 @@ export class TaskEngine {
     recoveryEngine = null;
     memory;
     agentModulesInitialized = false;
+    activePopupWait = null;
+    activeUserConfirm = null;
+    cleanup() {
+        this.clearPopupWait();
+        this.clearUserConfirm();
+        this.tasks.clear();
+        this.taskOrder = [];
+        this.mainWindow = null;
+        this.previewWindow = null;
+        this.executor
+            .cleanup()
+            .catch((err) => console.error('[TaskEngine] executor cleanup error:', err));
+        console.log('[TaskEngine] Cleaned up');
+    }
     constructor() {
         this.planner = new TaskPlanner();
         this.executor = new PlanExecutor();
@@ -71,6 +87,16 @@ export class TaskEngine {
         };
         this.currentTaskId = handle.id;
         this.tasks.set(handle.id, handle);
+        if (!this.taskOrder.includes(handle.id)) {
+            this.taskOrder.push(handle.id);
+        }
+        while (this.taskOrder.length > MAX_TASKS) {
+            const oldestId = this.taskOrder.shift();
+            if (oldestId) {
+                this.tasks.delete(oldestId);
+                console.log('[TaskEngine] Max tasks reached, removed oldest:', oldestId);
+            }
+        }
         try {
             console.log(`[TaskEngine] Starting task ${handle.id}:`, task);
             // 获取当前上下文
@@ -141,10 +167,34 @@ export class TaskEngine {
         const handle = this.tasks.get(handleId);
         if (!handle || !handle.plan)
             return;
+        // 深拷贝 plan 防止执行期间被修改
+        const planCopy = JSON.parse(JSON.stringify(handle.plan));
+        // AI设备场景：添加任务执行超时保护（默认30分钟）
+        const TASK_TIMEOUT = 30 * 60 * 1000; // 30 minutes
+        let timeoutId = null;
+        // 启动超时计时器
+        const startTimeout = () => {
+            timeoutId = setTimeout(async () => {
+                console.error(`[TaskEngine] Task execution timeout: ${handleId}`);
+                handle.status = TaskStatus.FAILED;
+                this.sendToRenderer('task:error', {
+                    handleId,
+                    error: 'Task execution timeout (30 minutes)',
+                });
+                await this.cancel(handleId);
+            }, TASK_TIMEOUT);
+        };
+        const clearTaskTimeout = () => {
+            if (timeoutId) {
+                clearTimeout(timeoutId);
+                timeoutId = null;
+            }
+        };
         // 启动实时截图
         this.executor.startScreencast();
+        startTimeout();
         try {
-            for await (const event of this.executor.execute(handle.plan)) {
+            for await (const event of this.executor.execute(planCopy)) {
                 switch (event.type) {
                     case 'node_start':
                         handle.progress.current++;
@@ -337,8 +387,10 @@ export class TaskEngine {
             console.error(`[TaskEngine] Plan execution failed:`, error);
             handle.status = TaskStatus.FAILED;
             this.sendToRenderer('task:error', { handleId, error: error.message || 'Unknown error' });
+            throw error;
         }
         finally {
+            clearTaskTimeout();
             // 不再停止预览传输，而是保持低 fps 继续传输
             // 预览传输由 setTaskRunning(false) 在外层 finally 中处理
         }
@@ -364,12 +416,22 @@ export class TaskEngine {
         if (!handle)
             return null;
         await this.pause(handleId);
+        const completedActions = [];
+        if (handle.plan?.nodes) {
+            for (const node of handle.plan.nodes) {
+                if (node.type === 'action' && node.action) {
+                    completedActions.push(node.action);
+                }
+            }
+        }
         return {
             currentNode: null,
-            completedActions: [],
+            completedActions,
             pendingNodes: [],
             aiContext: {
-                currentTask: '',
+                currentTask: handle.progress.current > 0
+                    ? `Task in progress (${handle.progress.current}/${handle.progress.total})`
+                    : '',
                 conversationHistory: [],
                 variables: {},
             },
@@ -383,30 +445,64 @@ export class TaskEngine {
         const handle = this.tasks.get(handleId);
         if (handle) {
             this.executor.pause();
+            this.clearPopupWait();
+            this.clearUserConfirm();
             handle.status = TaskStatus.CANCELLED;
             console.log(`[TaskEngine] Task cancelled: ${handleId}`);
         }
     }
     async waitForPopupClosed() {
+        if (this.activePopupWait) {
+            this.clearPopupWait();
+        }
         return new Promise((resolve) => {
             const checkInterval = setInterval(async () => {
-                const status = await this.executor.checkLoginPopup();
-                if (!status.hasPopup) {
-                    clearInterval(checkInterval);
-                    resolve();
+                try {
+                    const status = await this.executor.checkLoginPopup();
+                    if (!status.hasPopup) {
+                        this.clearPopupWait();
+                        resolve();
+                    }
+                }
+                catch (e) {
+                    console.warn('[TaskEngine] Popup check error:', e);
                 }
             }, 2000);
-            setTimeout(() => {
-                clearInterval(checkInterval);
+            const outerTimeout = setTimeout(() => {
+                this.clearPopupWait();
                 console.log('[TaskEngine] Popup wait timeout, continuing anyway');
                 resolve();
             }, 60000);
+            this.activePopupWait = { interval: checkInterval, timeout: outerTimeout };
         });
+    }
+    clearPopupWait() {
+        if (this.activePopupWait) {
+            clearInterval(this.activePopupWait.interval);
+            clearTimeout(this.activePopupWait.timeout);
+            this.activePopupWait = null;
+        }
     }
     getState(handleId) {
         return this.tasks.get(handleId) || null;
     }
+    agentModulesInitPromise = null;
     async ensureAgentModules() {
+        if (this.agentModulesInitialized)
+            return;
+        if (this.agentModulesInitPromise) {
+            await this.agentModulesInitPromise;
+            return;
+        }
+        this.agentModulesInitPromise = this.initializeAgentModules();
+        try {
+            await this.agentModulesInitPromise;
+        }
+        finally {
+            this.agentModulesInitPromise = null;
+        }
+    }
+    async initializeAgentModules() {
         if (this.agentModulesInitialized)
             return;
         const page = this.executor.getBrowserPage();
@@ -448,7 +544,13 @@ export class TaskEngine {
             case RecoveryStrategy.RETRY_SAME:
             case RecoveryStrategy.RETRY_WITH_WAIT:
                 if (recoveryAction.waitMs) {
-                    await this.executor.getBrowserPage().waitForTimeout(recoveryAction.waitMs);
+                    const page = this.executor.getBrowserPage();
+                    if (page) {
+                        await page.waitForTimeout(recoveryAction.waitMs);
+                    }
+                    else {
+                        console.warn('[TaskEngine] Browser page not available, skipping wait');
+                    }
                 }
                 return await this.retryNode(event.node, handle);
             case RecoveryStrategy.USE_FALLBACK_SELECTOR:
@@ -522,21 +624,38 @@ export class TaskEngine {
         }
     }
     async waitForUserConfirm(confirmType) {
+        if (this.activeUserConfirm) {
+            this.clearUserConfirm();
+        }
         return new Promise((resolve) => {
             const checkInterval = setInterval(async () => {
-                // 检查是否收到用户确认
-                const handle = this.tasks.get(this.currentTaskId || '');
-                if (handle?.status === TaskStatus.EXECUTING) {
-                    clearInterval(checkInterval);
+                try {
+                    const handle = this.tasks.get(this.currentTaskId || '');
+                    if (handle?.status === TaskStatus.EXECUTING) {
+                        this.clearUserConfirm();
+                        resolve();
+                    }
+                }
+                catch (e) {
+                    console.warn('[TaskEngine] User confirm check error:', e);
+                    this.clearUserConfirm();
                     resolve();
                 }
             }, 1000);
-            setTimeout(() => {
-                clearInterval(checkInterval);
+            const outerTimeout = setTimeout(() => {
+                this.clearUserConfirm();
                 console.log('[TaskEngine] User confirm wait timeout');
                 resolve();
-            }, 60000); // 1分钟超时
+            }, 60000);
+            this.activeUserConfirm = { interval: checkInterval, timeout: outerTimeout };
         });
+    }
+    clearUserConfirm() {
+        if (this.activeUserConfirm) {
+            clearInterval(this.activeUserConfirm.interval);
+            clearTimeout(this.activeUserConfirm.timeout);
+            this.activeUserConfirm = null;
+        }
     }
     sendToRenderer(channel, data) {
         console.log('[TaskEngine] sendToRenderer called:', {
