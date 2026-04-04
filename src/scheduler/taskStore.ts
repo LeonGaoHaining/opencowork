@@ -62,8 +62,17 @@ export class TaskStore {
       updatedAt: now,
       runCount: 0,
     };
+    console.log(
+      '[TaskStore] create: setting task',
+      newTask.id,
+      'into tasks map (size before:',
+      this.tasks.size,
+      ')'
+    );
     this.tasks.set(newTask.id, newTask);
+    console.log('[TaskStore] create: tasks map size after:', this.tasks.size);
     await this.save();
+    console.log('[TaskStore] create: save completed');
     return newTask;
   }
 
@@ -72,6 +81,7 @@ export class TaskStore {
   }
 
   async getAll(): Promise<ScheduledTask[]> {
+    console.log('[TaskStore] getAll: returning', this.tasks.size, 'tasks from map');
     return Array.from(this.tasks.values());
   }
 

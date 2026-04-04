@@ -33,14 +33,21 @@ export const useSchedulerStore = create<SchedulerState>((set, get) => ({
   loadTasks: async () => {
     set({ isLoading: true, error: null });
     try {
-      const tasks = await window.electron.invoke('scheduler:list');
-      let limitedTasks = tasks;
-      if (tasks.length > MAX_TASKS) {
-        limitedTasks = tasks.slice(-MAX_TASKS);
+      const result = await window.electron.invoke('scheduler:list');
+      console.log('[SchedulerStore] loadTasks raw result:', result, 'type:', typeof result);
+      let tasks: any[] = [];
+      if (result && typeof result === 'object') {
+        if (result.success && Array.isArray(result.data)) {
+          tasks = result.data;
+        } else if (Array.isArray(result)) {
+          tasks = result;
+        }
       }
-      set({ tasks: limitedTasks, isLoading: false });
+      console.log('[SchedulerStore] tasks count:', tasks.length);
+      set({ tasks, isLoading: false });
     } catch (error) {
-      set({ error: String(error), isLoading: false });
+      console.error('[SchedulerStore] loadTasks error:', error);
+      set({ tasks: [], error: String(error), isLoading: false });
     }
   },
 
@@ -78,7 +85,7 @@ export const useSchedulerStore = create<SchedulerState>((set, get) => ({
   triggerTask: async (id) => {
     set({ isLoading: true, error: null });
     try {
-      await window.electron.invoke('scheduler:trigger', id);
+      await window.electron.invoke('scheduler:trigger', { id });
       await get().loadTasks();
     } catch (error) {
       set({ error: String(error), isLoading: false });

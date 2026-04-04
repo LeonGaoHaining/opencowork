@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import { TaskHistoryRecord, HistoryQueryOptions, TaskStep } from './taskHistory';
 import { getHistoryStore, HistoryStore } from './historyStore';
 

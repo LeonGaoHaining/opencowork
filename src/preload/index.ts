@@ -10,8 +10,31 @@ export interface ElectronAPI {
 
 const electronAPI: ElectronAPI = {
   invoke: (channel: string, data?: any) => {
-    console.log('[Preload] invoke called:', channel);
-    return ipcRenderer.invoke(channel, data);
+    console.log(
+      '[Preload] invoke called:',
+      channel,
+      data ? JSON.stringify(data).substring(0, 100) : ''
+    );
+    return ipcRenderer.invoke(channel, data).then(
+      (result) => {
+        console.log(
+          '[Preload] invoke result for',
+          channel,
+          ':',
+          result === undefined
+            ? 'undefined'
+            : Array.isArray(result)
+              ? `array(${result.length})`
+              : typeof result,
+          result ? JSON.stringify(result).substring(0, 100) : ''
+        );
+        return result;
+      },
+      (error) => {
+        console.error('[Preload] invoke error for', channel, ':', error);
+        throw error;
+      }
+    );
   },
   on: (channel: string, callback: (...args: any[]) => void) => {
     console.log('[Preload] Registered listener for channel:', channel);

@@ -1,17 +1,24 @@
 // src/scheduler/taskExecutor.ts
 
+import { BrowserWindow } from 'electron';
 import { QueuedTask, TaskExecutionResult, ExecutorMode, ExecutorConfig } from './types';
 import { HistoryService } from '../history/historyService';
+import { createMainAgent, AgentResult } from '../agents/mainAgent';
 
 const DEFAULT_TASK_TIMEOUT = 300000; // 5 minutes
 
 export class TaskExecutor {
   private historyService: HistoryService;
   private config: ExecutorConfig;
+  private mainWindow: BrowserWindow | null = null;
 
-  constructor(config: ExecutorConfig = { mode: ExecutorMode.STANDALONE }) {
+  constructor(config: ExecutorConfig = { mode: ExecutorMode.INTEGRATED }) {
     this.historyService = new HistoryService();
     this.config = config;
+  }
+
+  setMainWindow(window: BrowserWindow | null): void {
+    this.mainWindow = window;
   }
 
   async execute(task: QueuedTask): Promise<TaskExecutionResult> {
@@ -101,21 +108,28 @@ export class TaskExecutor {
 
   private async executeWithMainAgent(description: string, timeout?: number): Promise<void> {
     console.log('[TaskExecutor] Execute with MainAgent:', description);
-    // TODO: Integrate with MainAgent for actual task execution
-    // This requires:
-    // 1. Import MainAgent from '../agents/mainAgent'
-    // 2. Create MainAgent instance
-    // 3. Call agent.run(description) with timeout
-    // 4. Handle the result and propagate to historyService
-    await this.simulateExecution(timeout);
+
+    const agent = await createMainAgent({
+      threadId: `scheduler-${Date.now()}`,
+      checkpointerEnabled: false,
+    });
+
+    if (this.mainWindow) {
+      agent.setMainWindow(this.mainWindow);
+    }
+
+    const immediateTask = `请立即执行以下任务，不要创建定时任务：${description}`;
+    const result: AgentResult = await agent.run(immediateTask);
+
+    if (!result.success) {
+      throw new Error(result.error || 'Agent execution failed');
+    }
+
+    console.log('[TaskExecutor] Agent completed:', result.finalMessage);
   }
 
   private async executeStandalone(description: string, timeout?: number): Promise<void> {
     console.log('[TaskExecutor] Execute standalone (placeholder):', description);
-    // TODO: Implement standalone execution:
-    // - Parse task description using LLM
-    // - Execute actions using BrowserExecutor or CLIExecutor
-    // - Report progress back to scheduler
     await this.simulateExecution(timeout);
   }
 

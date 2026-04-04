@@ -1,4 +1,5 @@
 import { execFile } from 'child_process';
+import crypto from 'crypto';
 import { InstalledSkill, SkillExecutionContext } from './skillManifest';
 
 export interface SkillExecutionResult {

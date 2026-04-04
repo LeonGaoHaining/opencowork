@@ -45,6 +45,17 @@ async function bootstrap() {
   // 设置全局快捷键
   setupShortcuts(mainWindow);
 
+  // 初始化 Scheduler - 加载持久化任务并启动调度
+  try {
+    const { initializeScheduler } = await import('../scheduler/scheduler.js');
+    const scheduler = await initializeScheduler();
+    scheduler.setMainWindow(mainWindow);
+    await scheduler.start();
+    console.log('[Scheduler] Initialized and started');
+  } catch (error) {
+    console.error('[Scheduler] Failed to initialize:', error);
+  }
+
   // 开发模式下打开开发者工具
   if (process.env.NODE_ENV === 'development') {
     mainWindow.webContents.openDevTools();

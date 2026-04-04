@@ -194,7 +194,7 @@ export class FeishuBot {
         }
     }
     async bindUser(imUserId, desktopUserId) {
-        const { getBindingStore } = await import('../store/bindingStore');
+        const { getBindingStore } = await import('../store/bindingStore.js');
         const bindingStore = getBindingStore();
         bindingStore.set(imUserId, {
             imUserId,
@@ -204,7 +204,7 @@ export class FeishuBot {
         });
     }
     async getBinding(desktopUserId) {
-        const { getBindingStore } = await import('../store/bindingStore');
+        const { getBindingStore } = await import('../store/bindingStore.js');
         const bindingStore = getBindingStore();
         const binding = bindingStore.getByDesktopUserId(desktopUserId);
         if (binding) {

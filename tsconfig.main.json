@@ -25,7 +25,10 @@
     "src/checkpointers/**/*",
     "src/ipc/**/*",
     "src/im/**/*",
-    "src/renderer/types/**/*"
+    "src/renderer/types/**/*",
+    "src/history/**/*",
+    "src/scheduler/**/*",
+    "src/tools/**/*"
   ],
   "exclude": ["node_modules", "src/renderer/**/*"]
 }

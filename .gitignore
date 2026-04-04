@@ -7,3 +7,7 @@ release/
 .vscode/
 *.local
 config/
+# Runtime data
+data/
+history.db
+logs/

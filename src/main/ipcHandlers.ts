@@ -350,21 +350,44 @@ export const IPC_HANDLERS: Record<string, IpcHandler> = {
 
   // 定时任务相关 (v0.6)
   'scheduler:list': async () => {
-    const { getScheduler } = await import('../scheduler/scheduler.js');
-    const scheduler = getScheduler();
-    return await scheduler.getAllTasks();
+    try {
+      const { getScheduler } = await import('../scheduler/scheduler.js');
+      const scheduler = getScheduler();
+      console.log(
+        '[IPC] scheduler:list - scheduler tasks count:',
+        scheduler.getAllTasks.toString()
+      );
+      const tasks = await scheduler.getAllTasks();
+      console.log(
+        '[IPC] scheduler:list returning tasks:',
+        tasks?.length,
+        JSON.stringify(tasks).substring(0, 100)
+      );
+      return tasks;
+    } catch (error) {
+      console.error('[IPC] scheduler:list error:', error);
+      return [];
+    }
+  },
+
+  'scheduler:create': async (mainWindow, previewWindow, task) => {
+    try {
+      const { getScheduler } = await import('../scheduler/scheduler.js');
+      const scheduler = getScheduler();
+      console.log('[IPC] scheduler:create - task:', JSON.stringify(task).substring(0, 100));
+      const result = await scheduler.addTask(task);
+      console.log('[IPC] scheduler:create - result:', JSON.stringify(result).substring(0, 100));
+      return result;
+    } catch (error) {
+      console.error('[IPC] scheduler:create error:', error);
+      return { success: false, error: String(error) };
+    }
   },
 
   'scheduler:get': async (mainWindow, previewWindow, { id }: { id: string }) => {
     const { getScheduler } = await import('../scheduler/scheduler.js');
     const scheduler = getScheduler();
     return await scheduler.getTask(id);
-  },
-
-  'scheduler:create': async (mainWindow, previewWindow, task) => {
-    const { getScheduler } = await import('../scheduler/scheduler.js');
-    const scheduler = getScheduler();
-    return await scheduler.addTask(task);
   },
 
   'scheduler:update': async (
@@ -499,6 +522,55 @@ export const IPC_HANDLERS: Record<string, IpcHandler> = {
       return { success: true };
     } catch (error: any) {
       console.error('[IPC] feishu:bind error:', error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  // 历史记录相关 (v0.8)
+  'history:list': async (mainWindow, previewWindow, { options }: { options?: any }) => {
+    try {
+      const { getHistoryService } = await import('../history/historyService.js');
+      const historyService = getHistoryService();
+      const tasks = await historyService.listTasks(options || {});
+      return { data: tasks, total: tasks.length };
+    } catch (error: any) {
+      console.error('[IPC] history:list error:', error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  'history:get': async (mainWindow, previewWindow, { taskId }: { taskId: string }) => {
+    try {
+      const { getHistoryService } = await import('../history/historyService.js');
+      const historyService = getHistoryService();
+      const task = await historyService.getTask(taskId);
+      return { data: task };
+    } catch (error: any) {
+      console.error('[IPC] history:get error:', error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  'history:delete': async (mainWindow, previewWindow, { taskId }: { taskId: string }) => {
+    try {
+      const { getHistoryService } = await import('../history/historyService.js');
+      const historyService = getHistoryService();
+      await historyService.deleteTask(taskId);
+      return { success: true };
+    } catch (error: any) {
+      console.error('[IPC] history:delete error:', error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  'history:replay': async (mainWindow, previewWindow, { taskId }: { taskId: string }) => {
+    try {
+      const { getHistoryService } = await import('../history/historyService.js');
+      const historyService = getHistoryService();
+      const result = await historyService.replayTask(taskId);
+      return { success: true, data: result };
+    } catch (error: any) {
+      console.error('[IPC] history:replay error:', error);
       return { success: false, error: error.message };
     }
   },

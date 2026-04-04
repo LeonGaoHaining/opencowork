@@ -2,6 +2,7 @@
 
 import * as cron from 'node-cron';
 import { EventEmitter } from 'events';
+import { BrowserWindow } from 'electron';
 import {
   ScheduledTask,
   QueuedTask,
@@ -23,7 +24,7 @@ export interface SchedulerConfig {
 const DEFAULT_CONFIG: SchedulerConfig = {
   maxConcurrentTasks: 3,
   defaultTimeout: 300000,
-  executorMode: ExecutorMode.STANDALONE,
+  executorMode: ExecutorMode.INTEGRATED,
 };
 
 export class Scheduler extends EventEmitter {
@@ -48,6 +49,10 @@ export class Scheduler extends EventEmitter {
 
   async initialize(): Promise<void> {
     await this.taskStore.initialize();
+  }
+
+  setMainWindow(window: BrowserWindow | null): void {
+    this.taskExecutor.setMainWindow(window);
   }
 
   private setupEventHandlers(): void {
@@ -136,7 +141,9 @@ export class Scheduler extends EventEmitter {
   }
 
   async addTask(input: CreateScheduledTaskInput): Promise<ScheduledTask> {
+    console.log('[Scheduler] addTask called with input:', JSON.stringify(input).substring(0, 200));
     const newTask = await this.taskStore.create(input);
+    console.log('[Scheduler] addTask created:', JSON.stringify(newTask).substring(0, 200));
     if (newTask.enabled) {
       await this.scheduleTask(newTask);
     }
@@ -159,7 +166,9 @@ export class Scheduler extends EventEmitter {
   }
 
   async getAllTasks(): Promise<ScheduledTask[]> {
-    return await this.taskStore.getAll();
+    const tasks = await this.taskStore.getAll();
+    console.log('[Scheduler] getAllTasks returning:', tasks.length, 'tasks');
+    return tasks;
   }
 
   async getTask(id: string): Promise<ScheduledTask | null> {

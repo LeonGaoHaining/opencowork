@@ -52,9 +52,19 @@ export const useHistoryStore = create<HistoryState>((set, get) => ({
     try {
       const filter = { ...get().filter, ...options };
       const response = await window.electron.invoke('history:list', { options: filter });
-      set({ tasks: response.tasks || [], total: response.total || 0, filter });
+      // 检查返回值是否是对象且包含 tasks 数组
+      const tasks =
+        response && typeof response === 'object' && Array.isArray(response.tasks)
+          ? response.tasks
+          : [];
+      const total =
+        response && typeof response === 'object' && typeof response.total === 'number'
+          ? response.total
+          : 0;
+      set({ tasks, total, filter });
     } catch (error) {
       console.error('[HistoryStore] Failed to load tasks:', error);
+      set({ tasks: [], total: 0 });
     } finally {
       set({ isLoading: false });
     }

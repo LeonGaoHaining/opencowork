@@ -306,39 +306,39 @@ export const IPC_HANDLERS = {
     },
     // 定时任务相关 (v0.6)
     'scheduler:list': async () => {
-        const { getScheduler } = await import('../scheduler/scheduler');
+        const { getScheduler } = await import('../scheduler/scheduler.js');
         const scheduler = getScheduler();
         return await scheduler.getAllTasks();
     },
     'scheduler:get': async (mainWindow, previewWindow, { id }) => {
-        const { getScheduler } = await import('../scheduler/scheduler');
+        const { getScheduler } = await import('../scheduler/scheduler.js');
         const scheduler = getScheduler();
         return await scheduler.getTask(id);
     },
     'scheduler:create': async (mainWindow, previewWindow, task) => {
-        const { getScheduler } = await import('../scheduler/scheduler');
+        const { getScheduler } = await import('../scheduler/scheduler.js');
         const scheduler = getScheduler();
         return await scheduler.addTask(task);
     },
     'scheduler:update': async (mainWindow, previewWindow, { id, updates }) => {
-        const { getScheduler } = await import('../scheduler/scheduler');
+        const { getScheduler } = await import('../scheduler/scheduler.js');
         const scheduler = getScheduler();
         return await scheduler.updateTask(id, updates);
     },
     'scheduler:delete': async (mainWindow, previewWindow, { id }) => {
-        const { getScheduler } = await import('../scheduler/scheduler');
+        const { getScheduler } = await import('../scheduler/scheduler.js');
         const scheduler = getScheduler();
         return await scheduler.deleteTask(id);
     },
     'scheduler:trigger': async (mainWindow, previewWindow, { id }) => {
-        const { getScheduler } = await import('../scheduler/scheduler');
+        const { getScheduler } = await import('../scheduler/scheduler.js');
         const scheduler = getScheduler();
         return await scheduler.triggerTask(id);
     },
     // 飞书机器人相关 (v0.7)
     'feishu:handle': async (mainWindow, previewWindow, payload) => {
         try {
-            const { getFeishuService } = await import('../im/feishu/FeishuService');
+            const { getFeishuService } = await import('../im/feishu/FeishuService.js');
             const service = getFeishuService();
             await service.handleCallback(payload);
             return { success: true };
@@ -353,7 +353,7 @@ export const IPC_HANDLERS = {
             if (!payload?.taskId || !payload?.description) {
                 return { success: false, error: 'Missing taskId or description' };
             }
-            const { getScheduler } = await import('../scheduler/scheduler');
+            const { getScheduler } = await import('../scheduler/scheduler.js');
             const scheduler = getScheduler();
             const task = await scheduler.addTask({
                 name: payload.taskId,
@@ -426,7 +426,7 @@ export const IPC_HANDLERS = {
             if (!imUserId || !desktopUserId) {
                 return { success: false, error: 'Missing imUserId or desktopUserId' };
             }
-            const { getBindingStore } = await import('../im/store/bindingStore');
+            const { getBindingStore } = await import('../im/store/bindingStore.js');
             const bindingStore = getBindingStore();
             bindingStore.set(imUserId, {
                 imUserId,

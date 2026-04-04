@@ -1,13 +1,24 @@
 // src/scheduler/cronParser.ts
-const CRON_REGEX =
-  /^(\*|([0-5]?\d)) (\*|([01]?\d|2[0-3])) (\*|([01]?\d|2[0-3])) (\*|([0-2]?\d|3[01])) (\*|(1[2]|[1-9]))$/;
+
+import cron from 'node-cron';
+
+export interface CronField {
+  min: string;
+  hour: string;
+  dayOfMonth: string;
+  month: string;
+  dayOfWeek: string;
+}
+
 export class CronParser {
-  static validate(cronExpression) {
-    return CRON_REGEX.test(cronExpression.trim());
+  static validate(cronExpression: string): boolean {
+    return cron.validate(cronExpression);
   }
-  static parse(cronExpression) {
+
+  static parse(cronExpression: string): CronField | null {
     const parts = cronExpression.trim().split(/\s+/);
     if (parts.length !== 5) return null;
+
     return {
       min: parts[0],
       hour: parts[1],
@@ -16,7 +27,8 @@ export class CronParser {
       dayOfWeek: parts[4],
     };
   }
-  static fromNaturalLanguage(type, value) {
+
+  static fromNaturalLanguage(type: string, value: string): string | null {
     switch (type) {
       case 'daily': {
         const dailyMatch = value.match(/^(\d{1,2}):(\d{2})$/);
@@ -25,6 +37,7 @@ export class CronParser {
         }
         break;
       }
+
       case 'weekly': {
         const days = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
         const weeklyMatch = value.match(/^(\w+)\s+(\d{1,2}):(\d{2})$/);
@@ -36,6 +49,7 @@ export class CronParser {
         }
         break;
       }
+
       case 'monthly': {
         const monthlyMatch = value.match(/^(\d{1,2})\s+(\d{1,2}):(\d{2})$/);
         if (monthlyMatch) {
@@ -43,6 +57,7 @@ export class CronParser {
         }
         break;
       }
+
       case 'hourly':
         if (value === 'on') {
           return '0 * * * *';
@@ -51,7 +66,8 @@ export class CronParser {
     }
     return null;
   }
-  static getPresets() {
+
+  static getPresets(): { label: string; expression: string; description: string }[] {
     return [
       { label: '每天 9:00', expression: '0 9 * * *', description: '每天上午 9:00 执行' },
       { label: '每天 18:00', expression: '0 18 * * *', description: '每天下午 6:00 执行' },
@@ -61,8 +77,9 @@ export class CronParser {
       { label: '每小时', expression: '0 * * * *', description: '每小时的整点执行' },
     ];
   }
-  static getNextRunTime(cronExpression, fromTime = Date.now()) {
-    if (!CronParser.validate(cronExpression)) return null;
+
+  static getNextRunTime(cronExpression: string, fromTime: number = Date.now()): number | null {
+    if (!cron.validate(cronExpression)) return null;
     return fromTime + 60000;
   }
 }

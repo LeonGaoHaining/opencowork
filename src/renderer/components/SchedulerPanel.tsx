@@ -52,6 +52,11 @@ function SchedulerPanel() {
   useEffect(() => {
     if (isOpen) {
       loadTasks();
+      // 自动刷新任务列表，每5秒刷新一次
+      const interval = setInterval(() => {
+        loadTasks();
+      }, 5000);
+      return () => clearInterval(interval);
     }
   }, [isOpen, loadTasks]);
 

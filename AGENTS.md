@@ -641,6 +641,24 @@ git rebase origin/main
 
 ---
 
+## 行为说明
+
+### Screencast 在任务结束后继续发送帧
+
+**现象**: Agent 任务执行完成后（AGENT_END），Screencast 仍在继续发送帧（如 "Sent 30 frames", "Sent 60 frames" 等）
+
+**原因**: 这是正确的预期行为。Screencast 的设计是在整个 Electron 应用运行期间持续捕获屏幕，为用户提供实时预览。任务执行完成仅表示 Agent 工作完成，但用户可能仍在查看预览窗口，因此 Screencast 继续运行。
+
+**触发条件**: 当 PreviewManager 设置为 sidebar 或 detached 模式时，Screencast 会持续运行
+
+**停止条件**:
+
+- 用户关闭预览窗口
+- 应用退出
+- 调用 ScreencastService.destroy() 方法
+
+---
+
 ## Documentation
 
 ### Docs Directory

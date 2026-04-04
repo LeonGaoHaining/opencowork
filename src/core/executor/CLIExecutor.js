@@ -128,7 +128,9 @@ export class CLIExecutor {
         const trimmed = command.trim();
         const lower = trimmed.toLowerCase();
         for (const blocked of BLACKLIST_COMMANDS) {
-            if (lower.includes(blocked.toLowerCase())) {
+            const escaped = blocked.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const pattern = new RegExp(`\\b${escaped}\\b`, 'i');
+            if (pattern.test(trimmed)) {
                 return { valid: false, error: `Blocked command pattern: ${blocked}` };
             }
         }
