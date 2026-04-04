@@ -2,12 +2,14 @@ import React from 'react';
 import { useTaskStore } from '../stores/taskStore';
 import { useHistoryStore } from '../stores/historyStore';
 import { useSchedulerStore } from '../stores/schedulerStore';
+import { useSkillStore } from '../stores/skillStore';
 
 export function ControlBar() {
   const { task, setTakeover, showPlanViewer, setShowPlanViewer, previewMode, setPreviewMode } =
     useTaskStore();
   const { setIsOpen: setHistoryOpen } = useHistoryStore();
   const { setOpen: setSchedulerOpen } = useSchedulerStore();
+  const { setOpen: setSkillOpen } = useSkillStore();
 
   const handleTakeover = () => {
     setTakeover(true);
@@ -156,6 +158,10 @@ export function ControlBar() {
           title="定时任务"
         >
           定时
+        </button>
+
+        <button onClick={() => setSkillOpen(true)} className="btn btn-secondary" title="Skill管理">
+          Skill
         </button>
 
         <button

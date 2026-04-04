@@ -18,6 +18,9 @@ import { loadLLMConfig } from '../llm/config';
 import { webfetchTool } from '../tools/webfetch/WebFetchTool';
 import { websearchTool } from '../tools/websearch/WebSearchTool';
 import { schedulerTool } from '../tools/scheduler/SchedulerTool';
+import { getSkillToolFactory, SkillToolFactory } from '../tools/skill/SkillToolFactory';
+import { recordingTools } from '../tools/skill/RecordingTools';
+import { getSkillLoader } from '../skills/skillLoader';
 
 function cleanHtmlText(text: string): string {
   return text
@@ -383,7 +386,7 @@ const plannerTool = tool(
   }
 );
 
-const availableTools = [
+const baseTools = [
   browserTool,
   cliTool,
   visionTool,
@@ -391,7 +394,28 @@ const availableTools = [
   webfetchTool,
   websearchTool,
   schedulerTool,
+  ...recordingTools,
 ];
+
+let skillTools: any[] = [];
+
+export async function loadSkillTools(): Promise<any[]> {
+  try {
+    const skillLoader = getSkillLoader();
+    const skills = await skillLoader.loadAllSkills();
+    const skillFactory = getSkillToolFactory();
+    skillTools = skillFactory.createToolsFromSkills(skills);
+    console.log(`[MainAgent] Loaded ${skillTools.length} skill tools`);
+    return skillTools;
+  } catch (error) {
+    console.error('[MainAgent] Failed to load skill tools:', error);
+    return [];
+  }
+}
+
+function getAvailableTools(): any[] {
+  return [...baseTools, ...skillTools];
+}
 
 const STATE_MODIFIER = `你是一个浏览器自动化助手，擅长理解用户任务并分解执行。
 
@@ -477,6 +501,20 @@ export class MainAgent {
 
   setPreviewWindow(window: BrowserWindow | null): void {
     this.previewWindow = window;
+  }
+
+  async reloadSkills(): Promise<void> {
+    console.log('[MainAgent] Reloading skill tools...');
+    await loadSkillTools();
+    if (this.agent) {
+      this.agent = createReactAgent({
+        llm: this.model,
+        tools: getAvailableTools(),
+        stateModifier: STATE_MODIFIER,
+        checkpointer: this.checkpointerEnabled ? this.checkpointer.getCheckpointer() : undefined,
+      });
+      console.log('[MainAgent] Skill tools reloaded, agent updated');
+    }
   }
 
   getThreadId(): string {
@@ -612,9 +650,10 @@ export class MainAgent {
   }
 
   async initialize(): Promise<void> {
+    await loadSkillTools();
     this.agent = createReactAgent({
       llm: this.model,
-      tools: availableTools,
+      tools: getAvailableTools(),
       stateModifier: STATE_MODIFIER,
       checkpointer: this.checkpointerEnabled ? this.checkpointer.getCheckpointer() : undefined,
     });

@@ -7,8 +7,10 @@ import { AskUserDialog } from './components/AskUserDialog';
 import { SessionPanel } from './components/SessionPanel';
 import { HistoryPanel } from './components/HistoryPanel';
 import SchedulerPanel from './components/SchedulerPanel';
+import SkillPanel from './components/SkillPanel';
 import { useTaskStore } from './stores/taskStore';
 import { useSessionStore } from './stores/sessionStore';
+import { useSkillStore } from './stores/skillStore';
 
 interface ErrorBoundaryProps {
   children: ReactNode;
@@ -73,6 +75,7 @@ function App() {
     clearActiveSteps,
   } = useTaskStore();
   const { saveMessages } = useSessionStore();
+  const { isOpen: isSkillOpen, setOpen: setSkillOpen } = useSkillStore();
   const [screenshot, setScreenshot] = useState<string | null>(null);
   const [imageKey, setImageKey] = useState(0);
 
@@ -364,6 +367,9 @@ function App() {
 
         {/* Scheduler Panel */}
         <SchedulerPanel />
+
+        {/* Skill Panel */}
+        <SkillPanel isOpen={isSkillOpen} onClose={() => setSkillOpen(false)} />
       </div>
     </ErrorBoundary>
   );
