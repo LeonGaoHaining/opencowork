@@ -58,8 +58,9 @@ export function SkillPanel({ isOpen, onClose }: SkillPanelProps) {
   const loadSkills = useCallback(async () => {
     setIsLoading(true);
     try {
-      const skillList = await window.electron.invoke('skill:list');
-      setSkills(skillList || []);
+      const result = await window.electron.invoke('skill:list');
+      const skills = result?.data || result || [];
+      setSkills(Array.isArray(skills) ? skills : []);
     } catch (error) {
       console.error('[SkillPanel] Failed to load skills:', error);
     } finally {

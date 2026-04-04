@@ -7,7 +7,7 @@ import { AskUserDialog } from './components/AskUserDialog';
 import { SessionPanel } from './components/SessionPanel';
 import { HistoryPanel } from './components/HistoryPanel';
 import SchedulerPanel from './components/SchedulerPanel';
-import SkillPanel from './components/SkillPanel';
+import { SkillPanel } from './components/SkillPanel';
 import { useTaskStore } from './stores/taskStore';
 import { useSessionStore } from './stores/sessionStore';
 import { useSkillStore } from './stores/skillStore';
