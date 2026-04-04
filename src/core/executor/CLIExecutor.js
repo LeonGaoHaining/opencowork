@@ -4,6 +4,7 @@ const CLI_WHITELIST = {
     npm: ['install', 'run', 'test', 'start', 'build', 'dev', 'lint'],
     node: ['--version', '-v'],
     python: ['--version', '-c', '-m'],
+    python3: ['--version', '-c', '-m'],
     pip: ['install', 'list', 'show', 'freeze'],
     curl: ['-s', '-S', '-L', '-o', '--max-time'],
     wget: ['-q', '-O', '--timeout'],
