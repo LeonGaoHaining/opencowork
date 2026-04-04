@@ -160,8 +160,8 @@ export function ControlBar() {
           定时
         </button>
 
-        <button onClick={() => setSkillOpen(true)} className="btn btn-secondary" title="Skill管理">
-          Skill
+        <button onClick={() => setSkillOpen(true)} className="btn btn-secondary" title="技能管理">
+          技能
         </button>
 
         <button

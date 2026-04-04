@@ -574,4 +574,53 @@ export const IPC_HANDLERS: Record<string, IpcHandler> = {
       return { success: false, error: error.message };
     }
   },
+
+  'skill:list': async (mainWindow, previewWindow) => {
+    try {
+      const { SkillMarket } = await import('../skills/skillMarket.js');
+      const market = new SkillMarket();
+      const skills = await market.listInstalledSkills();
+      return skills;
+    } catch (error: any) {
+      console.error('[IPC] skill:list error:', error);
+      return [];
+    }
+  },
+
+  'skill:install': async (mainWindow, previewWindow, { path: skillPath }: { path: string }) => {
+    try {
+      const { SkillMarket } = await import('../skills/skillMarket.js');
+      const market = new SkillMarket();
+      const result = await market.installSkill(skillPath);
+      return result;
+    } catch (error: any) {
+      console.error('[IPC] skill:install error:', error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  'skill:uninstall': async (mainWindow, previewWindow, { name }: { name: string }) => {
+    try {
+      const { SkillMarket } = await import('../skills/skillMarket.js');
+      const market = new SkillMarket();
+      const result = await market.uninstallSkill(name);
+      return result;
+    } catch (error: any) {
+      console.error('[IPC] skill:uninstall error:', error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  'skill:openDirectory': async (mainWindow, previewWindow) => {
+    try {
+      const { shell } = await import('electron');
+      const homeDir = process.env.HOME || process.env.USERPROFILE || '~';
+      const skillsDir = `${homeDir}/.opencowork/skills`;
+      await shell.openPath(skillsDir);
+      return { success: true };
+    } catch (error: any) {
+      console.error('[IPC] skill:openDirectory error:', error);
+      return { success: false, error: error.message };
+    }
+  },
 };
