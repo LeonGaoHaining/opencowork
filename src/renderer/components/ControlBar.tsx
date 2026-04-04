@@ -11,10 +11,6 @@ export function ControlBar() {
   const { setOpen: setSchedulerOpen } = useSchedulerStore();
   const { setOpen: setSkillOpen } = useSkillStore();
 
-  const handleSkillClick = () => {
-    setSkillOpen(true);
-  };
-
   const handleTakeover = () => {
     setTakeover(true);
   };
@@ -164,7 +160,7 @@ export function ControlBar() {
           定时
         </button>
 
-        <button onClick={handleSkillClick} className="btn btn-secondary" title="技能管理">
+        <button onClick={() => setSkillOpen(true)} className="btn btn-secondary" title="技能管理">
           技能
         </button>
 
