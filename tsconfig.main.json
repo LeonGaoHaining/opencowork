@@ -23,7 +23,9 @@
     "src/agents/**/*",
     "src/memory/**/*",
     "src/checkpointers/**/*",
-    "src/ipc/**/*"
+    "src/ipc/**/*",
+    "src/im/**/*",
+    "src/renderer/types/**/*"
   ],
   "exclude": ["node_modules", "src/renderer/**/*"]
 }

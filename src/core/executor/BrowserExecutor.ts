@@ -271,7 +271,13 @@ export class BrowserExecutor {
           throw new Error(`Element not found: ${sel}`);
         }
         const targetElement = elements[idx] || elements[0];
-        await targetElement.scrollIntoViewIfNeeded();
+        try {
+          await targetElement.scrollIntoViewIfNeeded({ timeout: 7000 });
+        } catch (e) {
+          console.warn(
+            '[BrowserExecutor] scrollIntoViewIfNeeded failed for click, proceeding anyway'
+          );
+        }
         await targetElement.click({ force: true });
       },
       startTime
@@ -310,7 +316,13 @@ export class BrowserExecutor {
       processedFallbacks,
       async (sel) => {
         const element = this.page.locator(sel);
-        await element.scrollIntoViewIfNeeded();
+        try {
+          await element.scrollIntoViewIfNeeded({ timeout: 7000 });
+        } catch (e) {
+          console.warn(
+            '[BrowserExecutor] scrollIntoViewIfNeeded failed for input, proceeding anyway'
+          );
+        }
         if (clear) {
           await element.clear({ force: true });
         }

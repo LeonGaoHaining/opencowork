@@ -256,7 +256,7 @@ export class FeishuBot implements IMBot {
   }
 
   async bindUser(imUserId: string, desktopUserId: string): Promise<void> {
-    const { getBindingStore } = await import('../store/bindingStore');
+    const { getBindingStore } = await import('../store/bindingStore.js');
     const bindingStore = getBindingStore();
     bindingStore.set(imUserId, {
       imUserId,
@@ -267,7 +267,7 @@ export class FeishuBot implements IMBot {
   }
 
   async getBinding(desktopUserId: string): Promise<IMBinding | null> {
-    const { getBindingStore } = await import('../store/bindingStore');
+    const { getBindingStore } = await import('../store/bindingStore.js');
     const bindingStore = getBindingStore();
     const binding = bindingStore.getByDesktopUserId(desktopUserId);
     if (binding) {

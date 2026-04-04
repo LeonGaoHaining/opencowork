@@ -696,11 +696,22 @@ export class MainAgent {
       this.logger.logError(error.message, { task, threadId: this.threadId }, this.threadId, task);
       console.error('[MainAgent] Task failed:', error);
 
-      this.sendTaskError(error.message || 'Unknown error');
+      // Format friendly error message based on error type
+      let friendlyError = error.message || 'Unknown error';
+      if (
+        error.message?.includes('Recursion limit') ||
+        error.message?.includes('recursionLimit') ||
+        error.lc_error_code === 'GRAPH_RECURSION_LIMIT'
+      ) {
+        friendlyError =
+          '抱歉，经过多次尝试后仍然无法完成任务。AI 已尽力调整策略，建议稍后重试或简化任务。';
+      }
+
+      this.sendTaskError(friendlyError);
 
       return {
         success: false,
-        error: error.message || 'Unknown error',
+        error: friendlyError,
       };
     } finally {
       clearAgentInstance();

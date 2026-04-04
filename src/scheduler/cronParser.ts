@@ -1,8 +1,6 @@
 // src/scheduler/cronParser.ts
 
-import cron from 'node-cron';
-
-export interface CronField {
+interface CronField {
   min: string;
   hour: string;
   dayOfMonth: string;
@@ -10,9 +8,12 @@ export interface CronField {
   dayOfWeek: string;
 }
 
+const CRON_REGEX =
+  /^(\*|([0-5]?\d)) (\*|([01]?\d|2[0-3])) (\*|([01]?\d|2[0-3])) (\*|([0-2]?\d|3[01])) (\*|(1[2]|[1-9]))$/;
+
 export class CronParser {
   static validate(cronExpression: string): boolean {
-    return cron.validate(cronExpression);
+    return CRON_REGEX.test(cronExpression.trim());
   }
 
   static parse(cronExpression: string): CronField | null {
@@ -79,7 +80,7 @@ export class CronParser {
   }
 
   static getNextRunTime(cronExpression: string, fromTime: number = Date.now()): number | null {
-    if (!cron.validate(cronExpression)) return null;
+    if (!CronParser.validate(cronExpression)) return null;
     return fromTime + 60000;
   }
 }
