@@ -17,6 +17,9 @@ const CLI_WHITELIST: Record<string, string[]> = {
   mkdir: ['-p'],
   cd: [],
   touch: ['*'],
+  'xdg-open': ['*'],
+  gio: ['open'],
+  go: ['version', 'run'],
 };
 
 const BLACKLIST_COMMANDS = ['rm -rf', 'dd', 'mkfs', ':(){:|:&};:', 'chmod -R 777', 'sudo', 'su'];
