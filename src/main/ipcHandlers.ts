@@ -7,6 +7,7 @@ import { CLIExecutor } from '../core/executor/CLIExecutor';
 import { ActionType } from '../core/action/ActionSchema';
 import { createMainAgent, MainAgent } from '../agents/mainAgent';
 import { ScheduleType } from '../scheduler/types';
+import { getIMConfigStore } from '../config/imConfig';
 
 const taskEngine = new TaskEngine();
 const previewManager = new PreviewManager();
@@ -167,28 +168,52 @@ export const IPC_HANDLERS: Record<string, IpcHandler> = {
   'task:pause': async (mainWindow, previewWindow, { handleId }) => {
     if (sharedMainAgent && sharedMainAgent.getThreadId() === handleId) {
       sharedMainAgent.pause();
-      return { success: true };
+    } else {
+      await taskEngine.pause(handleId);
     }
-    await taskEngine.pause(handleId);
+    mainWindow?.webContents.send('task:statusUpdate', { handleId, status: 'paused' });
     return { success: true };
   },
 
   'task:resume': async (mainWindow, previewWindow, { handleId }) => {
     if (sharedMainAgent && sharedMainAgent.getThreadId() === handleId) {
       sharedMainAgent.resume();
-      return { success: true };
+    } else {
+      await taskEngine.resume(handleId);
     }
-    await taskEngine.resume(handleId);
+    mainWindow?.webContents.send('task:statusUpdate', { handleId, status: 'executing' });
     return { success: true };
   },
 
   'task:stop': async (mainWindow, previewWindow, { handleId }) => {
     if (sharedMainAgent && sharedMainAgent.getThreadId() === handleId) {
       sharedMainAgent.requestCancel();
-      return { success: true };
+    } else {
+      await taskEngine.cancel(handleId);
+    }
+    mainWindow?.webContents.send('task:statusUpdate', { handleId, status: 'cancelled' });
+    return { success: true };
+  },
+
+  'task:restart': async (mainWindow, previewWindow, { handleId }) => {
+    if (sharedMainAgent && sharedMainAgent.getThreadId() === handleId) {
+      sharedMainAgent.requestCancel();
+      mainWindow?.webContents.send('task:statusUpdate', { handleId, status: 'cancelled' });
+      return { success: true, message: 'Task restart requested' };
     }
     await taskEngine.cancel(handleId);
-    return { success: true };
+    mainWindow?.webContents.send('task:statusUpdate', { handleId, status: 'cancelled' });
+    return { success: true, message: 'Task restart requested' };
+  },
+
+  'task:complete': async (mainWindow, previewWindow, { handleId }) => {
+    if (sharedMainAgent && sharedMainAgent.getThreadId() === handleId) {
+      sharedMainAgent.requestCancel();
+      mainWindow?.webContents.send('task:statusUpdate', { handleId, status: 'completed' });
+      return { success: true, message: 'Task completion requested' };
+    }
+    mainWindow?.webContents.send('task:statusUpdate', { handleId, status: 'completed' });
+    return { success: true, message: 'Task completion requested' };
   },
 
   'task:status': async (mainWindow, previewWindow, { handleId }) => {
@@ -198,6 +223,81 @@ export const IPC_HANDLERS: Record<string, IpcHandler> = {
     }
     const status = taskEngine.getState(handleId);
     return { status };
+  },
+
+  // IM配置相关
+  'im:load': async (mainWindow, previewWindow) => {
+    try {
+      const configStore = getIMConfigStore();
+      const configs = await configStore.loadAll();
+      return configs;
+    } catch (error: any) {
+      console.error('[IPC] im:load error:', error);
+      return {
+        feishu: { enabled: false, appId: '', appSecret: '' },
+        dingtalk: { enabled: false, appKey: '', appSecret: '' },
+        wecom: { enabled: false, corpId: '', agentId: '', corpSecret: '' },
+        slack: { enabled: false, botToken: '', signingSecret: '' },
+      };
+    }
+  },
+
+  'im:save': async (mainWindow, previewWindow, { platform, config }) => {
+    try {
+      const configStore = getIMConfigStore();
+      const result = await configStore.save(platform, config);
+      return result;
+    } catch (error: any) {
+      console.error('[IPC] im:save error:', error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  'im:test': async (mainWindow, previewWindow, { platform, config }) => {
+    try {
+      if (platform === 'feishu') {
+        const feishuConfig = config as { appId: string; appSecret: string };
+        if (!feishuConfig.appId || !feishuConfig.appSecret) {
+          return { success: false, error: '配置不能为空' };
+        }
+        return { success: true, message: '飞书连接配置有效' };
+      }
+      return { success: false, error: `${platform} 平台即将支持` };
+    } catch (error: any) {
+      console.error('[IPC] im:test error:', error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  'im:status': async (mainWindow, previewWindow, { platform }) => {
+    try {
+      const configStore = getIMConfigStore();
+      const status = configStore.getStatus(platform);
+      return status;
+    } catch (error: any) {
+      console.error('[IPC] im:status error:', error);
+      return 'disconnected';
+    }
+  },
+
+  'im:statusAll': async (mainWindow, previewWindow) => {
+    try {
+      const configStore = getIMConfigStore();
+      const configs = configStore.getConfigs();
+      const statuses: Record<string, string> = {};
+      for (const platform of Object.keys(configs)) {
+        statuses[platform] = configStore.getStatus(platform as any);
+      }
+      return statuses;
+    } catch (error: any) {
+      console.error('[IPC] im:statusAll error:', error);
+      return {
+        feishu: 'disconnected',
+        dingtalk: 'disconnected',
+        wecom: 'disconnected',
+        slack: 'disconnected',
+      };
+    }
   },
 
   // 浏览器控制

@@ -14,10 +14,15 @@
 
 1. [版本目标](#1-版本目标)
 2. [技术架构](#2-技术架构)
+   - [2.1 整体架构](#21-整体架构)
+   - [2.2 组件交互流程](#22-组件交互流程)
+   - [2.3 长连接通信架构](#23-长连接通信架构)
 3. [核心模块设计](#3-核心模块设计)
    - [3.1 IMConfigPanel](#31-imconfigpanel)
    - [3.2 IMConfigStore](#32-imconfigstore)
    - [3.3 ControlBar状态指示器](#33-controlbar状态指示器)
+   - [3.4 平台实现状态](#34-平台实现状态)
+   - [3.5 组件交互行为](#35-组件交互行为)
 4. [接口设计](#4-接口设计)
    - [4.1 IPC接口](#41-ipc接口)
    - [4.2 配置接口](#42-配置接口)
@@ -128,6 +133,35 @@ IMService.reload(platform)
         ↓
 ControlBar 状态指示器刷新
 ```
+
+### 2.3 长连接通信架构
+
+飞书SDK支持基于WebSocket的长连接事件回调，桌面应用可直接接收回调，**无需公网服务器**：
+
+```
+┌─────────────────┐         wss://open.feishu.cn          ┌─────────────────┐
+│  Desktop App    │◄───────────────────────────────►│   飞书开放平台   │
+│                 │         长连接（加密）            │                  │
+│  WSClient       │                                 │  • 消息事件      │
+│  + EventHandler │                                 │  • 卡片交互      │
+└─────────────────┘                                 └─────────────────┘
+```
+
+**长连接模式特点**：
+
+| 特点           | 说明                             |
+| -------------- | -------------------------------- |
+| 无需公网服务器 | 应用只需能访问公网，无需暴露端口 |
+| 无需回调URL    | 不需要配置Webhook回调地址        |
+| 无需Token验证  | SDK自动处理加密和身份认证        |
+| 自动重连       | SDK内置断线重连机制              |
+
+**飞书长连接配置项**：
+
+| 配置项    | 说明           | 示例                 |
+| --------- | -------------- | -------------------- |
+| appId     | 应用的唯一标识 | `cli_xxxxxxxxxx`     |
+| appSecret | 应用的访问密钥 | `xxxxxxxxxxxxxxxxxx` |
 
 ---
 
@@ -341,6 +375,170 @@ function getIMStatusText(status: ConnectionStatus): string {
   }
 }
 ```
+
+### 3.4 平台实现状态
+
+各平台的实现状态和Tab行为定义：
+
+| 平台     | 实现状态  | Tab行为                      |
+| -------- | --------- | ---------------------------- |
+| 飞书     | v0.9 实现 | 正常启用，支持完整配置       |
+| 钉钉     | 规划中    | 禁用 + tooltip提示"即将支持" |
+| 企业微信 | 规划中    | 禁用 + tooltip提示"即将支持" |
+| Slack    | 规划中    | 禁用 + tooltip提示"即将支持" |
+
+**Tab禁用状态样式**：
+
+```tsx
+const tabs = [
+  { key: 'feishu', label: '飞书', disabled: false },
+  { key: 'dingtalk', label: '钉钉', disabled: true, tooltip: '即将支持' },
+  { key: 'wecom', label: '企业微信', disabled: true, tooltip: '即将支持' },
+  { key: 'slack', label: 'Slack', disabled: true, tooltip: '即将支持' },
+] as const;
+```
+
+**Tab组件渲染**：
+
+```tsx
+{
+  tabs.map((tab) => (
+    <button
+      key={tab.key}
+      disabled={tab.disabled}
+      title={tab.tooltip}
+      className={`tab ${activeTab === tab.key ? 'active' : ''} ${tab.disabled ? 'disabled' : ''}`}
+      onClick={() => !tab.disabled && setActiveTab(tab.key)}
+    >
+      {tab.label}
+      {tab.disabled && <span className="coming-soon-badge">即将支持</span>}
+    </button>
+  ));
+}
+```
+
+### 3.5 组件交互行为
+
+#### 3.5.1 启用开关行为
+
+**UI位置**：表单顶部，单个平台的启用/禁用开关
+
+**行为定义**：
+
+| 状态                 | 行为                                 |
+| -------------------- | ------------------------------------ |
+| 关闭（默认）         | 隐藏配置表单，显示"已禁用"提示文字   |
+| 开启                 | 显示完整配置表单                     |
+| 保存时 enabled=false | 停止该平台服务，保持配置但标记为禁用 |
+
+**开关UI结构**：
+
+```
+○ 启用 [平台名称] 集成
+   ↓ 开启后
+● 启用 [平台名称] 集成
+```
+
+#### 3.5.2 密码字段显示/隐藏
+
+**App Secret 字段**：默认隐藏，显示为圆点掩码
+
+**交互行为**：
+
+| 按钮   | 行为           |
+| ------ | -------------- |
+| [显示] | 切换为明文显示 |
+| [隐藏] | 切换回掩码显示 |
+
+**实现代码**：
+
+```tsx
+const [showSecret, setShowSecret] = useState(false);
+
+<input
+  type={showSecret ? 'text' : 'password'}
+  value={appSecret}
+  onChange={(e) => setAppSecret(e.target.value)}
+/>
+<button onClick={() => setShowSecret(!showSecret)}>
+  {showSecret ? '隐藏' : '显示'}
+</button>
+```
+
+#### 3.5.3 Tab切换行为
+
+**行为定义**：
+
+1. 切换Tab时，如果有未保存的变更，提示用户确认
+2. 切换后重置表单为该平台已保存的配置
+3. 清除之前Tab的错误消息
+
+**代码逻辑**：
+
+```tsx
+const handleTabChange = (newTab: IMPlatform) => {
+  // 如果有未保存变更，提示确认
+  if (hasUnsavedChanges) {
+    const confirmed = window.confirm('有未保存的变更，确定要切换吗？');
+    if (!confirmed) return;
+  }
+
+  // 清除消息
+  setMessage(null);
+
+  // 切换Tab并加载该平台配置
+  setActiveTab(newTab);
+  loadPlatformConfig(newTab);
+};
+```
+
+#### 3.5.4 测试连接行为
+
+**行为定义**：
+
+1. 点击"测试连接"后，显示loading状态
+2. 5秒超时限制
+3. 返回结果显示成功/失败
+4. 不保存配置，仅测试连接
+
+**超时处理**：
+
+```tsx
+const testConnection = async (platform: string, config: any) => {
+  setIsTesting(true);
+  setMessage(null);
+
+  try {
+    // 5秒超时
+    const result = await Promise.race([
+      window.electron.invoke('im:test', { platform, config }),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('连接超时(5s)')), 5000)),
+    ]);
+
+    if (result.success) {
+      setMessage({ type: 'success', text: '连接成功' });
+    } else {
+      setMessage({ type: 'error', text: result.error || '连接失败' });
+    }
+  } catch (error: any) {
+    setMessage({ type: 'error', text: error.message || '测试失败' });
+  } finally {
+    setIsTesting(false);
+  }
+};
+```
+
+#### 3.5.5 保存行为
+
+**行为定义**：
+
+1. 点击"保存"后，先验证配置格式
+2. 验证通过后，调用 im:save IPC
+3. 保存成功后，调用 IMService.reload() 热更新
+4. 刷新连接状态
+5. 关闭弹窗或停留在当前Tab
+
+**验证规则**（参见3.2节配置验证规则）
 
 ---
 
@@ -581,6 +779,7 @@ src/
 
 ## 文档历史
 
-| 版本 | 日期       | 修改内容 |
-| ---- | ---------- | -------- |
-| v0.9 | 2026-04-06 | 初始版本 |
+| 版本 | 日期       | 修改内容                                       |
+| ---- | ---------- | ---------------------------------------------- |
+| v0.9 | 2026-04-07 | 补充长连接通信架构、平台实现状态、组件交互行为 |
+| v0.9 | 2026-04-06 | 初始版本                                       |

@@ -2,6 +2,7 @@ import React from 'react';
 import { useTaskStore } from '../stores/taskStore';
 import { useHistoryStore } from '../stores/historyStore';
 import { useSchedulerStore } from '../stores/schedulerStore';
+import { useIMStore, ConnectionStatus } from '../stores/imStore';
 
 interface ControlBarProps {
   onSkillClick: () => void;
@@ -12,6 +13,24 @@ export function ControlBar({ onSkillClick }: ControlBarProps) {
     useTaskStore();
   const { setIsOpen: setHistoryOpen } = useHistoryStore();
   const { setOpen: setSchedulerOpen } = useSchedulerStore();
+  const { statuses, setPanelOpen: setImPanelOpen } = useIMStore();
+
+  const getIMStatus = (): ConnectionStatus => {
+    return statuses.feishu;
+  };
+
+  const getIMStatusText = (status: ConnectionStatus): string => {
+    switch (status) {
+      case 'connected':
+        return '飞书已连接';
+      case 'connecting':
+        return '连接中...';
+      case 'error':
+        return '连接错误';
+      default:
+        return '飞书未配置';
+    }
+  };
 
   const handleTakeover = () => {
     setTakeover(true);
@@ -24,6 +43,17 @@ export function ControlBar({ onSkillClick }: ControlBarProps) {
         await window.electron.invoke('task:pause', { handleId: task.id });
       } catch (error) {
         console.error('Pause error:', error);
+      }
+    }
+  };
+
+  const handleResume = async () => {
+    console.log('Resume task');
+    if (task?.id) {
+      try {
+        await window.electron.invoke('task:resume', { handleId: task.id });
+      } catch (error) {
+        console.error('Resume error:', error);
       }
     }
   };
@@ -73,17 +103,28 @@ export function ControlBar({ onSkillClick }: ControlBarProps) {
         >
           接管
         </button>
-        <button
-          onClick={handlePause}
-          className="btn btn-secondary"
-          disabled={!task || task.status !== 'executing'}
-        >
-          暂停
-        </button>
+        {task?.status === 'paused' ? (
+          <button onClick={handleResume} className="btn btn-primary">
+            恢复
+          </button>
+        ) : (
+          <button
+            onClick={handlePause}
+            className="btn btn-secondary"
+            disabled={!task || task.status !== 'executing'}
+          >
+            暂停
+          </button>
+        )}
         <button
           onClick={handleStop}
           className="btn btn-danger"
-          disabled={!task || task.status === 'idle' || task.status === 'completed'}
+          disabled={
+            !task ||
+            task.status === 'idle' ||
+            task.status === 'completed' ||
+            task.status === 'cancelled'
+          }
         >
           停止
         </button>
@@ -102,6 +143,7 @@ export function ControlBar({ onSkillClick }: ControlBarProps) {
             {task.status === 'waiting_confirm' && '等待确认'}
             {task.status === 'completed' && '已完成'}
             {task.status === 'failed' && `失败: ${task.error || '未知错误'}`}
+            {task.status === 'cancelled' && '已取消'}
           </span>
         ) : (
           '无活动任务'
@@ -179,6 +221,32 @@ export function ControlBar({ onSkillClick }: ControlBarProps) {
         >
           计划
         </button>
+
+        {(() => {
+          const imStatus = getIMStatus();
+          return (
+            <button
+              onClick={() => setImPanelOpen(true)}
+              className={`btn ${
+                imStatus === 'connected' ? 'bg-success text-white' : 'btn-secondary'
+              }`}
+              title={getIMStatusText(imStatus)}
+            >
+              <span
+                className={`inline-block w-2 h-2 rounded-full mr-1 ${
+                  imStatus === 'connected'
+                    ? 'bg-success'
+                    : imStatus === 'connecting'
+                      ? 'bg-warning animate-pulse'
+                      : imStatus === 'error'
+                        ? 'bg-error'
+                        : 'bg-text-muted'
+                }`}
+              />
+              IM
+            </button>
+          );
+        })()}
       </div>
     </div>
   );

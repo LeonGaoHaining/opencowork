@@ -8,6 +8,8 @@ import { SessionPanel } from './components/SessionPanel';
 import { HistoryPanel } from './components/HistoryPanel';
 import SchedulerPanel from './components/SchedulerPanel';
 import { SkillPanel } from './components/SkillPanel';
+import { PlanViewer } from './components/PlanViewer';
+import { IMConfigPanel } from './components/IMConfigPanel';
 import { useTaskStore } from './stores/taskStore';
 import { useSessionStore } from './stores/sessionStore';
 
@@ -204,10 +206,18 @@ function App() {
       window.electron.on('task:statusUpdate', (event: any) => {
         try {
           console.log('[Renderer] Received task:statusUpdate', event);
+          const { updateTaskStatus, addLog } = useTaskStore.getState();
           if (event.status === 'replanning') {
-            useTaskStore
-              .getState()
-              .addLog({ type: 'info', message: event.message || '正在重新规划' });
+            addLog({ type: 'info', message: event.message || '正在重新规划' });
+          } else if (event.status === 'paused') {
+            updateTaskStatus('paused');
+            addLog({ type: 'info', message: '任务已暂停' });
+          } else if (event.status === 'executing') {
+            updateTaskStatus('executing');
+            addLog({ type: 'info', message: '任务已恢复' });
+          } else if (event.status === 'cancelled') {
+            updateTaskStatus('cancelled');
+            addLog({ type: 'info', message: '任务已取消' });
           }
         } catch (error) {
           console.error('[Renderer] task:statusUpdate handler error:', error);
@@ -365,6 +375,12 @@ function App() {
 
         {/* History Panel */}
         <HistoryPanel />
+
+        {/* Plan Viewer */}
+        <PlanViewer />
+
+        {/* IM Config Panel */}
+        <IMConfigPanel />
 
         {/* Scheduler Panel */}
         <SchedulerPanel />
