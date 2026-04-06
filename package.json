@@ -1,6 +1,6 @@
 {
   "name": "opencowork",
-  "version": "0.8.8",
+  "version": "0.8.9",
   "description": "AI Native Desktop Agent - OpenCowork",
   "main": "dist/main/main/index.js",
   "scripts": {
