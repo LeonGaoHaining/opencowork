@@ -3,15 +3,18 @@ import react from '@vitejs/plugin-react';
 import path from 'path';
 import fs from 'fs';
 
-const packageJson = JSON.parse(fs.readFileSync('./package.json', 'utf-8'));
+const projectRoot = path.resolve(__dirname);
+const packageJson = JSON.parse(fs.readFileSync(path.join(projectRoot, 'package.json'), 'utf-8'));
+const APP_VERSION = packageJson.version;
+
+const versionJsContent = `window.__APP_VERSION__ = ${JSON.stringify(APP_VERSION)};\n`;
+fs.writeFileSync(path.join(projectRoot, 'src/renderer/public/version.js'), versionJsContent);
 
 export default defineConfig({
   plugins: [react()],
   base: './',
   root: 'src/renderer',
-  define: {
-    'import.meta.env.VITE_APP_VERSION': JSON.stringify(packageJson.version),
-  },
+  publicDir: 'public',
   build: {
     outDir: '../../dist/renderer',
     emptyOutDir: true,
