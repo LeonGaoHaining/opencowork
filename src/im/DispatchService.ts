@@ -1,6 +1,8 @@
 import { EventEmitter } from 'events';
 import { IMMessage, IMBot, DispatchTask, TaskStatus } from './types';
 import { CommandParser } from './CommandParser';
+import { getProgressEmitter } from './ProgressEmitter';
+import { getSharedMainAgent } from '../main/ipcHandlers';
 
 const PRIORITY_MAP: Record<string, number> = {
   low: 10,
@@ -25,7 +27,7 @@ export class DispatchService extends EventEmitter {
 
   private setupEventHandlers(): void {
     this.on('task:status', (taskId: string, status: Partial<TaskStatus>) => {
-      this.updateTaskStatus(taskId, status);
+      console.log('[DispatchService] Task status changed:', taskId, status);
     });
   }
 
@@ -35,8 +37,14 @@ export class DispatchService extends EventEmitter {
     const parser = new CommandParser();
     const cmd = parser.parse(msg.content);
 
+    const chatType = (msg as any).chatType || 'p2p';
+
     if (!cmd) {
-      await this.bot.sendMessage(msg.conversationId, '无法识别命令，请输入"帮助"查看命令列表');
+      await this.bot.sendMessage(
+        msg.conversationId,
+        '无法识别命令，请输入"帮助"查看命令列表',
+        chatType
+      );
       return;
     }
 
@@ -69,9 +77,11 @@ export class DispatchService extends EventEmitter {
 
   private async handleTask(msg: IMMessage, description: string): Promise<void> {
     if (!description) {
+      const chatType = (msg as any).chatType || 'p2p';
       await this.bot.sendMessage(
         msg.conversationId,
-        '请输入任务描述\n例: @机器人 任务 帮我查下北京天气'
+        '请输入任务描述\n例: @机器人 任务 帮我查下北京天气',
+        chatType
       );
       return;
     }
@@ -93,9 +103,13 @@ export class DispatchService extends EventEmitter {
       updatedAt: Date.now(),
     });
 
+    const progressEmitter = getProgressEmitter();
+    progressEmitter.setUserBinding(task.id, msg.userId);
+
     await this.bot.sendMessage(
       msg.conversationId,
-      `✅ 任务已接收\n\n任务ID: ${task.id}\n描述: ${description}`
+      `✅ 任务已接收\n\n任务ID: ${task.id}\n描述: ${description}`,
+      (msg as any).chatType || 'p2p'
     );
 
     await this.forwardToDesktop(task);
@@ -118,38 +132,57 @@ export class DispatchService extends EventEmitter {
 
   private async forwardToDesktop(task: DispatchTask): Promise<void> {
     try {
-      if (typeof window !== 'undefined' && window.electron) {
-        const result = await window.electron.invoke('feishu:execute', {
-          taskId: task.id,
-          description: task.description,
-          userId: task.userId,
-          priority: task.priority,
+      const agent = getSharedMainAgent();
+      if (!agent) {
+        console.warn('[DispatchService] Shared MainAgent not initialized');
+        this.updateTaskStatus(task.id, { status: 'failed', message: 'Agent not initialized' });
+        await this.bot.pushNotification(task.userId, {
+          title: '❌ 任务执行失败',
+          content: 'Agent 未初始化',
         });
+        return;
+      }
 
-        if (result.success) {
-          this.updateTaskStatus(task.id, { status: 'executing' });
-        } else {
-          this.updateTaskStatus(task.id, { status: 'failed', message: result.error });
-        }
+      console.log('[DispatchService] Forwarding task to sharedMainAgent:', task.description);
+      const result = await agent.run(task.description);
+
+      if (result.success) {
+        this.updateTaskStatus(task.id, { status: 'executing' });
+        await this.bot.pushNotification(task.userId, {
+          title: '✅ 任务执行完成',
+          content: result.finalMessage || result.output || '任务已完成',
+        });
       } else {
-        console.warn('[DispatchService] Window.electron not available, task not forwarded');
-        this.updateTaskStatus(task.id, { status: 'failed', message: 'Desktop API not available' });
+        this.updateTaskStatus(task.id, { status: 'failed', message: result.error });
+        await this.bot.pushNotification(task.userId, {
+          title: '❌ 任务执行失败',
+          content: result.error || '未知错误',
+        });
       }
     } catch (error) {
       console.error('[DispatchService] Forward to desktop failed:', error);
       this.updateTaskStatus(task.id, { status: 'failed', message: String(error) });
+      await this.bot.pushNotification(task.userId, {
+        title: '❌ 任务执行失败',
+        content: String(error),
+      });
     }
   }
 
   private async handleStatus(msg: IMMessage, taskId?: string): Promise<void> {
+    const chatType = (msg as any).chatType || 'p2p';
     if (!taskId) {
-      await this.bot.sendMessage(msg.conversationId, '请提供任务ID\n例: @机器人 状态 abc123');
+      await this.bot.sendMessage(
+        msg.conversationId,
+        '请提供任务ID\n例: @机器人 状态 abc123',
+        chatType
+      );
       return;
     }
 
     const status = this.statusMap.get(taskId);
     if (!status) {
-      await this.bot.sendMessage(msg.conversationId, `任务 ${taskId} 不存在`);
+      await this.bot.sendMessage(msg.conversationId, `任务 ${taskId} 不存在`, chatType);
       return;
     }
 
@@ -165,16 +198,17 @@ export class DispatchService extends EventEmitter {
       response += `\n信息: ${status.message}`;
     }
 
-    await this.bot.sendMessage(msg.conversationId, response);
+    await this.bot.sendMessage(msg.conversationId, response, chatType);
   }
 
   private async handleList(msg: IMMessage): Promise<void> {
+    const chatType = (msg as any).chatType || 'p2p';
     const tasks = Array.from(this.statusMap.values())
       .sort((a, b) => b.updatedAt - a.updatedAt)
       .slice(0, 10);
 
     if (tasks.length === 0) {
-      await this.bot.sendMessage(msg.conversationId, '暂无任务记录');
+      await this.bot.sendMessage(msg.conversationId, '暂无任务记录', chatType);
       return;
     }
 
@@ -185,12 +219,17 @@ export class DispatchService extends EventEmitter {
       })
       .join('\n');
 
-    await this.bot.sendMessage(msg.conversationId, `📋 最近任务\n\n${list}`);
+    await this.bot.sendMessage(msg.conversationId, `📋 最近任务\n\n${list}`, chatType);
   }
 
   private async handleTakeover(msg: IMMessage, taskId: string): Promise<void> {
+    const chatType = (msg as any).chatType || 'p2p';
     if (!taskId) {
-      await this.bot.sendMessage(msg.conversationId, '请提供任务ID\n例: @机器人 接管 abc123');
+      await this.bot.sendMessage(
+        msg.conversationId,
+        '请提供任务ID\n例: @机器人 接管 abc123',
+        chatType
+      );
       return;
     }
 
@@ -202,52 +241,70 @@ export class DispatchService extends EventEmitter {
         });
 
         if (result.success) {
-          await this.bot.sendMessage(msg.conversationId, `🔐 已接管任务\n\n任务ID: ${taskId}`);
+          await this.bot.sendMessage(
+            msg.conversationId,
+            `🔐 已接管任务\n\n任务ID: ${taskId}`,
+            chatType
+          );
         } else {
-          await this.bot.sendMessage(msg.conversationId, `❌ 接管失败: ${result.error}`);
+          await this.bot.sendMessage(msg.conversationId, `❌ 接管失败: ${result.error}`, chatType);
         }
       } else {
-        await this.bot.sendMessage(msg.conversationId, '❌ 接管失败: Desktop API not available');
+        await this.bot.sendMessage(
+          msg.conversationId,
+          '❌ 接管失败: Desktop API not available',
+          chatType
+        );
       }
     } catch (error) {
       console.error('[DispatchService] Takeover failed:', error);
-      await this.bot.sendMessage(msg.conversationId, `❌ 接管失败: ${String(error)}`);
+      await this.bot.sendMessage(msg.conversationId, `❌ 接管失败: ${String(error)}`, chatType);
     }
   }
 
   private async handleReturn(msg: IMMessage): Promise<void> {
+    const chatType = (msg as any).chatType || 'p2p';
     try {
       if (typeof window !== 'undefined' && window.electron) {
         const result = await window.electron.invoke('feishu:return', { userId: msg.userId });
 
         if (result.success) {
-          await this.bot.sendMessage(msg.conversationId, '🔄 已交还控制权给AI');
+          await this.bot.sendMessage(msg.conversationId, '🔄 已交还控制权给AI', chatType);
         } else {
-          await this.bot.sendMessage(msg.conversationId, `❌ 交还失败: ${result.error}`);
+          await this.bot.sendMessage(msg.conversationId, `❌ 交还失败: ${result.error}`, chatType);
         }
       } else {
-        await this.bot.sendMessage(msg.conversationId, '❌ 交还失败: Desktop API not available');
+        await this.bot.sendMessage(
+          msg.conversationId,
+          '❌ 交还失败: Desktop API not available',
+          chatType
+        );
       }
     } catch (error) {
       console.error('[DispatchService] Return failed:', error);
-      await this.bot.sendMessage(msg.conversationId, `❌ 交还失败: ${String(error)}`);
+      await this.bot.sendMessage(msg.conversationId, `❌ 交还失败: ${String(error)}`, chatType);
     }
   }
 
   private async handleCancel(msg: IMMessage, taskId: string): Promise<void> {
+    const chatType = (msg as any).chatType || 'p2p';
     if (!taskId) {
-      await this.bot.sendMessage(msg.conversationId, '请提供任务ID\n例: @机器人 取消 abc123');
+      await this.bot.sendMessage(
+        msg.conversationId,
+        '请提供任务ID\n例: @机器人 取消 abc123',
+        chatType
+      );
       return;
     }
 
     const status = this.statusMap.get(taskId);
     if (!status) {
-      await this.bot.sendMessage(msg.conversationId, `任务 ${taskId} 不存在`);
+      await this.bot.sendMessage(msg.conversationId, `任务 ${taskId} 不存在`, chatType);
       return;
     }
 
     if (status.status === 'completed') {
-      await this.bot.sendMessage(msg.conversationId, `任务 ${taskId} 已完成，无法取消`);
+      await this.bot.sendMessage(msg.conversationId, `任务 ${taskId} 已完成，无法取消`, chatType);
       return;
     }
 
@@ -257,22 +314,31 @@ export class DispatchService extends EventEmitter {
 
         if (result.success) {
           this.updateTaskStatus(taskId, { status: 'failed', message: '用户取消' });
-          await this.bot.sendMessage(msg.conversationId, `🗑️ 已取消任务\n\n任务ID: ${taskId}`);
+          await this.bot.sendMessage(
+            msg.conversationId,
+            `🗑️ 已取消任务\n\n任务ID: ${taskId}`,
+            chatType
+          );
         } else {
-          await this.bot.sendMessage(msg.conversationId, `❌ 取消失败: ${result.error}`);
+          await this.bot.sendMessage(msg.conversationId, `❌ 取消失败: ${result.error}`, chatType);
         }
       } else {
-        await this.bot.sendMessage(msg.conversationId, '❌ 取消失败: Desktop API not available');
+        await this.bot.sendMessage(
+          msg.conversationId,
+          '❌ 取消失败: Desktop API not available',
+          chatType
+        );
       }
     } catch (error) {
       console.error('[DispatchService] Cancel failed:', error);
-      await this.bot.sendMessage(msg.conversationId, `❌ 取消失败: ${String(error)}`);
+      await this.bot.sendMessage(msg.conversationId, `❌ 取消失败: ${String(error)}`, chatType);
     }
   }
 
   private async handleHelp(msg: IMMessage): Promise<void> {
+    const chatType = (msg as any).chatType || 'p2p';
     const parser = new CommandParser();
-    await this.bot.sendMessage(msg.conversationId, parser.getHelp());
+    await this.bot.sendMessage(msg.conversationId, parser.getHelp(), chatType);
   }
 
   updateTaskStatus(taskId: string, status: Partial<TaskStatus>): void {

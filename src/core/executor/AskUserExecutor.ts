@@ -30,7 +30,7 @@ let mainWindowRef: BrowserWindow | null = null;
 let ipcHandlerRegistered = false;
 
 // 模块级 pendingRequests Map，支持多个 AskUserExecutor 实例
-let pendingRequests: Map<
+const pendingRequests: Map<
   string,
   {
     resolve: (value: any) => void;

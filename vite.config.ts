@@ -1,11 +1,17 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
+import fs from 'fs';
+
+const packageJson = JSON.parse(fs.readFileSync('./package.json', 'utf-8'));
 
 export default defineConfig({
   plugins: [react()],
   base: './',
   root: 'src/renderer',
+  define: {
+    'import.meta.env.VITE_APP_VERSION': JSON.stringify(packageJson.version),
+  },
   build: {
     outDir: '../../dist/renderer',
     emptyOutDir: true,
@@ -33,10 +39,7 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],
-      exclude: [
-        'node_modules/',
-        'src/renderer/setupTests.ts',
-      ],
+      exclude: ['node_modules/', 'src/renderer/setupTests.ts'],
     },
   },
 });

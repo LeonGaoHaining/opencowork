@@ -1,153 +1,152 @@
-import axios, { AxiosInstance } from 'axios';
-import crypto from 'crypto';
-import {
-  IMBot,
-  IMMessage,
-  IMConfig,
-  IMCard,
-  IMNotification,
-  IMBinding,
-  FeishuMessage,
-  FeishuCallbackPayload,
-  FeishuMessageEvent,
-} from '../types';
+import * as Lark from '@larksuiteoapi/node-sdk';
+import { IMBot, IMMessage, IMCard, IMNotification, IMBinding } from '../types';
 
-export interface FeishuConfig extends IMConfig {
-  webhookUrl?: string;
-  tokenRefreshBefore?: number;
+export interface FeishuConfig {
+  appId: string;
+  appSecret: string;
+  enabled?: boolean;
+}
+
+interface FeishuIMMessage extends IMMessage {
+  chatType?: string;
+  messageId?: string;
 }
 
 export class FeishuBot implements IMBot {
   platform: 'feishu' = 'feishu';
   private config: FeishuConfig;
+  private wsClient?: Lark.WSClient;
+  private client?: Lark.Client;
+  private eventDispatcher?: Lark.EventDispatcher;
   private messageHandler?: (msg: IMMessage) => void;
-  private tenantAccessToken: string | null = null;
-  private tokenExpireTime: number = 0;
-  private readonly TOKEN_REFRESH_BEFORE: number;
-  private readonly DEFAULT_TIMEOUT = 30000;
-  private axiosInstance: AxiosInstance;
+  private processedEventIds = new Map<string, number>();
+  private readonly EVENT_ID_TTL = 60000;
+  private readonly MAX_EVENT_ID_CACHE = 10000;
 
   constructor(config: FeishuConfig) {
     this.config = config;
-    this.TOKEN_REFRESH_BEFORE = config.tokenRefreshBefore ?? 300000;
-    this.axiosInstance = axios.create({
-      timeout: this.DEFAULT_TIMEOUT,
-    });
   }
 
   async initialize(): Promise<void> {
-    await this.getTenantAccessToken();
-    console.log('[FeishuBot] Initialized');
-  }
-
-  private async getTenantAccessToken(): Promise<void> {
-    if (this.tenantAccessToken && Date.now() < this.tokenExpireTime - this.TOKEN_REFRESH_BEFORE) {
-      return;
-    }
-
-    try {
-      const response = await this.axiosInstance.post(
-        'https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal',
-        {
-          app_id: this.config.appId,
-          app_secret: this.config.appSecret,
-        }
-      );
-      this.tenantAccessToken = response.data.tenant_access_token;
-      this.tokenExpireTime = Date.now() + (response.data.expire - 60) * 1000;
-      console.log('[FeishuBot] Token refreshed, expires at:', new Date(this.tokenExpireTime));
-    } catch (error) {
-      console.error('[FeishuBot] Failed to get tenant access token:', error);
-      throw error;
-    }
-  }
-
-  onMessage(handler: (msg: IMMessage) => void): void {
-    this.messageHandler = handler;
-  }
-
-  async handleCallback(payload: FeishuCallbackPayload): Promise<void> {
-    const { type, event } = payload;
-
-    if (type === 'url_verification') {
-      return;
-    }
-
-    if (type === 'event_callback' && event?.type === 'im.message') {
-      await this.handleMessageEvent(event);
-    }
-  }
-
-  private async handleMessageEvent(event: FeishuMessageEvent): Promise<void> {
-    if (!this.shouldProcessMessage(event)) return;
-
-    const message = this.parseMessage(event);
-    if (this.messageHandler) {
-      this.messageHandler(message);
-    }
-  }
-
-  private shouldProcessMessage(event: FeishuMessageEvent): boolean {
-    const isDirectChat = event.message.chat_id.startsWith('im_dm');
-    const isGroupChat = event.message.chat_id.startsWith('im_') && !isDirectChat;
-
-    if (isDirectChat) {
-      return true;
-    }
-
-    if (isGroupChat) {
-      return this.isMentionedBot(event);
-    }
-
-    return false;
-  }
-
-  private isMentionedBot(event: FeishuMessageEvent): boolean {
-    return (
-      event.message?.mentions?.some((m) => m.sender_id?.user_id === this.config.appId) ?? false
-    );
-  }
-
-  private parseMessage(event: FeishuMessageEvent): FeishuMessage {
-    let content: any = {};
-    try {
-      content = JSON.parse(event.message.content);
-    } catch (err) {
-      console.warn('[FeishuBot] Failed to parse message content:', err);
-    }
-    const text = content.text || '';
-
-    return {
-      id: event.message.message_id,
-      platform: 'feishu',
-      userId: event.sender.sender_id.user_id,
-      content: text.replace(/@[^\s]+\s*/, '').trim(),
-      type: event.message.msg_type as 'text' | 'image' | 'file',
-      timestamp: event.message.create_time,
-      conversationId: event.message.chat_id,
-      msgType: event.message.msg_type as 'text' | 'image' | 'rich_text',
-      messageId: event.message.message_id,
-      messageType: event.message.chat_id.startsWith('im_dm') ? 'direct' : 'group',
-    };
-  }
-
-  async sendMessage(conversationId: string, message: string | IMCard): Promise<void> {
-    await this.ensureToken();
-
-    const payload =
-      typeof message === 'string'
-        ? { msg_type: 'text', content: { text: message } }
-        : this.buildCardMessage(message);
-
-    await this.axiosInstance.post('https://open.feishu.cn/open-apis/im/v1/messages', payload, {
-      params: { receive_id_type: 'chat_id' },
-      headers: { Authorization: `Bearer ${this.tenantAccessToken}` },
+    this.client = new Lark.Client({
+      appId: this.config.appId,
+      appSecret: this.config.appSecret,
     });
+
+    this.eventDispatcher = new Lark.EventDispatcher({}).register({
+      'im.message.receive_v1': async (data: any) => {
+        console.log('[FeishuBot] Received message:', JSON.stringify(data));
+        await this.handleMessageEvent(data);
+      },
+    });
+
+    this.wsClient = new Lark.WSClient({
+      appId: this.config.appId,
+      appSecret: this.config.appSecret,
+    });
+
+    this.wsClient.start({ eventDispatcher: this.eventDispatcher });
+    console.log('[FeishuBot] WebSocket client started');
   }
 
-  private async ensureToken(): Promise<void> {
-    if (!this.tenantAccessToken || Date.now() >= this.tokenExpireTime - this.TOKEN_REFRESH_BEFORE) {
-      await this.getTenantAccessToken();
+  private async handleMessageEvent(data: any): Promise<void> {
+    const eventId = data.event_id;
+
+    if (this.processedEventIds.size > this.MAX_EVENT_ID_CACHE) {
+      const now = Date.now();
+      for (const [id, time] of this.processedEventIds) {
+        if (now - time > this.EVENT_ID_TTL) {
+          this.processedEventIds.delete(id);
+        }
+      }
+    }
+
+    if (eventId && this.processedEventIds.has(eventId)) {
+      console.log('[FeishuBot] Duplicate event ignored:', eventId);
+      return;
+    }
+
+    if (eventId) {
+      this.processedEventIds.set(eventId, Date.now());
+    }
+
+    const { message } = data;
+
+    const { content, message_type, chat_type, chat_id, message_id } = message;
+
+    let text = '';
+    try {
+      if (message_type === 'text') {
+        text = JSON.parse(content).text;
+      } else {
+        console.log('[FeishuBot] Unsupported message type:', message_type);
+        return;
+      }
+    } catch (error) {
+      console.error('[FeishuBot] Failed to parse message:', error);
+      return;
+    }
+
+    if (this.messageHandler) {
+      const imMessage: FeishuIMMessage = {
+        id: message_id,
+        platform: 'feishu',
+        type: 'text',
+        content: text,
+        userId: data.sender?.sender_id?.open_id || data.sender?.sender_id?.union_id || '',
+        timestamp: Date.now(),
+        conversationId: chat_id,
+        chatType: chat_type,
+        messageId: message_id,
+      };
+      await this.messageHandler(imMessage);
+    }
+  }
+
+  async sendMessage(
+    conversationId: string,
+    message: string | IMCard,
+    chatType?: string
+  ): Promise<void> {
+    if (!this.client) {
+      throw new Error('[FeishuBot] Client not initialized');
+    }
+
+    const content =
+      typeof message === 'string'
+        ? JSON.stringify({ text: message })
+        : JSON.stringify(this.buildCardMessage(message));
+
+    const isPrivateChat = chatType === 'p2p';
+
+    try {
+      if (isPrivateChat) {
+        // 私聊 (p2p): 使用 message.create 接口，传入 chat_id
+        await this.client.im.v1.message.create({
+          params: {
+            receive_id_type: 'chat_id',
+          },
+          data: {
+            receive_id: conversationId,
+            content: content,
+            msg_type: typeof message === 'string' ? 'text' : 'interactive',
+          },
+        });
+      } else {
+        // 群聊: 使用 message.reply 接口，传入 message_id (conversationId)
+        await this.client.im.v1.message.reply({
+          path: {
+            message_id: conversationId,
+          },
+          data: {
+            content: content,
+            msg_type: typeof message === 'string' ? 'text' : 'interactive',
+          },
+        });
+      }
+    } catch (error) {
+      console.error('[FeishuBot] Failed to send message:', error);
+      throw error;
     }
   }
 
@@ -166,11 +165,8 @@ export class FeishuBot implements IMBot {
     }
 
     return {
-      msg_type: 'interactive',
-      content: JSON.stringify({
-        config: { wide_screen_mode: true },
-        elements,
-      }),
+      config: { wide_screen_mode: true },
+      elements,
     };
   }
 
@@ -207,52 +203,35 @@ export class FeishuBot implements IMBot {
   }
 
   async pushNotification(userId: string, notification: IMNotification): Promise<void> {
-    await this.ensureToken();
-
-    const userOpenId = await this.getUserOpenId(userId);
-    if (!userOpenId) {
-      console.warn('[FeishuBot] User not found:', userId);
+    if (!this.client) {
+      console.warn('[FeishuBot] Client not initialized');
       return;
     }
 
-    const card: IMCard = {
-      title: notification.title,
-      elements: [{ type: 'text', content: notification.content }],
-    };
+    try {
+      const content = JSON.stringify({
+        text: `📋 ${notification.title}\n\n${notification.content}`,
+      });
 
-    if (notification.extra) {
-      card.elements.push({ type: 'divider' });
-      if (notification.extra.taskId) {
-        card.elements.push({ type: 'text', content: `任务ID: ${notification.extra.taskId}` });
-      }
-      if (notification.extra.resultUrl) {
-        card.actions = [
-          {
-            type: 'button',
-            text: '查看结果',
-            value: notification.extra.resultUrl,
-            actionType: 'url',
-          },
-        ];
-      }
+      await this.client.im.v1.message.create({
+        params: {
+          receive_id_type: 'open_id',
+        },
+        data: {
+          receive_id: userId,
+          content: content,
+          msg_type: 'text',
+        },
+      });
+
+      console.log('[FeishuBot] Push notification success to', userId);
+    } catch (error) {
+      console.error('[FeishuBot] Push notification failed:', error);
     }
-
-    await this.sendMessage(userOpenId, card);
   }
 
-  private async getUserOpenId(userId: string): Promise<string | null> {
-    await this.ensureToken();
-
-    try {
-      const response = await this.axiosInstance.get(
-        `https://open.feishu.cn/open-apis/contact/v3/user_id_mapping?user_id=${encodeURIComponent(userId)}`,
-        { headers: { Authorization: `Bearer ${this.tenantAccessToken}` } }
-      );
-      return response.data.data?.open_id;
-    } catch (error) {
-      console.error('[FeishuBot] Failed to get user open_id:', error);
-      return null;
-    }
+  onMessage(handler: (msg: IMMessage) => void): void {
+    this.messageHandler = handler;
   }
 
   async bindUser(imUserId: string, desktopUserId: string): Promise<void> {
@@ -281,17 +260,7 @@ export class FeishuBot implements IMBot {
   }
 
   verifySignature(timestamp: string, signature: string): boolean {
-    if (!this.config.encryptKey) {
-      console.warn('[FeishuBot] encryptKey not configured, skipping verification');
-      return true;
-    }
-
-    const expected = crypto
-      .createHmac('sha256', this.config.encryptKey)
-      .update(timestamp)
-      .digest('hex');
-
-    return expected === signature;
+    return true;
   }
 }
 

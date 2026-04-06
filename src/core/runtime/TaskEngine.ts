@@ -314,7 +314,7 @@ export class TaskEngine {
 
               let retryCount = 0;
               let replanSuccess = false;
-              let failedNodeId = event.node?.id;
+              const failedNodeId = event.node?.id;
 
               while (retryCount < 3 && !replanSuccess) {
                 // 获取当前页面内容

@@ -360,7 +360,7 @@ export class BrowserExecutor {
 
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
       try {
-        let currentSelector = selector;
+        const currentSelector = selector;
 
         if (attempt > 0) {
           console.log(

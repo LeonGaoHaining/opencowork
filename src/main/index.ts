@@ -10,6 +10,7 @@ import {
 } from './ipcHandlers';
 import { setAskUserMainWindow } from '../core/executor/AskUserExecutor';
 import { setBrowserExecutorMainWindow } from '../core/executor/BrowserExecutor';
+import { loadFeishuConfig } from '../im/feishu/config';
 
 let mainWindow: BrowserWindow | null = null;
 let previewWindow: BrowserWindow | null = null;
@@ -54,6 +55,24 @@ async function bootstrap() {
     console.log('[Scheduler] Initialized and started');
   } catch (error) {
     console.error('[Scheduler] Failed to initialize:', error);
+  }
+
+  // 初始化 Feishu IM 服务
+  try {
+    const feishuConfig = loadFeishuConfig();
+    if (feishuConfig) {
+      const { createFeishuService } = await import('../im/feishu/FeishuService.js');
+      const userDataPath = path.join(app.getPath('userData'), 'data');
+      createFeishuService({
+        feishu: feishuConfig,
+        userDataPath,
+      });
+      console.log('[Feishu] Service initialized');
+    } else {
+      console.log('[Feishu] IM integration disabled (no config)');
+    }
+  } catch (error) {
+    console.error('[Feishu] Failed to initialize:', error);
   }
 
   // 开发模式下打开开发者工具

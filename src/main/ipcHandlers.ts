@@ -55,6 +55,11 @@ export function getPreviewManager(): PreviewManager {
   return previewManager;
 }
 
+// Export sharedMainAgent for direct access if needed (v0.8.1 - Feishu integration)
+export function getSharedMainAgent(): MainAgent | null {
+  return sharedMainAgent;
+}
+
 type IpcHandler = (
   mainWindow: BrowserWindow | null,
   previewWindow: BrowserWindow | null,
@@ -412,17 +417,9 @@ export const IPC_HANDLERS: Record<string, IpcHandler> = {
     return await scheduler.triggerTask(id);
   },
 
-  // 飞书机器人相关 (v0.7)
+  // 飞书机器人相关 (v0.8.1 - 长连接模式，feishu:handle 不再需要，保留兼容)
   'feishu:handle': async (mainWindow, previewWindow, payload) => {
-    try {
-      const { getFeishuService } = await import('../im/feishu/FeishuService.js');
-      const service = getFeishuService();
-      await service.handleCallback(payload);
-      return { success: true };
-    } catch (error: any) {
-      console.error('[IPC] feishu:handle error:', error);
-      return { success: false, error: error.message };
-    }
+    return { success: true, message: 'Long connection mode - callback not needed' };
   },
 
   'feishu:execute': async (mainWindow, previewWindow, payload) => {
@@ -452,6 +449,34 @@ export const IPC_HANDLERS: Record<string, IpcHandler> = {
       return { success: true, taskId: task.id };
     } catch (error: any) {
       console.error('[IPC] feishu:execute error:', error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  'feishu:task': async (mainWindow, previewWindow, { task, userId }) => {
+    try {
+      if (!task) {
+        return { success: false, error: 'Missing task' };
+      }
+
+      const agent = sharedMainAgent;
+      if (!agent) {
+        return { success: false, error: 'Agent not initialized' };
+      }
+
+      console.log('[IPC] feishu:task - Running task with sharedMainAgent:', task);
+
+      const result = await agent.run(task);
+
+      console.log('[IPC] feishu:task - Completed:', result.success);
+
+      return {
+        success: result.success,
+        output: result.output,
+        error: result.error,
+      };
+    } catch (error: any) {
+      console.error('[IPC] feishu:task error:', error);
       return { success: false, error: error.message };
     }
   },

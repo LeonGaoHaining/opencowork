@@ -1,6 +1,6 @@
 {
   "name": "opencowork",
-  "version": "0.1.0",
+  "version": "0.8.6",
   "description": "AI Native Desktop Agent - OpenCowork",
   "main": "dist/main/main/index.js",
   "scripts": {
@@ -16,7 +16,8 @@
     "lint": "eslint src --ext .ts,.tsx",
     "lint:fix": "eslint src --ext .ts,.tsx --fix",
     "format": "prettier --write \"src/**/*.{ts,tsx}\"",
-    "prepare": "npm run build:main && npm run build:preload"
+    "prepare": "npm run build:main && npm run build:preload",
+    "postversion": "node -e \"const pkg=require('./package.json'); const fs=require('fs'); let doc=fs.readFileSync('docs/USER_GUIDE.md','utf-8'); doc=doc.replace(/_OpenCowork v[\\d.]+_/g, '_OpenCowork v'+pkg.version+'_'); doc=doc.replace(/\\| 版本     \\| v[\\d.]+       \\|/g, '| 版本     | v'+pkg.version+'       |'); doc=doc.replace(/更新日期 \\| \\d{4}-\\d{2}-\\d{2}/g, '更新日期 | '+new Date().toISOString().split('T')[0].replace(/-/g,'-')); fs.writeFileSync('docs/USER_GUIDE.md',doc);\""
   },
   "keywords": [
     "ai",
@@ -32,6 +33,7 @@
     "@langchain/langgraph": "latest",
     "@langchain/langgraph-checkpoint-sqlite": "latest",
     "@langchain/openai": "latest",
+    "@larksuiteoapi/node-sdk": "^1.36.0",
     "axios": "^1.14.0",
     "better-sqlite3": "^12.8.0",
     "js-yaml": "^4.1.1",

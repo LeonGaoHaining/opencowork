@@ -1,9 +1,9 @@
-# OpenCowork v0.8 使用说明
+# OpenCowork v0.9 使用说明
 
 | 项目     | 内容       |
 | -------- | ---------- |
-| 版本     | v0.8       |
-| 更新日期 | 2026-04-02 |
+| 版本     | v0.9       |
+| 更新日期 | 2026-04-06 |
 | 状态     | 正式版     |
 
 ---
@@ -16,11 +16,12 @@
 4. [TaskHistory 任务历史](#4-taskhistory-任务历史)
 5. [Skill System 技能系统](#5-skill-system-技能系统)
 6. [IM 消息集成](#6-im-消息集成)
-7. [定时任务调度](#7-定时任务调度)
-8. [WhitelistConfigUI 白名单配置](#8-whitelistconfigui-白名单配置)
-9. [快速开始](#9-快速开始)
-10. [目录结构](#10-目录结构)
-11. [常见问题](#11-常见问题)
+7. [配置文件](#x-配置文件重要)
+8. [定时任务调度](#8-定时任务调度)
+9. [WhitelistConfigUI 白名单配置](#9-whitelistconfigui-白名单配置)
+10. [快速开始](#10-快速开始)
+11. [目录结构](#11-目录结构)
+12. [常见问题](#12-常见问题)
 
 ---
 
@@ -204,23 +205,90 @@ $ARGUMENTS
 
 ### 支持平台
 
-- 飞书 (Feishu)
-- 钉钉 (DingTalk)
-- 企业微信 (WeCom)
-- Slack
-- GitHub
+- 飞书 (Feishu) - **推荐**
+- 钉钉 (DingTalk) - 规划中
+- 企业微信 (WeCom) - 规划中
+- Slack - 规划中
+- GitHub - 规划中
 
 ### 功能特点
 
 - **任务分发**：通过 IM 消息创建任务
 - **状态查询**：查询任务执行状态
 - **接管控制**：通过消息接管/交还控制权
+- **长连接模式** (飞书)：无需公网服务器，SDK自动处理
 
-### 使用方法
+### 飞书接入配置
 
-1. 配置 IM 平台应用凭证
-2. 启动应用后，IM Bot 自动监听消息
-3. 发送命令控制任务
+#### 步骤 1：创建飞书应用
+
+1. 访问 [飞书开放平台](https://open.feishu.cn/app)
+2. 使用企业账号登录
+3. 点击右上角 **"创建企业自建应用"**
+4. 填写应用名称（如"OpenCowork"）
+5. 填写应用描述（可选）
+6. 点击 **"创建"**
+
+#### 步骤 2：获取凭证
+
+1. 进入应用详情页
+2. 点击左侧菜单 **"凭证与基础信息"**
+3. 复制 **App ID**（格式：`cli_xxx`，32位）
+4. 点击 **App Secret** 的查看按钮，复制密钥
+
+#### 步骤 3：配置权限
+
+1. 点击左侧菜单 **"权限管理"**
+2. 开通以下权限（系统内置，开通即可）：
+
+| 权限名称 | 权限标识                | 说明           |
+| -------- | ----------------------- | -------------- |
+| 发送消息 | `im:message`            | 发送消息到对话 |
+| 接收消息 | `im:message.receive_v1` | 接收用户消息   |
+
+#### 步骤 4：配置事件订阅（长连接模式）
+
+> **重要**：v0.8+ 使用**长连接模式**，无需公网服务器、无需配置回调URL。
+
+1. 点击左侧菜单 **"事件与回调"**
+2. 在 **订阅方式** 中选择 **"长连接"**（推荐）
+3. 点击 **"保存"**
+4. 在 **事件订阅** 中点击 **"添加事件"**
+5. 搜索 `im.message.receive_v1` 并添加
+6. 点击 **"保存"**
+
+> ⚠️ 如果选择"发送URL到开发者服务器"为Webhook模式，需要公网服务器。
+
+#### 步骤 5：填写配置文件
+
+编辑 `config/feishu.json`：
+
+```json
+{
+  "enabled": true,
+  "appId": "填入你的飞书应用AppId",
+  "appSecret": "填入你的飞书应用AppSecret"
+}
+```
+
+| 配置项    | 说明                  | 必填           |
+| --------- | --------------------- | -------------- |
+| enabled   | 是否启用              | 否（默认true） |
+| appId     | 飞书应用的 App ID     | 是             |
+| appSecret | 飞书应用的 App Secret | 是             |
+
+> **说明**：长连接模式只需 `appId` 和 `appSecret`，无需 `verificationToken` 和 `encryptKey`。
+
+#### 步骤 6：启动验证
+
+配置完成后，重新启动应用。启动日志中看到以下信息表示飞书长连接初始化成功：
+
+```
+[FeishuBot] WebSocket client started
+[FeishuService] Initialized successfully
+```
+
+---
 
 ### 命令列表
 
@@ -236,7 +304,58 @@ $ARGUMENTS
 
 ---
 
-## 5. 定时任务调度
+## X. 配置文件（重要）
+
+项目中包含敏感信息的配置文件（API密钥、应用密钥等），**不会上传到 GitHub**。首次部署或克隆项目后，需要手动创建这些文件。
+
+### 需要创建的文件
+
+| 文件               | 必填 | 说明                               |
+| ------------------ | ---- | ---------------------------------- |
+| config/llm.json    | 是   | LLM 服务配置（API密钥等）          |
+| config/feishu.json | 否   | 飞书 IM 配置（如不使用飞书可跳过） |
+
+### config/llm.json
+
+```json
+{
+  "provider": "openai",
+  "model": "填入你的模型名称",
+  "apiKey": "填入你的API密钥",
+  "baseUrl": "填入你的API基础地址",
+  "timeout": 60000
+}
+```
+
+### config/feishu.json
+
+```json
+{
+  "enabled": true,
+  "appId": "填入你的飞书应用AppId",
+  "appSecret": "填入你的飞书应用AppSecret"
+}
+```
+
+### 验证配置
+
+创建配置文件后，运行以下命令启动应用：
+
+```bash
+npm run electron:dev
+```
+
+启动日志中看到以下信息表示配置成功：
+
+```
+[LLM] Config loaded: { provider: 'openai', model: 'gpt-4-turbo', ... }
+[Feishu] Config loaded: { appId: 'cli_xxx', enabled: true }
+[FeishuBot] WebSocket client started
+```
+
+---
+
+## 8. 定时任务调度
 
 ### 功能特点
 
@@ -263,7 +382,7 @@ $ARGUMENTS
 
 ---
 
-## 6. WhitelistConfigUI 白名单配置
+## 9. WhitelistConfigUI 白名单配置
 
 ### 功能特点
 
@@ -289,35 +408,35 @@ $ARGUMENTS
 
 ---
 
-## 7. 快速开始
+## 10. 快速开始
 
-### 5.1 安装依赖
+### 10.1 安装依赖
 
 ```bash
 cd opencowork
 npm install
 ```
 
-### 5.2 配置 LLM
+### 10.2 配置 LLM
 
 编辑 `config/llm.json`，填入你的 Azure OpenAI 配置：
 
 ```json
 {
   "provider": "openai",
-  "model": "gpt-4-turbo",
-  "apiKey": "你的API Key",
-  "baseUrl": "https://your-resource.openai.azure.com/openai/v1"
+  "model": "填入你的模型名称",
+  "apiKey": "填入你的API密钥",
+  "baseUrl": "填入你的API基础地址"
 }
 ```
 
-### 5.3 启动应用
+### 10.3 启动应用
 
 ```bash
 npm run electron:dev
 ```
 
-### 5.4 创建任务
+### 10.4 创建任务
 
 在输入框中描述你想完成的任务：
 
@@ -329,7 +448,7 @@ npm run electron:dev
 
 ---
 
-## 8. 目录结构
+## 11. 目录结构
 
 ```
 opencowork/
@@ -405,7 +524,7 @@ opencowork/
 
 ---
 
-## 9. 常见问题
+## 12. 常见问题
 
 ### Q1: TaskHistory 数据存储在哪里？
 
@@ -457,6 +576,7 @@ opencowork/
 
 ## 版本历史
 
+- **v0.9** (2026-04-06) - 飞书长连接集成 + 消息去重 + 代码审核修复
 - **v0.8** (2026-04-02) - WebFetch + WebSearch + 执行日志 + 代码审核修复
 - **v0.7** (2026-04-01) - IM集成 + 定时任务 + Takeover改进 + 代码审核修复
 - **v0.6** (2026-04-01) - 预览模式 + Checkpoint 持久化
@@ -467,5 +587,5 @@ opencowork/
 
 ---
 
-_OpenCowork v0.8_
-_最后更新: 2026-04-02_
+_OpenCowork v0.9_
+_最后更新: 2026-04-06_

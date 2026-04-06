@@ -254,7 +254,9 @@ function App() {
         {/* Header */}
         <header className="h-12 flex items-center justify-between px-4 border-b border-border bg-surface">
           <h1 className="text-lg font-semibold text-white">OpenCowork</h1>
-          <div className="text-sm text-text-muted">v0.2.0</div>
+          <div className="text-sm text-text-muted">
+            v{import.meta.env.VITE_APP_VERSION || '0.0.0'}
+          </div>
         </header>
 
         {/* Main content */}

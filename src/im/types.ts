@@ -55,7 +55,7 @@ export interface IMBot {
 
   onMessage(handler: (msg: IMMessage) => void): void;
 
-  sendMessage(conversationId: string, message: string | IMCard): Promise<void>;
+  sendMessage(conversationId: string, message: string | IMCard, chatType?: string): Promise<void>;
 
   pushNotification(userId: string, notification: IMNotification): Promise<void>;
 

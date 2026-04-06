@@ -2,7 +2,7 @@ import { createFeishuBot, FeishuBot, FeishuConfig } from './FeishuBot';
 import { createDispatchService, DispatchService } from '../DispatchService';
 import { getProgressEmitter, ProgressEmitter } from '../ProgressEmitter';
 import { initializeBindingStore } from '../store/bindingStore';
-import { FeishuCallbackPayload } from '../types';
+import { loadFeishuConfig } from './config';
 
 export interface FeishuServiceConfig {
   feishu: FeishuConfig;
@@ -13,12 +13,14 @@ export class FeishuService {
   private bot: FeishuBot | null = null;
   private dispatchService: DispatchService | null = null;
   private progressEmitter: ProgressEmitter | null = null;
+  private config: FeishuServiceConfig | null = null;
 
   async initialize(config: FeishuServiceConfig): Promise<void> {
     console.log('[FeishuService] Initializing...');
 
     initializeBindingStore(config.userDataPath);
 
+    this.config = config;
     this.bot = createFeishuBot(config.feishu);
     await this.bot.initialize();
 
@@ -35,10 +37,28 @@ export class FeishuService {
     console.log('[FeishuService] Initialized successfully');
   }
 
-  async handleCallback(payload: FeishuCallbackPayload): Promise<void> {
-    if (this.bot) {
-      await this.bot.handleCallback(payload);
+  async reload(): Promise<void> {
+    console.log('[FeishuService] Reloading...');
+
+    this.bot = null;
+    this.dispatchService = null;
+
+    const config = loadFeishuConfig();
+    if (config && config.enabled !== false && this.config) {
+      this.bot = createFeishuBot(config);
+      await this.bot.initialize();
+
+      this.dispatchService = createDispatchService(this.bot);
+
+      this.bot.onMessage(async (msg) => {
+        console.log('[FeishuService] Received message:', msg.content);
+        await this.dispatchService?.handleMessage(msg);
+      });
+
+      this.progressEmitter?.setIMBot(this.bot);
     }
+
+    console.log('[FeishuService] Reload complete');
   }
 
   getBot(): FeishuBot | null {

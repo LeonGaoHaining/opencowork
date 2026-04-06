@@ -157,7 +157,7 @@ export class SkillToolFactory {
       }
 
       // 优先查找 create_*.py, main.py, 或第一个 .py 文件
-      let mainScript =
+      const mainScript =
         pythonScripts.find((f) => f.startsWith('create_')) ||
         pythonScripts.find((f) => f === 'main.py') ||
         pythonScripts[0];
