@@ -276,10 +276,11 @@ export class FeishuBot implements IMBot {
   async close(): Promise<void> {
     const statusManager = getConnectionStatusManager();
     try {
-      if (this.wsClient) {
-        await this.wsClient.stop();
-        this.wsClient = undefined;
-      }
+      // 飞书 SDK 的 WSClient 没有提供 stop/close 方法
+      // 解除引用让 GC 回收，SDK 会在下次 ping 超时后自动断开
+      this.wsClient = undefined;
+      this.client = undefined;
+      this.eventDispatcher = undefined;
       statusManager.setStatus('feishu', 'disconnected');
       console.log('[FeishuBot] Connection closed');
     } catch (error) {
