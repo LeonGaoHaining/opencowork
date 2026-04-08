@@ -234,6 +234,7 @@ export const IPC_HANDLERS: Record<string, IpcHandler> = {
     try {
       const configStore = getIMConfigStore();
       const configs = await configStore.loadAll();
+      console.log('[IPC] im:load returning configs:', JSON.stringify(configs));
       return configs;
     } catch (error: any) {
       console.error('[IPC] im:load error:', error);
