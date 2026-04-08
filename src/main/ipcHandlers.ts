@@ -329,6 +329,7 @@ export const IPC_HANDLERS: Record<string, IpcHandler> = {
       for (const platform of Object.keys(configs)) {
         statuses[platform] = configStore.getStatus(platform as any);
       }
+      console.log('[IPC] im:statusAll returning:', JSON.stringify(statuses));
       return statuses;
     } catch (error: any) {
       console.error('[IPC] im:statusAll error:', error);

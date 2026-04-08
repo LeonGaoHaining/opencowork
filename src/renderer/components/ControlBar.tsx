@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useTaskStore } from '../stores/taskStore';
 import { useHistoryStore } from '../stores/historyStore';
 import { useSchedulerStore } from '../stores/schedulerStore';
@@ -13,7 +13,11 @@ export function ControlBar({ onSkillClick }: ControlBarProps) {
     useTaskStore();
   const { setIsOpen: setHistoryOpen } = useHistoryStore();
   const { setOpen: setSchedulerOpen } = useSchedulerStore();
-  const { statuses, setPanelOpen: setImPanelOpen } = useIMStore();
+  const { statuses, setPanelOpen: setImPanelOpen, loadAll: loadIMStatus } = useIMStore();
+
+  useEffect(() => {
+    loadIMStatus();
+  }, []);
 
   const getIMStatus = (): ConnectionStatus => {
     return statuses.feishu;
