@@ -14,7 +14,7 @@ const previewManager = new PreviewManager();
 
 let browserExecutor: BrowserExecutor | null = null;
 let cliExecutor: CLIExecutor | null = null;
-let sharedMainAgent: MainAgent | null = null;
+export let sharedMainAgent: MainAgent | null = null;
 let sharedThreadId: string = 'main-session';
 let isAgentInitializing: boolean = false;
 let agentInitPromise: Promise<void> | null = null;

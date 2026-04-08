@@ -7,6 +7,7 @@ import {
   setTaskEnginePreviewWindow,
   setTaskEngineMainWindow,
   getPreviewManager,
+  sharedMainAgent,
 } from './ipcHandlers';
 import { setAskUserMainWindow } from '../core/executor/AskUserExecutor';
 import { setBrowserExecutorMainWindow } from '../core/executor/BrowserExecutor';
