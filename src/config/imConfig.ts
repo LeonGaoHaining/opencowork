@@ -209,7 +209,7 @@ let imConfigStoreInstance: IMConfigStore | null = null;
 
 export function getIMConfigStore(): IMConfigStore {
   if (!imConfigStoreInstance) {
-    const configDir = path.join(__dirname, '..', '..', 'config');
+    const configDir = path.join(__dirname, '..', '..', '..', 'config');
     console.log('[IMConfigStore] Using configDir:', configDir);
     imConfigStoreInstance = new IMConfigStore(configDir);
   }
