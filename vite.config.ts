@@ -23,6 +23,7 @@ export default defineConfig({
       input: {
         main: './src/renderer/index.html',
         preview: './src/renderer/preview.html',
+        toolbar: './src/renderer/toolbar.html',
       },
     },
   },

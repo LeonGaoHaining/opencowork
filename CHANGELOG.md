@@ -1,12 +1,81 @@
 # OpenCowork 更新日志
 
-| 版本   | 日期       | 状态   |
-| ------ | ---------- | ------ |
-| v0.4.0 | 2026-03-29 | 规划中 |
-| v0.3.0 | 2026-03-29 | 已发布 |
-| v0.2.3 | 2026-03-29 | 已发布 |
+| 版本    | 日期       | 状态   |
+| ------- | ---------- | ------ |
+| v0.10.2 | 2026-04-10 | 已发布 |
+| v0.10.1 | 2026-04-09 | 已发布 |
+| v0.9.0  | 2026-04-07 | 已发布 |
+| v0.8.9  | 2026-04-06 | 已发布 |
+| v0.7.6  | 2026-04-01 | 已发布 |
+| v0.4.0  | 2026-03-29 | 规划中 |
+| v0.3.0  | 2026-03-29 | 已发布 |
+| v0.2.3  | 2026-03-29 | 已发布 |
 
 ---
+
+## v0.10.2 (2026-04-10) - Browser Preview v2.0
+
+### 版本目标
+
+将预览区升级为真实浏览器，支持工具栏和 Agent 操作同步
+
+### 核心变更
+
+| 模块            | 变更类型 | 说明                           |
+| --------------- | -------- | ------------------------------ |
+| PreviewManager  | 重构     | BrowserWindow 替代 BrowserView |
+| App.tsx Sidebar | 新功能   | webview 嵌入侧边栏             |
+| Toolbar         | 新功能   | 地址栏、导航按钮、状态指示     |
+| BrowserExecutor | 新功能   | CDP 连接方法                   |
+| mainAgent.ts    | 新功能   | Agent 操作后同步 webview       |
+| IPC Handlers    | 新功能   | browser:webviewNavigate        |
+
+### 功能清单
+
+- ✅ 侧边栏显示真实浏览器（webview）
+- ✅ 工具栏：←→↻× 按钮、地址栏
+- ✅ Agent 操作后 URL 同步到 webview
+- ✅ 三种预览模式：sidebar/collapsible/detached
+- ✅ 启用 webviewTag
+
+### Bug 修复
+
+- 修复 PreviewManager 默认模式为 sidebar
+- 修复 App.tsx 侧边栏缺少 toolbar 问题
+- 修复 preview:setMode IPC 通道
+
+---
+
+## v0.10.1 (2026-04-09) - IMConfigPanel + ConnectionStatus
+
+### 版本目标
+
+IM 平台配置可视化，无需手动编辑配置文件
+
+### 核心变更
+
+| 模块                    | 变更类型 | 说明                     |
+| ----------------------- | -------- | ------------------------ |
+| IMConfigPanel           | 新功能   | IM 平台配置 UI 组件      |
+| IMButton                | 新功能   | ControlBar 状态指示器    |
+| ConnectionStatusManager | 新功能   | 连接状态实时管理         |
+| IPC Handlers            | 新功能   | im:load/save/test/status |
+
+### Bug 修复
+
+- TaskEngine.cancel() 调用错误
+- IPC 返回值自动包装问题
+- 配置文件路径解析问题
+- Agent 未初始化问题
+
+### 优化
+
+- Agent 预初始化
+- IPC 层 NO_WRAP_CHANNELS 机制
+
+---
+
+## v0.9.0 (2026-04-07) - IMConfigPanel Initial
 
 ## v0.4.0 (规划中) - LangChain/LangGraph 重构
 

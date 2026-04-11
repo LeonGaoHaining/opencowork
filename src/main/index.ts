@@ -8,6 +8,7 @@ import {
   setTaskEngineMainWindow,
   getPreviewManager,
   setSharedMainAgent,
+  setMainWindowRef,
 } from './ipcHandlers';
 import { setAskUserMainWindow } from '../core/executor/AskUserExecutor';
 import { setBrowserExecutorMainWindow } from '../core/executor/BrowserExecutor';
@@ -28,6 +29,9 @@ async function bootstrap() {
 
   // 设置主窗口引用到 BrowserExecutor（用于实时截图）
   setBrowserExecutorMainWindow(mainWindow);
+
+  // v2.0: Set main window reference for webview sync
+  setMainWindowRef(mainWindow);
 
   // 初始化 PreviewManager - 不设置默认模式，让用户手动切换
   const previewManager = getPreviewManager();

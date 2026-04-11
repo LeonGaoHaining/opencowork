@@ -236,6 +236,19 @@ const browserTool = tool(
           result.error?.message
         );
       }
+
+      // v2.0: Sync webview with Agent browser
+      try {
+        const currentUrl = executor.getCurrentPageUrl();
+        const { getMainWindowRef } = await import('../main/ipcHandlers.js');
+        const mainWindow = getMainWindowRef();
+        if (mainWindow && !mainWindow.isDestroyed() && currentUrl) {
+          mainWindow.webContents.send('browser:webviewNavigate', { url: currentUrl });
+        }
+      } catch (syncError) {
+        console.warn('[BrowserTool] Failed to sync webview:', syncError);
+      }
+
       return result;
     } catch (error: any) {
       const duration = Date.now() - startTime;

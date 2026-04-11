@@ -250,6 +250,43 @@ function App() {
       })
     );
 
+    // Setup webview event handlers after component mounts
+    setTimeout(() => {
+      const webview = document.getElementById('sidebar-webview') as any;
+      if (webview) {
+        webview.addEventListener('did-finish-load', () => {
+          console.log('[Renderer] Sidebar webview loaded:', webview.getURL());
+        });
+        webview.addEventListener('did-navigate', (event: any) => {
+          const urlInput = document.getElementById('url-input') as HTMLInputElement | null;
+          if (urlInput) {
+            urlInput.value = event.url;
+          }
+        });
+        console.log('[Renderer] Sidebar webview event handlers registered');
+      }
+    }, 1000);
+
+    // v2.0: Listen for webview navigation from Agent browser
+    unsubscribers.push(
+      window.electron.on('browser:webviewNavigate', (data: any) => {
+        try {
+          const url = data?.url;
+          console.log('[Renderer] Received webviewNavigate:', url);
+          const webview = document.getElementById('sidebar-webview') as any;
+          if (webview && url) {
+            webview.src = url;
+            const urlInput = document.getElementById('url-input') as HTMLInputElement | null;
+            if (urlInput) {
+              urlInput.value = url;
+            }
+          }
+        } catch (error) {
+          console.error('[Renderer] webviewNavigate handler error:', error);
+        }
+      })
+    );
+
     console.log('[Renderer] Registered event listeners, count:', unsubscribers.length);
 
     return () => {
@@ -288,27 +325,44 @@ function App() {
           {/* Sidebar Preview - only show in sidebar mode */}
           {previewMode === 'sidebar' && (
             <div className="w-[40%] border-l border-border bg-surface flex flex-col">
-              {/* Preview header with URL */}
-              <div className="h-12 flex items-center justify-between px-4 border-b border-border bg-elevated">
-                <div className="flex items-center gap-2">
-                  <svg
-                    className="w-4 h-4 text-primary"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
+              {/* Preview header with toolbar */}
+              <div className="h-10 flex items-center justify-between px-2 border-b border-border bg-elevated">
+                <div className="flex items-center gap-1">
+                  <button
+                    id="btn-back"
+                    className="w-8 h-8 flex items-center justify-center rounded hover:bg-border text-text-secondary hover:text-white"
+                    title="后退"
                   >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"
-                    />
-                  </svg>
-                  {/* Debug: show previewMode status */}
-                  <span className="text-sm text-text-secondary truncate max-w-[200px]">
-                    {task?.currentStep || (screenshot ? '正在预览...' : '等待任务执行...')}
-                  </span>
+                    ←
+                  </button>
+                  <button
+                    id="btn-forward"
+                    className="w-8 h-8 flex items-center justify-center rounded hover:bg-border text-text-secondary hover:text-white"
+                    title="前进"
+                  >
+                    →
+                  </button>
+                  <button
+                    id="btn-reload"
+                    className="w-8 h-8 flex items-center justify-center rounded hover:bg-border text-text-secondary hover:text-white"
+                    title="刷新"
+                  >
+                    ↻
+                  </button>
+                  <button
+                    id="btn-stop"
+                    className="w-8 h-8 flex items-center justify-center rounded hover:bg-border text-text-secondary hover:text-white"
+                    title="停止"
+                  >
+                    ×
+                  </button>
                 </div>
+                <input
+                  id="url-input"
+                  type="text"
+                  placeholder="输入网址后回车跳转"
+                  className="flex-1 h-7 mx-2 bg-background border border-border rounded px-2 text-sm text-white focus:border-primary outline-none"
+                />
                 <button
                   onClick={() => setPreviewMode('detached')}
                   className="p-1.5 rounded hover:bg-border text-text-muted hover:text-white"
@@ -324,33 +378,14 @@ function App() {
                   </svg>
                 </button>
               </div>
-              {/* Preview content */}
-              <div className="flex-1 bg-background flex items-center justify-center p-2 overflow-hidden">
-                {screenshot ? (
-                  <img
-                    key={imageKey}
-                    src={`data:image/jpeg;base64,${screenshot}`}
-                    alt="Browser Preview"
-                    className="w-full h-full object-contain rounded shadow"
-                  />
-                ) : (
-                  <div className="text-center text-text-muted">
-                    <svg
-                      className="w-12 h-12 mx-auto mb-2 opacity-50"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={1.5}
-                        d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
-                      />
-                    </svg>
-                    <p className="text-sm">等待任务执行...</p>
-                  </div>
-                )}
+              {/* Preview content - webview */}
+              <div className="flex-1 bg-white overflow-hidden">
+                <webview
+                  id="sidebar-webview"
+                  src="about:blank"
+                  partition="persist:automation"
+                  className="w-full h-full"
+                />
               </div>
               {/* Preview footer with current action */}
               {task?.currentStep && (

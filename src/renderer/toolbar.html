@@ -1,0 +1,240 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Browser Toolbar</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        background: #1a1a24;
+        overflow: hidden;
+      }
+      #browser-toolbar {
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        height: 40px;
+        background: #1a1a24;
+        border-bottom: 1px solid #333;
+        padding: 0 8px;
+        -webkit-app-region: drag;
+      }
+      #browser-toolbar button {
+        width: 32px;
+        height: 32px;
+        border: none;
+        background: transparent;
+        color: #fff;
+        cursor: pointer;
+        border-radius: 4px;
+        font-size: 16px;
+        -webkit-app-region: no-drag;
+      }
+      #browser-toolbar button:hover {
+        background: #333;
+      }
+      #browser-toolbar button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+      .toolbar-center {
+        flex: 1;
+        margin: 0 8px;
+        -webkit-app-region: no-drag;
+      }
+      #url-input {
+        width: 100%;
+        height: 28px;
+        background: #0f0f14;
+        border: 1px solid #333;
+        border-radius: 4px;
+        color: #fff;
+        padding: 0 12px;
+        font-size: 13px;
+        outline: none;
+      }
+      #url-input:focus {
+        border-color: #6366f1;
+      }
+      .toolbar-right {
+        display: flex;
+        align-items: center;
+        margin-left: 8px;
+      }
+      #sync-status {
+        font-size: 12px;
+        padding: 4px 8px;
+        border-radius: 4px;
+        white-space: nowrap;
+      }
+      .status-idle {
+        color: #10b981;
+      }
+      .status-agent {
+        color: #22d3ee;
+      }
+      .status-user {
+        color: #f59e0b;
+      }
+      #browser-container {
+        flex: 1;
+        position: relative;
+        background: #fff;
+      }
+      webview {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        border: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="browser-toolbar">
+      <button id="btn-back" title="后退">←</button>
+      <button id="btn-forward" title="前进">→</button>
+      <button id="btn-reload" title="刷新">↻</button>
+      <button id="btn-stop" title="停止">×</button>
+      <div class="toolbar-center">
+        <input type="text" id="url-input" placeholder="输入网址后回车跳转" />
+      </div>
+      <div class="toolbar-right">
+        <span id="sync-status" class="status-idle">● 就绪</span>
+      </div>
+    </div>
+    <div id="browser-container">
+      <webview id="webview" src="about:blank" partition="persist:automation"></webview>
+    </div>
+    <script>
+      const backBtn = document.getElementById('btn-back');
+      const forwardBtn = document.getElementById('btn-forward');
+      const reloadBtn = document.getElementById('btn-reload');
+      const stopBtn = document.getElementById('btn-stop');
+      const urlInput = document.getElementById('url-input');
+      const syncStatus = document.getElementById('sync-status');
+      const webview = document.getElementById('webview');
+
+      // Wait for webview to be ready
+      webview.addEventListener('did-finish-load', () => {
+        const url = webview.getURL();
+        urlInput.value = url;
+        updateNavButtons();
+      });
+
+      webview.addEventListener('did-navigate', (event) => {
+        const url = event.url;
+        urlInput.value = url;
+        updateNavButtons();
+      });
+
+      webview.addEventListener('did-navigate-in-page', (event) => {
+        if (event.isMainFrame) {
+          urlInput.value = event.url;
+          updateNavButtons();
+        }
+      });
+
+      webview.addEventListener('page-title-updated', (event) => {
+        // Could update title if needed
+      });
+
+      function sendToMain(channel, ...args) {
+        if (window.electron && window.electron.send) {
+          window.electron.send(channel, ...args);
+        }
+      }
+
+      function updateNavButtons() {
+        const canGoBack = webview.canGoBack();
+        const canGoForward = webview.canGoForward();
+        backBtn.disabled = !canGoBack;
+        forwardBtn.disabled = !canGoForward;
+      }
+
+      backBtn.addEventListener('click', () => {
+        if (webview.canGoBack()) {
+          webview.goBack();
+        }
+      });
+
+      forwardBtn.addEventListener('click', () => {
+        if (webview.canGoForward()) {
+          webview.goForward();
+        }
+      });
+
+      reloadBtn.addEventListener('click', () => {
+        webview.reload();
+      });
+
+      stopBtn.addEventListener('click', () => {
+        webview.stop();
+      });
+
+      urlInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          let url = urlInput.value.trim();
+          if (url && !url.startsWith('http://') && !url.startsWith('https://')) {
+            url = 'https://' + url;
+          }
+          if (url) {
+            webview.src = url;
+          }
+        }
+      });
+
+      // Detect user interaction
+      webview.addEventListener('input-event', (event) => {
+        if (event.inputType === 'mouseDown' || event.inputType === 'keyDown') {
+          sendToMain('toolbar:userInteraction');
+        }
+      });
+
+      // Expose APIs for external control
+      window.navigateTo = function (url) {
+        if (url) {
+          webview.src = url;
+        }
+      };
+
+      window.updateUrl = function (url) {
+        urlInput.value = url;
+        updateNavButtons();
+      };
+
+      window.updateSyncStatus = function (status) {
+        const statusMap = {
+          idle: { text: '● 就绪', class: 'status-idle' },
+          agent_working: { text: '● Agent 工作中', class: 'status-agent' },
+          user_working: { text: '● 等待同步', class: 'status-user' },
+        };
+        if (statusMap[status]) {
+          syncStatus.textContent = statusMap[status].text;
+          syncStatus.className = statusMap[status].class;
+        }
+      };
+
+      window.getWebview = function () {
+        return webview;
+      };
+
+      window.getCurrentUrl = function () {
+        return webview.getURL();
+      };
+
+      // Initialize
+      updateNavButtons();
+    </script>
+  </body>
+</html>

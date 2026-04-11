@@ -65,6 +65,15 @@ export function setSharedMainAgent(agent: MainAgent | null): void {
   sharedMainAgent = agent;
 }
 
+// v2.0: Get main window for webview sync
+let mainWindowRef: BrowserWindow | null = null;
+export function setMainWindowRef(window: BrowserWindow | null): void {
+  mainWindowRef = window;
+}
+export function getMainWindowRef(): BrowserWindow | null {
+  return mainWindowRef;
+}
+
 type IpcHandler = (
   mainWindow: BrowserWindow | null,
   previewWindow: BrowserWindow | null,
@@ -353,6 +362,120 @@ export const IPC_HANDLERS: Record<string, IpcHandler> = {
     const executor = getBrowserExecutor();
     await executor.closeBrowser();
     return { success: true };
+  },
+
+  // 浏览器导航控制 (v2.0)
+  'browser:navigate': async (mainWindow, previewWindow, { url }) => {
+    const pm = getPreviewManager();
+    await pm.navigateTo(url);
+    return { success: true };
+  },
+
+  'browser:goBack': async (mainWindow, previewWindow) => {
+    const pm = getPreviewManager();
+    await pm.goBack();
+    return { success: true };
+  },
+
+  'browser:goForward': async (mainWindow, previewWindow) => {
+    const pm = getPreviewManager();
+    await pm.goForward();
+    return { success: true };
+  },
+
+  'browser:reload': async (mainWindow, previewWindow) => {
+    const pm = getPreviewManager();
+    await pm.reload();
+    return { success: true };
+  },
+
+  'browser:stop': async (mainWindow, previewWindow) => {
+    const pm = getPreviewManager();
+    await pm.stop();
+    return { success: true };
+  },
+
+  'browser:setMode': async (mainWindow, previewWindow, { mode }) => {
+    console.log('[IPC] browser:setMode called with mode:', mode);
+    const pm = getPreviewManager();
+    await pm.setMode(mode as any);
+    return { success: true };
+  },
+
+  // Legacy alias for preview:setMode
+  'preview:setMode': async (mainWindow, previewWindow, { mode }) => {
+    console.log('[IPC] preview:setMode called with mode:', mode);
+    const pm = getPreviewManager();
+    await pm.setMode(mode as any);
+    return { success: true };
+  },
+
+  'browser:getStatus': async (mainWindow, previewWindow) => {
+    const pm = getPreviewManager();
+    return {
+      mode: pm.getMode(),
+      syncStatus: pm.getSyncStatus(),
+      url: pm.getCurrentUrl(),
+    };
+  },
+
+  'browser:setSyncStatus': async (mainWindow, previewWindow, { status }) => {
+    const pm = getPreviewManager();
+    pm.setSyncStatus(status as any);
+    return { success: true };
+  },
+
+  // v2.0: Get browser current URL
+  'browser:getCurrentUrl': async (mainWindow, previewWindow) => {
+    const executor = getBrowserExecutor();
+    const url = executor.getCurrentPageUrl();
+    return { success: true, url };
+  },
+
+  // v2.0: Sync webview with Agent browser - called after action completes
+  'browser:syncWebview': async (mainWindow, previewWindow, { url }) => {
+    // Send URL to renderer to update webview
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('browser:webviewNavigate', { url });
+      console.log('[IPC] browser:syncWebview sent:', url);
+    }
+    return { success: true };
+  },
+
+  // v2.0: Headed browser launch
+  'browser:launchHeaded': async (mainWindow, previewWindow, options) => {
+    try {
+      const executor = getBrowserExecutor();
+      await executor.launchHeadedBrowser(options);
+      return { success: true };
+    } catch (error: any) {
+      console.error('[IPC] browser:launchHeaded error:', error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  // v2.0: CDP connection
+  'browser:connectCDP': async (mainWindow, previewWindow, { endpoint }) => {
+    try {
+      const executor = getBrowserExecutor();
+      await executor.connectToCDP(endpoint);
+      return { success: true };
+    } catch (error: any) {
+      console.error('[IPC] browser:connectCDP error:', error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  // v2.0: Disconnect CDP
+  'browser:disconnectCDP': async (mainWindow, previewWindow) => {
+    try {
+      const executor = getBrowserExecutor();
+      await executor.disconnectFromCDP();
+      return { success: true };
+    } catch (error: any) {
+      console.error('[IPC] browser:disconnectCDP error:', error);
+      return { success: false, error: error.message };
+    }
   },
 
   // 会话相关

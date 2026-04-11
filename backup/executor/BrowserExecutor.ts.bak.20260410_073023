@@ -37,11 +37,6 @@ export class BrowserExecutor {
   private llmClient = getLLMClient();
   private screencast: ScreencastService;
 
-  // CDP connection mode (v2.0)
-  private cdpEndpoint: string | null = null;
-  private isCDPConnected: boolean = false;
-  private isHeadedMode: boolean = false;
-
   constructor() {
     this.screencast = new ScreencastService({
       fps: 8,
@@ -57,156 +52,6 @@ export class BrowserExecutor {
 
   async closeBrowser(): Promise<void> {
     await this.cleanup();
-  }
-
-  // v2.0: Launch browser in headed mode (visible window)
-  async launchHeadedBrowser(options?: {
-    width?: number;
-    height?: number;
-    url?: string;
-  }): Promise<void> {
-    const width = options?.width || 1024;
-    const height = options?.height || 768;
-    const url = options?.url || 'about:blank';
-
-    try {
-      const { chromium } = require('playwright-extra');
-
-      this.browser = await chromium.launch({
-        headless: false, // Visible window
-        args: [
-          '--no-sandbox',
-          '--disable-setuid-sandbox',
-          '--disable-blink-features=AutomationControlled',
-          '--disable-dev-shm-usage',
-          '--start-maximized',
-        ],
-        defaultViewport: { width, height },
-      });
-
-      this.context = await this.browser.newContext({
-        viewport: { width, height },
-        userAgent:
-          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-      });
-
-      this.page = await this.context.newPage();
-
-      // Manual anti-detection
-      await this.page.addInitScript(() => {
-        Object.defineProperty(navigator, 'webdriver', {
-          get: () => undefined,
-        });
-
-        if (window.navigator.permissions) {
-          // @ts-ignore
-          window.navigator.permissions.query = (parameters: any) => {
-            if (parameters.name === 'notifications') {
-              return Promise.resolve({ state: 'default' } as any);
-            }
-            return Promise.resolve({ state: 'prompt' } as any);
-          };
-        }
-
-        Object.defineProperty(navigator, 'plugins', {
-          get: () => [1, 2, 3, 4, 5],
-        });
-
-        Object.defineProperty(navigator, 'languages', {
-          get: () => ['zh-CN', 'zh', 'en'],
-        });
-      });
-
-      // Navigate to URL if provided
-      if (url !== 'about:blank') {
-        await this.page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
-      }
-
-      this.isHeadedMode = true;
-      this.isCDPConnected = true;
-
-      console.log('[BrowserExecutor] Headed browser launched, CDP connected');
-    } catch (error) {
-      console.error('[BrowserExecutor] Failed to launch headed browser:', error);
-      throw error;
-    }
-  }
-
-  // v2.0: Connect to existing browser via CDP
-  async connectToCDP(endpoint: string): Promise<void> {
-    try {
-      const { chromium } = require('playwright-extra');
-
-      // Connect to existing Chrome via CDP
-      this.browser = await chromium.connectOverCDP(endpoint);
-
-      // Get the default context
-      const contexts = this.browser.contexts();
-      if (contexts.length > 0) {
-        this.context = contexts[0];
-
-        // Get existing page or create new one
-        const pages = this.context.pages();
-        if (pages.length > 0) {
-          this.page = pages[0];
-        } else {
-          this.page = await this.context.newPage();
-        }
-      }
-
-      this.cdpEndpoint = endpoint;
-      this.isCDPConnected = true;
-
-      console.log('[BrowserExecutor] Connected to CDP endpoint:', endpoint);
-    } catch (error) {
-      console.error('[BrowserExecutor] CDP connection failed:', error);
-      throw error;
-    }
-  }
-
-  // v2.0: Disconnect from CDP
-  async disconnectFromCDP(): Promise<void> {
-    if (this.browser) {
-      await this.browser.close();
-      this.browser = null;
-      this.context = null;
-      this.page = null;
-      this.cdpEndpoint = null;
-      this.isCDPConnected = false;
-      this.isHeadedMode = false;
-      console.log('[BrowserExecutor] Disconnected from CDP');
-    }
-  }
-
-  // v2.0: Check if CDP connected
-  isCDPConnectedToWindow(): boolean {
-    return this.isCDPConnected;
-  }
-
-  // v2.0: Check if headed mode
-  isInHeadedMode(): boolean {
-    return this.isHeadedMode;
-  }
-
-  // v2.0: Get browser for external use (PreviewManager)
-  getBrowser(): any {
-    return this.browser;
-  }
-
-  // v2.0: Get current page URL
-  getCurrentPageUrl(): string {
-    if (this.page) {
-      return this.page.url() || 'about:blank';
-    }
-    return 'about:blank';
-  }
-
-  // v2.0: Get current page title
-  getCurrentPageTitle(): string {
-    if (this.page) {
-      return this.page.title() || '';
-    }
-    return '';
   }
 
   async execute(action: AnyAction): Promise<ActionResult> {
@@ -843,8 +688,7 @@ ${htmlSnippet}
     }
   }
 
-  // v2.0: Get page for external use (enhanced version)
-  getPage(): any {
+  getPage() {
     return this.page || null;
   }
 

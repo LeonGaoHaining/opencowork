@@ -1,11 +1,17 @@
-import { BrowserWindow, screen } from 'electron';
+import { BrowserWindow, screen, app } from 'electron';
 import * as path from 'path';
 import { PREVIEW_CONFIG } from '../config/constants';
+
+// CDP debugging port
+const CDP_PORT = 9222;
 
 export function createMainWindow(): BrowserWindow {
   const { width, height } = screen.getPrimaryDisplay().workAreaSize;
 
-  console.log('[Window] Creating mainWindow, preload path:', path.join(__dirname, '../../preload/index.js'));
+  console.log(
+    '[Window] Creating mainWindow, preload path:',
+    path.join(__dirname, '../../preload/index.js')
+  );
 
   const mainWindow = new BrowserWindow({
     width: Math.floor(width * 0.7),
@@ -20,10 +26,18 @@ export function createMainWindow(): BrowserWindow {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false,
+      webviewTag: true,
     },
   });
 
-  // 加载应用
+  // Enable webview remote debugging
+  mainWindow.webContents.on('did-create-window', (window) => {
+    window.webContents.session.setPermissionRequestHandler((webContents, permission, callback) => {
+      callback(true);
+    });
+  });
+
+  // Load app
   if (process.env.NODE_ENV === 'development') {
     mainWindow.loadURL('http://localhost:3000');
   } else {
@@ -40,7 +54,10 @@ export function createMainWindow(): BrowserWindow {
 export function createPreviewWindow(): BrowserWindow {
   const { width, height } = screen.getPrimaryDisplay().workAreaSize;
 
-  console.log('[Window] Creating previewWindow, preload path:', path.join(__dirname, '../../preload/index.js'));
+  console.log(
+    '[Window] Creating previewWindow, preload path:',
+    path.join(__dirname, '../../preload/index.js')
+  );
 
   // 预览窗口默认在主窗口右侧
   const previewWindow = new BrowserWindow({
@@ -56,6 +73,7 @@ export function createPreviewWindow(): BrowserWindow {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false,
+      webviewTag: true,
     },
   });
 
@@ -74,8 +92,8 @@ export function createPreviewWindow(): BrowserWindow {
 }
 
 export function showPreviewWindow(): void {
-  const previewWindows = BrowserWindow.getAllWindows().filter(
-    (win) => win.getTitle().includes('Preview')
+  const previewWindows = BrowserWindow.getAllWindows().filter((win) =>
+    win.getTitle().includes('Preview')
   );
   if (previewWindows.length > 0) {
     previewWindows[0].show();
@@ -83,8 +101,8 @@ export function showPreviewWindow(): void {
 }
 
 export function hidePreviewWindow(): void {
-  const previewWindows = BrowserWindow.getAllWindows().filter(
-    (win) => win.getTitle().includes('Preview')
+  const previewWindows = BrowserWindow.getAllWindows().filter((win) =>
+    win.getTitle().includes('Preview')
   );
   if (previewWindows.length > 0) {
     previewWindows[0].hide();
@@ -92,10 +110,14 @@ export function hidePreviewWindow(): void {
 }
 
 export function closePreviewWindow(): void {
-  const previewWindows = BrowserWindow.getAllWindows().filter(
-    (win) => win.getTitle().includes('Preview')
+  const previewWindows = BrowserWindow.getAllWindows().filter((win) =>
+    win.getTitle().includes('Preview')
   );
   if (previewWindows.length > 0) {
     previewWindows[0].close();
   }
+}
+
+export function getWebviewDebuggingPort(): number {
+  return CDP_PORT;
 }
