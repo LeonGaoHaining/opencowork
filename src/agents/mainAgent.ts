@@ -240,10 +240,14 @@ const browserTool = tool(
       // v2.0: Sync webview with Agent browser
       try {
         const currentUrl = executor.getCurrentPageUrl();
+        const currentTitle = executor.getCurrentPageTitle();
         const { getMainWindowRef } = await import('../main/ipcHandlers.js');
         const mainWindow = getMainWindowRef();
         if (mainWindow && !mainWindow.isDestroyed() && currentUrl) {
-          mainWindow.webContents.send('browser:webviewNavigate', { url: currentUrl });
+          mainWindow.webContents.send('browser:webviewNavigate', {
+            url: currentUrl,
+            title: currentTitle,
+          });
         }
       } catch (syncError) {
         console.warn('[BrowserTool] Failed to sync webview:', syncError);

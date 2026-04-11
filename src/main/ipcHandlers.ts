@@ -429,15 +429,16 @@ export const IPC_HANDLERS: Record<string, IpcHandler> = {
   'browser:getCurrentUrl': async (mainWindow, previewWindow) => {
     const executor = getBrowserExecutor();
     const url = executor.getCurrentPageUrl();
-    return { success: true, url };
+    const title = executor.getCurrentPageTitle();
+    return { success: true, url, title };
   },
 
   // v2.0: Sync webview with Agent browser - called after action completes
-  'browser:syncWebview': async (mainWindow, previewWindow, { url }) => {
+  'browser:syncWebview': async (mainWindow, previewWindow, { url, title }) => {
     // Send URL to renderer to update webview
     if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('browser:webviewNavigate', { url });
-      console.log('[IPC] browser:syncWebview sent:', url);
+      mainWindow.webContents.send('browser:webviewNavigate', { url, title });
+      console.log('[IPC] browser:syncWebview sent:', url, title);
     }
     return { success: true };
   },

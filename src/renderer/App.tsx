@@ -272,7 +272,8 @@ function App() {
       window.electron.on('browser:webviewNavigate', (data: any) => {
         try {
           const url = data?.url;
-          console.log('[Renderer] Received webviewNavigate:', url);
+          const title = data?.title;
+          console.log('[Renderer] Received webviewNavigate:', url, title);
           const webview = document.getElementById('sidebar-webview') as any;
           if (webview && url) {
             webview.src = url;
@@ -283,6 +284,23 @@ function App() {
           }
         } catch (error) {
           console.error('[Renderer] webviewNavigate handler error:', error);
+        }
+      })
+    );
+
+    // v2.0: Listen for user interactions in webview and sync back to Agent
+    unsubscribers.push(
+      window.electron.on('browser:userInteraction', (data: any) => {
+        try {
+          console.log('[Renderer] User interacting with webview');
+          // Update sync status to show user is working
+          const syncStatus = document.getElementById('sync-status');
+          if (syncStatus) {
+            syncStatus.textContent = '● 等待同步';
+            syncStatus.className = 'status-user';
+          }
+        } catch (error) {
+          console.error('[Renderer] userInteraction handler error:', error);
         }
       })
     );
