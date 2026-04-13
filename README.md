@@ -7,6 +7,10 @@
 </h1>
 
 <p align="center">
+  <b>AI Native Desktop Agent</b> — Let AI control your computer like a human to complete complex tasks
+</p>
+
+<p align="center">
   <a href="https://github.com/LeonGaoHaining/opencowork/stargazers">
     <img src="https://img.shields.io/github/stars/LeonGaoHaining/opencowork?style=social" alt="stars">
   </a>
@@ -27,56 +31,52 @@
   </a>
 </p>
 
-<p align="center">
-  <b>AI Native Desktop Agent</b> - 让 AI 像人类一样操作电脑完成复杂任务
-</p>
+---
+
+## ✨ Key Features
+
+| Feature                   | Description                                            |
+| ------------------------- | ------------------------------------------------------ |
+| 🧠 **AI Planning**        | LLM-driven task planning and decomposition             |
+| 🌐 **Browser Automation** | AI autonomously operates browser to complete web tasks |
+| 🔍 **Web Fetch**          | Lightweight HTTP requests for web content extraction   |
+| 🔎 **Real-time Search**   | Exa AI real-time web search                            |
+| ⏰ **Scheduled Tasks**    | Cron/Interval task scheduling                          |
+| 💬 **IM Integration**     | Feishu, DingTalk, WeCom support                        |
+| 📝 **Task History**       | Complete execution history records                     |
+| 🛠️ **Skill System**       | Extensible custom skills                               |
+| 👁️ **Live Preview**       | Real-time preview in sidebar                           |
 
 ---
 
-## ✨ 核心特性
+## 🚀 Quick Start
 
-| 特性                | 说明                          |
-| ------------------- | ----------------------------- |
-| 🧠 **AI 智能规划**  | LLM 驱动的任务规划与分解      |
-| 🌐 **浏览器自动化** | AI 自主操作浏览器完成网页任务 |
-| 🔍 **网页获取**     | 轻量级 HTTP 请求获取网页内容  |
-| 🔎 **实时搜索**     | Exa AI 实时网络搜索           |
-| ⏰ **定时任务**     | Cron/Interval 任务调度        |
-| 💬 **IM 集成**      | 支持飞书、钉钉、企业微信      |
-| 📝 **任务历史**     | 完整记录所有任务执行历史      |
-| 🛠️ **技能系统**     | 可扩展的自定义技能            |
-| 👁️ **实时预览**     | 侧边栏实时观看 AI 操作        |
-
----
-
-## 🚀 快速开始
-
-### 环境要求
+### Prerequisites
 
 - Node.js 18+
 - npm 9+
-- Python 3.8+（用于某些技能脚本）
+- Python 3.8+ (for some skill scripts)
 
-### 安装
+### Installation
 
 ```bash
-# 克隆项目
+# Clone the project
 git clone https://github.com/LeonGaoHaining/opencowork.git
 cd opencowork
 
-# 安装依赖
+# Install dependencies
 npm install
 
-# 配置 LLM
-# 编辑 config/llm.json，填入您的 API 配置
+# Configure LLM
+# Edit config/llm.json with your API configuration
 
-# 启动开发模式
+# Start development mode
 npm run electron:dev
 ```
 
-### 配置 LLM
+### Configure LLM
 
-创建 `config/llm.json`：
+Create `config/llm.json`:
 
 ```json
 {
@@ -90,137 +90,137 @@ npm run electron:dev
 
 ---
 
-## 📖 使用示例
+## 📖 Usage Examples
 
-### 基本任务
-
-```
-打开百度并搜索"最新AI新闻"
-帮我查一下北京天气
-创建个PPT介绍公司产品
-```
-
-### IM 消息控制（飞书）
+### Basic Tasks
 
 ```
-任务 帮我查下北京天气
-状态 abc123
-列表
-接管 abc123
+Open Baidu and search for "latest AI news"
+Check Beijing weather for me
+Create a PPT introducing our company products
+```
+
+### IM Control (Feishu)
+
+```
+Task: Check Beijing weather
+Status: abc123
+List
+Takeover abc123
 ```
 
 ---
 
-## 🏗️ 技术架构
+## 🏗️ Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────┐
 │                     OpenCowork                           │
 ├─────────────────────────────────────────────────────────┤
-│  UI 层 (React + Electron)                                │
+│  UI Layer (React + Electron)                             │
 │  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐        │
 │  │   Chat UI   │ │  ControlBar  │ │  Preview    │        │
 │  └─────────────┘ └─────────────┘ └─────────────┘        │
 ├─────────────────────────────────────────────────────────┤
-│  主进程 (Main Process)                                   │
+│  Main Process                                            │
 │  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐        │
 │  │    IPC      │ │   Session   │ │  Scheduler  │        │
 │  │  Manager    │ │  Manager    │ │   Manager   │        │
 │  └─────────────┘ └─────────────┘ └─────────────┘        │
 ├─────────────────────────────────────────────────────────┤
-│  核心层 (Core)                                           │
+│  Core Layer                                              │
 │  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐        │
 │  │ TaskEngine  │ │  TaskPlan   │ │   Agent     │        │
-│  │             │ │   -er       │ │  (LLM)      │        │
+│  │             │ │   -er       │ │   (LLM)     │        │
 │  └─────────────┘ └─────────────┘ └─────────────┘        │
 ├─────────────────────────────────────────────────────────┤
-│  执行层 (Executors)                                       │
+│  Executor Layer                                          │
 │  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐        │
 │  │  Browser    │ │     CLI     │ │  AskUser    │        │
-│  │ Executor    │ │  Executor   │ │  Executor   │        │
+│  │  Executor   │ │  Executor   │ │  Executor   │        │
 │  └─────────────┘ └─────────────┘ └─────────────┘        │
 ├─────────────────────────────────────────────────────────┤
-│  工具层 (Tools)                                          │
+│  Tools Layer                                            │
 │  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐        │
-│  │  WebFetch   │ │ WebSearch  │ │  Skills    │        │
+│  │  WebFetch   │ │ WebSearch   │ │   Skills    │        │
 │  └─────────────┘ └─────────────┘ └─────────────┘        │
 └─────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 📂 项目结构
+## 📂 Project Structure
 
 ```
 opencowork/
 ├── src/
-│   ├── main/              # Electron 主进程
+│   ├── main/              # Electron main process
 │   ├── renderer/         # React UI
-│   ├── core/             # 核心业务逻辑
-│   │   ├── action/       # Action 定义
-│   │   ├── executor/     # 执行器
-│   │   ├── planner/      # 任务规划
-│   │   └── runtime/      # 运行时
+│   ├── core/             # Core business logic
+│   │   ├── action/       # Action definitions
+│   │   ├── executor/     # Executors
+│   │   ├── planner/      # Task planning
+│   │   └── runtime/      # Runtime
 │   ├── agents/           # AI Agent
-│   ├── llm/              # LLM 客户端
-│   ├── im/               # IM 集成
-│   ├── scheduler/        # 定时任务
-│   ├── history/         # 任务历史
-│   └── skills/           # 技能系统
-├── docs/                 # 文档
-├── config/                # 配置文件（不提交到 Git）
-└── dist/                 # 构建输出
+│   ├── llm/              # LLM client
+│   ├── im/               # IM integration
+│   ├── scheduler/         # Scheduled tasks
+│   ├── history/         # Task history
+│   └── skills/           # Skill system
+├── docs/                 # Documentation
+├── config/                # Config files (not committed)
+└── dist/                 # Build output
 ```
 
 ---
 
-## 🛠️ 开发指南
+## 🛠️ Development
 
 ```bash
-# 开发
+# Development
 npm run electron:dev
 
-# 构建
-npm run build:main     # 主进程
-npm run build:preload  # 预加载脚本
-npm run build:renderer # 渲染进程
+# Build
+npm run build:main     # Main process
+npm run build:preload  # Preload script
+npm run build:renderer # Renderer process
 
-# 测试
+# Testing
 npm test
 
-# 代码检查
+# Code quality
 npm run lint
 npm run format
 ```
 
 ---
 
-## 📜 许可证
+## 📜 License
 
-本项目采用 [Apache License 2.0](LICENSE) 许可证。
-
----
-
-## 🤝 贡献指南
-
-欢迎贡献！请阅读 [CONTRIBUTING.md](CONTRIBUTING.md) 了解如何参与贡献。
+This project is licensed under the [Apache License 2.0](LICENSE).
 
 ---
 
-## 🔒 安全
+## 🤝 Contributing
 
-如发现安全漏洞，请阅读 [SECURITY.md](SECURITY.md) 了解如何报告。
+Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) for details.
 
 ---
 
-## 📬 联系方式
+## 🔒 Security
 
-- GitHub Issues：https://github.com/LeonGaoHaining/opencowork/issues
-- GitHub Discussions：https://github.com/LeonGaoHaining/opencowork/discussions
-- Website:https://opencowork.me
+For security vulnerabilities, please read [SECURITY.md](SECURITY.md) for reporting guidelines.
+
+---
+
+## 📬 Contact
+
+- GitHub Issues: https://github.com/LeonGaoHaining/opencowork/issues
+- GitHub Discussions: https://github.com/LeonGaoHaining/opencowork/discussions
+- Website: https://opencowork.me
 
 ---
 
 <p align="center">
-  ⭐ 如果这个项目对您有帮助，请 star 支持！
+  ⭐ If this project helps you, please give it a star!
 </p>
