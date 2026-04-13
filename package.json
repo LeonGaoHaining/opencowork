@@ -1,7 +1,17 @@
 {
   "name": "opencowork",
-  "version": "0.10.3",
-  "description": "AI Native Desktop Agent - OpenCowork",
+  "version": "0.10.5",
+  "description": "AI Native Desktop Agent - 让 AI 像人类一样操作电脑",
+  "homepage": "https://opencowork.me",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/LeonGaoHaining/opencowork.git"
+  },
+  "bugs": {
+    "url": "https://github.com/LeonGaoHaining/opencowork/issues"
+  },
+  "author": "OpenCowork Team <gaohaining@virtualmetah.com>",
+  "license": "Apache-2.0",
   "main": "dist/main/main/index.js",
   "scripts": {
     "dev": "vite",
@@ -25,7 +35,12 @@
     "agent",
     "desktop",
     "electron",
-    "browser-automation"
+    "browser-automation",
+    "playwright",
+    "llm",
+    "gpt",
+    "automation",
+    "productivity"
   ],
   "author": "",
   "license": "MIT",

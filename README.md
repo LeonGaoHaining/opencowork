@@ -22,6 +22,9 @@
   <a href="https://github.com/LeonGaoHaining/opencowork/pulls">
     <img src="https://img.shields.io/github/issues-pr/LeonGaoHaining/opencowork" alt="prs">
   </a>
+  <a href="https://opencowork.me">
+    <img src="https://img.shields.io/badge/Website-opencowork.me-brightgreen" alt="website">
+  </a>
 </p>
 
 <p align="center">

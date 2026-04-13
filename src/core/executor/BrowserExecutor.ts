@@ -364,7 +364,8 @@ export class BrowserExecutor {
     const startTime = Date.now();
 
     try {
-      if (!this.browser || !this.page) {
+      const pageClosed = this.page ? this.page.isClosed() : true;
+      if (!this.browser || !this.page || pageClosed) {
         if (this.isHeadedMode) {
           await this.launchHeadedBrowser();
         } else {
