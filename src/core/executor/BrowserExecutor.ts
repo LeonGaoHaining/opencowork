@@ -59,8 +59,8 @@ export class BrowserExecutor {
     height?: number;
     url?: string;
   }): Promise<void> {
-    const width = options?.width || 1024;
-    const height = options?.height || 768;
+    const width = options?.width || 800;
+    const height = options?.height || 600;
     const url = options?.url || 'about:blank';
 
     try {
@@ -73,13 +73,11 @@ export class BrowserExecutor {
           '--disable-setuid-sandbox',
           '--disable-blink-features=AutomationControlled',
           '--disable-dev-shm-usage',
-          '--start-maximized',
         ],
-        defaultViewport: { width, height },
       });
 
       this.context = await this.browser.newContext({
-        viewport: { width, height },
+        viewport: null,
         userAgent:
           'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
       });
