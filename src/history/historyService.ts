@@ -166,9 +166,16 @@ export class HistoryService {
   ): Promise<void> {
     const mutex = this.getTaskMutex(taskId);
     return mutex.lock(async () => {
-      const task = await this.store.getTask(taskId);
+      let task = await this.store.getTask(taskId);
       if (!task) {
-        throw new Error(`Task not found: ${taskId}`);
+        console.warn(`[HistoryService] Task not found: ${taskId}, auto-creating...`);
+        const newTask = await this.createTask(`[Task] ${taskId}`, {
+          source: 'auto-created',
+        });
+        task = await this.store.getTask(newTask.id);
+        if (!task) {
+          throw new Error(`Failed to auto-create task: ${taskId}`);
+        }
       }
       const now = Date.now();
       task.status = result.success ? 'completed' : 'failed';
