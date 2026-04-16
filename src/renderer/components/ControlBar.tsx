@@ -3,6 +3,7 @@ import { useTaskStore } from '../stores/taskStore';
 import { useHistoryStore } from '../stores/historyStore';
 import { useSchedulerStore } from '../stores/schedulerStore';
 import { useIMStore, ConnectionStatus } from '../stores/imStore';
+import { useTranslation } from '../i18n/useTranslation';
 
 interface ControlBarProps {
   onSkillClick: () => void;
@@ -14,6 +15,11 @@ export function ControlBar({ onSkillClick }: ControlBarProps) {
   const { setIsOpen: setHistoryOpen } = useHistoryStore();
   const { setOpen: setSchedulerOpen } = useSchedulerStore();
   const { statuses, setPanelOpen: setImPanelOpen, loadAll: loadIMStatus } = useIMStore();
+  const { t, switchLanguage } = useTranslation();
+
+  const handleLanguageChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    switchLanguage(e.target.value as 'zh' | 'en');
+  };
 
   useEffect(() => {
     loadIMStatus();
@@ -26,13 +32,13 @@ export function ControlBar({ onSkillClick }: ControlBarProps) {
   const getIMStatusText = (status: ConnectionStatus): string => {
     switch (status) {
       case 'connected':
-        return '飞书已连接';
+        return t('imConfig.status.connected', { platform: 'Feishu' });
       case 'connecting':
-        return '连接中...';
+        return t('imConfig.status.connecting');
       case 'error':
-        return '连接错误';
+        return t('imConfig.status.error');
       default:
-        return '飞书未配置';
+        return t('imConfig.status.notConfigured', { platform: 'Feishu' });
     }
   };
 
@@ -96,20 +102,20 @@ export function ControlBar({ onSkillClick }: ControlBarProps) {
           onClick={handleCheckLogin}
           className="btn btn-secondary"
           disabled={!task || task.status === 'idle'}
-          title="检测登录弹窗"
+          title={t('controlBar.detectLogin')}
         >
-          检测登录
+          {t('controlBar.detectLogin')}
         </button>
         <button
           onClick={handleTakeover}
           className="btn btn-secondary"
           disabled={!task || task.status === 'idle'}
         >
-          接管
+          {t('controlBar.takeover')}
         </button>
         {task?.status === 'paused' ? (
           <button onClick={handleResume} className="btn btn-primary">
-            恢复
+            {t('controlBar.resume')}
           </button>
         ) : (
           <button
@@ -117,7 +123,7 @@ export function ControlBar({ onSkillClick }: ControlBarProps) {
             className="btn btn-secondary"
             disabled={!task || task.status !== 'executing'}
           >
-            暂停
+            {t('controlBar.pause')}
           </button>
         )}
         <button
@@ -130,7 +136,7 @@ export function ControlBar({ onSkillClick }: ControlBarProps) {
             task.status === 'cancelled'
           }
         >
-          停止
+          {t('controlBar.stop')}
         </button>
       </div>
 
@@ -138,19 +144,20 @@ export function ControlBar({ onSkillClick }: ControlBarProps) {
       <div className="text-sm text-text-secondary">
         {task ? (
           <span>
-            {task.status === 'idle' && '等待任务'}
-            {task.status === 'planning' && '规划中...'}
+            {task.status === 'idle' && t('taskStatus.idle')}
+            {task.status === 'planning' && t('taskStatus.planning')}
             {task.status === 'executing' && task.currentStep
-              ? `执行中: ${task.currentStep}`
-              : '执行中'}
-            {task.status === 'paused' && '已暂停'}
-            {task.status === 'waiting_confirm' && '等待确认'}
-            {task.status === 'completed' && '已完成'}
-            {task.status === 'failed' && `失败: ${task.error || '未知错误'}`}
-            {task.status === 'cancelled' && '已取消'}
+              ? `${t('taskStatus.executing')}: ${task.currentStep}`
+              : t('taskStatus.executing')}
+            {task.status === 'paused' && t('taskStatus.paused')}
+            {task.status === 'waiting_confirm' && t('taskStatus.waitingConfirm')}
+            {task.status === 'completed' && t('taskStatus.completed')}
+            {task.status === 'failed' &&
+              `${t('taskStatus.failed')}: ${task.error || t('errors.unknownError')}`}
+            {task.status === 'cancelled' && t('taskStatus.cancelled')}
           </span>
         ) : (
-          '无活动任务'
+          t('app.noActiveTask')
         )}
       </div>
 
@@ -165,7 +172,7 @@ export function ControlBar({ onSkillClick }: ControlBarProps) {
                 ? 'bg-primary text-white'
                 : 'bg-elevated text-text-secondary hover:text-white hover:bg-border'
             }`}
-            title="侧边预览"
+            title={t('controlBar.sidebarPreview')}
           >
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path
@@ -183,7 +190,7 @@ export function ControlBar({ onSkillClick }: ControlBarProps) {
                 ? 'bg-primary text-white'
                 : 'bg-elevated text-text-secondary hover:text-white hover:bg-border'
             }`}
-            title="独立窗口"
+            title={t('controlBar.independentWindow')}
           >
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path
@@ -196,16 +203,20 @@ export function ControlBar({ onSkillClick }: ControlBarProps) {
           </button>
         </div>
 
-        <button onClick={() => setHistoryOpen(true)} className="btn btn-secondary" title="任务历史">
-          历史
+        <button
+          onClick={() => setHistoryOpen(true)}
+          className="btn btn-secondary"
+          title={t('controlBar.history')}
+        >
+          {t('controlBar.history')}
         </button>
 
         <button
           onClick={() => setSchedulerOpen(true)}
           className="btn btn-secondary"
-          title="定时任务"
+          title={t('controlBar.scheduler')}
         >
-          定时
+          {t('controlBar.scheduler')}
         </button>
 
         <button
@@ -214,16 +225,16 @@ export function ControlBar({ onSkillClick }: ControlBarProps) {
             onSkillClick();
           }}
           className="btn btn-secondary"
-          title="技能管理"
+          title={t('controlBar.skills')}
         >
-          技能
+          {t('controlBar.skills')}
         </button>
 
         <button
           onClick={() => setShowPlanViewer(!showPlanViewer)}
           className={`btn ${showPlanViewer ? 'btn-primary' : 'btn-secondary'}`}
         >
-          计划
+          {t('controlBar.plan')}
         </button>
 
         {(() => {
@@ -251,6 +262,18 @@ export function ControlBar({ onSkillClick }: ControlBarProps) {
             </button>
           );
         })()}
+
+        {/* Language Switcher */}
+        <select
+          onChange={handleLanguageChange}
+          className="btn btn-secondary text-xs"
+          defaultValue={
+            localStorage.getItem('language') || (navigator.language.startsWith('zh') ? 'zh' : 'en')
+          }
+        >
+          <option value="en">EN</option>
+          <option value="zh">中文</option>
+        </select>
       </div>
     </div>
   );

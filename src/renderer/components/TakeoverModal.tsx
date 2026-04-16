@@ -1,8 +1,10 @@
 import React from 'react';
 import { useTaskStore } from '../stores/taskStore';
+import { useTranslation } from '../i18n/useTranslation';
 
 export function TakeoverModal() {
   const { task, setTakeover, updateTaskStatus } = useTaskStore();
+  const { t } = useTranslation();
 
   const handleResumeAI = async () => {
     try {
@@ -74,22 +76,22 @@ export function TakeoverModal() {
               />
             </svg>
           </div>
-          <h2 className="text-xl font-semibold mb-2">已接管</h2>
-          <p className="text-text-muted">AI已暂停，您可以接管浏览器控制</p>
+          <h2 className="text-xl font-semibold mb-2">{t('takeoverModal.title')}</h2>
+          <p className="text-text-muted">{t('takeoverModal.message')}</p>
         </div>
 
         <div className="space-y-3">
           <button onClick={handleResumeAI} className="btn btn-primary w-full">
-            交还AI控制
+            {t('takeoverModal.returnToAI')}
           </button>
           <button onClick={handleRestart} className="btn btn-secondary w-full">
-            重新开始
+            {t('takeoverModal.restart')}
           </button>
           <button onClick={handleManualComplete} className="btn btn-secondary w-full">
-            人工完成
+            {t('takeoverModal.manualComplete')}
           </button>
           <button onClick={handleCancel} className="btn w-full text-text-muted hover:text-white">
-            取消任务
+            {t('takeoverModal.cancelTask')}
           </button>
         </div>
       </div>

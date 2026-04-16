@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useSessionStore } from '../stores/sessionStore';
 import { useTaskStore } from '../stores/taskStore';
+import { useTranslation } from '../i18n/useTranslation';
 
 export function SessionPanel() {
+  const { t } = useTranslation();
   const {
     sessions,
     activeSessionId,
@@ -66,7 +68,7 @@ export function SessionPanel() {
   const handleDelete = async (sessionId: string, e: React.MouseEvent) => {
     try {
       e.stopPropagation();
-      if (confirm('确定删除此会话？')) {
+      if (confirm(t('sessionPanel.confirmDelete'))) {
         await deleteSession(sessionId);
       }
     } catch (error) {
@@ -76,7 +78,8 @@ export function SessionPanel() {
 
   const formatTime = (timestamp: number) => {
     const date = new Date(timestamp);
-    return date.toLocaleString('zh-CN', {
+    const lang = localStorage.getItem('language') || 'en';
+    return date.toLocaleString(lang === 'zh' ? 'zh-CN' : 'en-US', {
       month: 'numeric',
       day: 'numeric',
       hour: '2-digit',
@@ -87,7 +90,7 @@ export function SessionPanel() {
   if (isLoading && sessions.length === 0) {
     return (
       <div className="w-64 border-r border-border bg-surface p-4">
-        <div className="text-sm text-text-muted">加载中...</div>
+        <div className="text-sm text-text-muted">{t('sessionPanel.loading')}</div>
       </div>
     );
   }
@@ -96,11 +99,11 @@ export function SessionPanel() {
     <div className="w-64 border-r border-border bg-surface flex flex-col">
       {/* Header */}
       <div className="h-12 flex items-center justify-between px-4 border-b border-border">
-        <span className="text-sm font-medium text-white">会话历史</span>
+        <span className="text-sm font-medium text-white">{t('sessionPanel.title')}</span>
         <button
           onClick={handleCreateSession}
           className="p-1 rounded hover:bg-border text-text-muted hover:text-white"
-          title="新建会话"
+          title={t('sessionPanel.newSession')}
         >
           <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -111,7 +114,9 @@ export function SessionPanel() {
       {/* Session List */}
       <div className="flex-1 overflow-y-auto p-2">
         {sessions.length === 0 ? (
-          <div className="text-center text-sm text-text-muted py-8">暂无会话</div>
+          <div className="text-center text-sm text-text-muted py-8">
+            {t('sessionPanel.noSessions')}
+          </div>
         ) : (
           <div className="space-y-1">
             {sessions.map((session) => (
@@ -150,7 +155,7 @@ export function SessionPanel() {
                           handleRename(session.id, session.name);
                         }}
                         className="p-1 rounded hover:bg-border text-text-muted hover:text-white"
-                        title="重命名"
+                        title={t('sessionPanel.rename')}
                       >
                         <svg
                           className="w-4 h-4"
@@ -169,7 +174,7 @@ export function SessionPanel() {
                       <button
                         onClick={(e) => handleDelete(session.id, e)}
                         className="p-1 rounded hover:bg-border text-text-muted hover:text-red-400"
-                        title="删除"
+                        title={t('sessionPanel.delete')}
                       >
                         <svg
                           className="w-4 h-4"

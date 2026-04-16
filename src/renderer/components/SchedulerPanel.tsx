@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useSchedulerStore, defaultTaskInput } from '../stores/schedulerStore';
 import { ScheduledTask, ScheduleType } from '../../scheduler/types';
 import { CronParser } from '../../scheduler/cronParser';
+import { useTranslation } from '../i18n/useTranslation';
 
 type TaskTab = 'all' | 'executing' | 'scheduled' | 'completed';
 
@@ -19,6 +20,7 @@ interface CreateTaskFormData {
 }
 
 function SchedulerPanel() {
+  const { t } = useTranslation();
   const {
     tasks,
     isLoading,
@@ -52,7 +54,6 @@ function SchedulerPanel() {
   useEffect(() => {
     if (isOpen) {
       loadTasks();
-      // 自动刷新任务列表，每5秒刷新一次
       const interval = setInterval(() => {
         loadTasks();
       }, 5000);
@@ -113,25 +114,27 @@ function SchedulerPanel() {
   };
 
   const handleDelete = async (id: string) => {
-    if (confirm('确定删除此定时任务？')) {
+    if (confirm(t('schedulerPanel.confirmDelete'))) {
       await deleteTask(id);
     }
   };
 
   const formatNextRun = (timestamp?: number) => {
     if (!timestamp) return '-';
-    return new Date(timestamp).toLocaleString('zh-CN');
+    const lang = localStorage.getItem('language') || 'en';
+    return new Date(timestamp).toLocaleString(lang === 'zh' ? 'zh-CN' : 'en-US');
   };
 
   const formatSchedule = (task: ScheduledTask) => {
+    const lang = localStorage.getItem('language') || 'en';
     switch (task.schedule.type) {
       case ScheduleType.CRON:
         return task.schedule.cron || '-';
       case ScheduleType.INTERVAL:
-        return `${Math.floor((task.schedule.intervalMs || 0) / 3600000)}小时`;
+        return `${Math.floor((task.schedule.intervalMs || 0) / 3600000)}${t('schedulerPanel.hours')}`;
       case ScheduleType.ONE_TIME:
         return task.schedule.startTime
-          ? new Date(task.schedule.startTime).toLocaleString('zh-CN')
+          ? new Date(task.schedule.startTime).toLocaleString(lang === 'zh' ? 'zh-CN' : 'en-US')
           : '-';
     }
   };
@@ -144,8 +147,10 @@ function SchedulerPanel() {
       <div className="w-[800px] bg-surface border-l border-border flex flex-col">
         <div className="h-14 flex items-center justify-between px-4 border-b border-border">
           <div className="flex items-center gap-4">
-            <h2 className="text-lg font-semibold text-white">定时任务</h2>
-            <span className="text-sm text-text-muted">共 {tasks.length} 个任务</span>
+            <h2 className="text-lg font-semibold text-white">{t('schedulerPanel.title')}</h2>
+            <span className="text-sm text-text-muted">
+              {t('schedulerPanel.totalTasks', { count: tasks.length })}
+            </span>
           </div>
           <button
             onClick={() => setOpen(false)}
@@ -168,10 +173,10 @@ function SchedulerPanel() {
             className="btn btn-primary text-sm"
             disabled={isLoading}
           >
-            新建任务
+            {t('schedulerPanel.addTask')}
           </button>
           <button onClick={loadTasks} className="btn btn-secondary text-sm" disabled={isLoading}>
-            刷新
+            {t('schedulerPanel.refresh')}
           </button>
         </div>
 
@@ -185,22 +190,24 @@ function SchedulerPanel() {
               }`}
             >
               {tab === 'all'
-                ? '全部'
+                ? t('schedulerPanel.filter.all')
                 : tab === 'executing'
-                  ? '执行中'
+                  ? t('schedulerPanel.filter.executing')
                   : tab === 'scheduled'
-                    ? '待执行'
-                    : '已完成'}
+                    ? t('schedulerPanel.filter.scheduled')
+                    : t('schedulerPanel.filter.completed')}
             </button>
           ))}
         </div>
 
         <div className="flex-1 overflow-y-auto p-4">
           {isLoading && tasks.length === 0 ? (
-            <div className="flex items-center justify-center h-32 text-text-muted">加载中...</div>
+            <div className="flex items-center justify-center h-32 text-text-muted">
+              {t('schedulerPanel.loading')}
+            </div>
           ) : filteredTasks.length === 0 ? (
             <div className="flex items-center justify-center h-32 text-text-muted">
-              暂无定时任务
+              {t('schedulerPanel.noTasks')}
             </div>
           ) : (
             <div className="space-y-2">
@@ -215,13 +222,23 @@ function SchedulerPanel() {
                     <div className="flex-1" onClick={() => selectTask(task.id)}>
                       <div className="flex items-center gap-2">
                         <h3 className="text-sm font-medium text-white">{task.name}</h3>
-                        {!task.enabled && <span className="text-xs text-text-muted">(已禁用)</span>}
+                        {!task.enabled && (
+                          <span className="text-xs text-text-muted">
+                            {t('schedulerPanel.disabled')}
+                          </span>
+                        )}
                       </div>
                       <p className="text-xs text-text-muted mt-1">{task.description}</p>
                       <div className="flex items-center gap-4 mt-2 text-xs text-text-muted">
-                        <span>调度: {formatSchedule(task)}</span>
-                        <span>下次执行: {formatNextRun(task.nextRun)}</span>
-                        <span>运行次数: {task.runCount}</span>
+                        <span>
+                          {t('schedulerPanel.schedule')}: {formatSchedule(task)}
+                        </span>
+                        <span>
+                          {t('schedulerPanel.nextRun')}: {formatNextRun(task.nextRun)}
+                        </span>
+                        <span>
+                          {t('schedulerPanel.runCount')}: {task.runCount}
+                        </span>
                       </div>
                       {task.lastStatus && (
                         <div className="mt-2 text-xs">
@@ -234,12 +251,12 @@ function SchedulerPanel() {
                                   : 'text-yellow-400'
                             }`}
                           >
-                            上次:{' '}
+                            {t('schedulerPanel.lastRun')}:{' '}
                             {task.lastStatus === 'success'
-                              ? '成功'
+                              ? t('schedulerPanel.lastSuccess')
                               : task.lastStatus === 'failed'
-                                ? '失败'
-                                : '已取消'}
+                                ? t('schedulerPanel.lastFailed')
+                                : t('schedulerPanel.lastCancelled')}
                           </span>
                           {task.lastError && (
                             <span className="text-red-400 ml-2">- {task.lastError}</span>
@@ -253,21 +270,21 @@ function SchedulerPanel() {
                           onClick={() => disableTask(task.id)}
                           className="btn btn-secondary text-xs"
                         >
-                          禁用
+                          {t('schedulerPanel.disable')}
                         </button>
                       ) : (
                         <button
                           onClick={() => enableTask(task.id)}
                           className="btn btn-primary text-xs"
                         >
-                          启用
+                          {t('schedulerPanel.enable')}
                         </button>
                       )}
                       <button
                         onClick={() => triggerTask(task.id)}
                         className="btn btn-secondary text-xs"
                       >
-                        执行
+                        {t('schedulerPanel.runNow')}
                       </button>
                       <button
                         onClick={() => handleDelete(task.id)}
@@ -300,33 +317,39 @@ function SchedulerPanel() {
         <div className="fixed inset-0 z-[60] flex">
           <div className="flex-1 bg-black/50" onClick={() => setShowCreateModal(false)} />
           <div className="w-[500px] bg-surface border border-border rounded-lg p-6 m-auto max-h-[80vh] overflow-y-auto">
-            <h3 className="text-lg font-semibold text-white mb-4">新建定时任务</h3>
+            <h3 className="text-lg font-semibold text-white mb-4">
+              {t('schedulerPanel.createTask')}
+            </h3>
 
             <div className="space-y-4">
               <div>
-                <label className="text-sm text-text-muted">任务名称</label>
+                <label className="text-sm text-text-muted">{t('schedulerPanel.taskName')}</label>
                 <input
                   type="text"
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   className="w-full px-3 py-2 bg-background border border-border rounded text-sm text-white mt-1"
-                  placeholder="输入任务名称"
+                  placeholder={t('schedulerPanel.placeholder.taskName')}
                 />
               </div>
 
               <div>
-                <label className="text-sm text-text-muted">任务描述</label>
+                <label className="text-sm text-text-muted">
+                  {t('schedulerPanel.taskDescription')}
+                </label>
                 <input
                   type="text"
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   className="w-full px-3 py-2 bg-background border border-border rounded text-sm text-white mt-1"
-                  placeholder="输入任务描述"
+                  placeholder={t('schedulerPanel.placeholder.taskDescription')}
                 />
               </div>
 
               <div>
-                <label className="text-sm text-text-muted">调度类型</label>
+                <label className="text-sm text-text-muted">
+                  {t('schedulerPanel.scheduleType')}
+                </label>
                 <select
                   value={formData.scheduleType}
                   onChange={(e) =>
@@ -334,16 +357,16 @@ function SchedulerPanel() {
                   }
                   className="w-full px-3 py-2 bg-background border border-border rounded text-sm text-white mt-1"
                 >
-                  <option value={ScheduleType.CRON}>Cron 表达式</option>
-                  <option value={ScheduleType.INTERVAL}>间隔执行</option>
-                  <option value={ScheduleType.ONE_TIME}>一次性</option>
+                  <option value={ScheduleType.CRON}>{t('schedulerPanel.cron')}</option>
+                  <option value={ScheduleType.INTERVAL}>{t('schedulerPanel.interval')}</option>
+                  <option value={ScheduleType.ONE_TIME}>{t('schedulerPanel.oneTime')}</option>
                 </select>
               </div>
 
               {formData.scheduleType === ScheduleType.CRON && (
                 <>
                   <div>
-                    <label className="text-sm text-text-muted">Cron 表达式</label>
+                    <label className="text-sm text-text-muted">{t('schedulerPanel.cron')}</label>
                     <input
                       type="text"
                       value={formData.cron}
@@ -353,6 +376,7 @@ function SchedulerPanel() {
                     />
                   </div>
                   <div className="flex flex-wrap gap-2">
+                    <span className="text-sm text-text-muted">{t('schedulerPanel.presets')}:</span>
                     {cronPresets.map((preset) => (
                       <button
                         key={preset.expression}
@@ -368,7 +392,9 @@ function SchedulerPanel() {
 
               {formData.scheduleType === ScheduleType.INTERVAL && (
                 <div>
-                  <label className="text-sm text-text-muted">间隔 (毫秒)</label>
+                  <label className="text-sm text-text-muted">
+                    {t('schedulerPanel.intervalMs')}
+                  </label>
                   <input
                     type="number"
                     value={formData.intervalMs}
@@ -384,7 +410,7 @@ function SchedulerPanel() {
 
               {formData.scheduleType === ScheduleType.ONE_TIME && (
                 <div>
-                  <label className="text-sm text-text-muted">执行时间</label>
+                  <label className="text-sm text-text-muted">{t('schedulerPanel.startTime')}</label>
                   <input
                     type="datetime-local"
                     value={formData.startTime}
@@ -395,17 +421,17 @@ function SchedulerPanel() {
               )}
 
               <div>
-                <label className="text-sm text-text-muted">任务内容</label>
+                <label className="text-sm text-text-muted">{t('schedulerPanel.taskContent')}</label>
                 <textarea
                   value={formData.taskDescription}
                   onChange={(e) => setFormData({ ...formData, taskDescription: e.target.value })}
                   className="w-full px-3 py-2 bg-background border border-border rounded text-sm text-white mt-1 h-24"
-                  placeholder="描述要执行的任务..."
+                  placeholder={t('schedulerPanel.placeholder.taskContent')}
                 />
               </div>
 
               <div>
-                <label className="text-sm text-text-muted">超时时间 (毫秒)</label>
+                <label className="text-sm text-text-muted">{t('schedulerPanel.timeout')}</label>
                 <input
                   type="number"
                   value={formData.timeout}
@@ -420,14 +446,14 @@ function SchedulerPanel() {
 
             <div className="flex justify-end gap-2 mt-6">
               <button onClick={() => setShowCreateModal(false)} className="btn btn-secondary">
-                取消
+                {t('schedulerPanel.cancel')}
               </button>
               <button
                 onClick={handleCreate}
                 className="btn btn-primary"
                 disabled={!formData.name || !formData.taskDescription}
               >
-                创建
+                {t('schedulerPanel.create')}
               </button>
             </div>
           </div>

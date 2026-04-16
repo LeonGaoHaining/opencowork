@@ -1,9 +1,11 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { ChatMessage } from './ChatMessage';
 import { ChatInput } from './ChatInput';
 import { useTaskStore } from '../stores/taskStore';
+import { useTranslation } from '../i18n/useTranslation';
 
 export function ChatUI() {
+  const { t } = useTranslation();
   const { messages } = useTaskStore();
 
   return (
@@ -13,8 +15,8 @@ export function ChatUI() {
         {messages.length === 0 && (
           <div className="h-full flex items-center justify-center">
             <div className="text-center text-text-muted">
-              <p className="text-lg mb-2">Welcome to OpenCowork</p>
-              <p className="text-sm">Describe a task and I'll help you execute it</p>
+              <p className="text-lg mb-2">{t('chatUI.welcome')}</p>
+              <p className="text-sm">{t('chatUI.welcomeDescription')}</p>
             </div>
           </div>
         )}

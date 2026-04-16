@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { useHistoryStore } from '../stores/historyStore';
 import { TaskHistoryRecord } from '../../history/taskHistory';
+import { useTranslation } from '../i18n/useTranslation';
 
 type FilterTab = 'all' | 'completed' | 'failed' | 'cancelled';
 
 export function HistoryPanel() {
+  const { t } = useTranslation();
   const {
     isOpen,
     isLoading,
@@ -55,7 +57,8 @@ export function HistoryPanel() {
 
   const formatTime = (timestamp: number) => {
     const date = new Date(timestamp);
-    return date.toLocaleString('zh-CN', {
+    const lang = localStorage.getItem('language') || 'en';
+    return date.toLocaleString(lang === 'zh' ? 'zh-CN' : 'en-US', {
       month: 'numeric',
       day: 'numeric',
       hour: '2-digit',
@@ -93,8 +96,10 @@ export function HistoryPanel() {
         {/* Header */}
         <div className="h-14 flex items-center justify-between px-4 border-b border-border">
           <div className="flex items-center gap-4">
-            <h2 className="text-lg font-semibold text-white">任务历史</h2>
-            <span className="text-sm text-text-muted">共 {total} 条记录</span>
+            <h2 className="text-lg font-semibold text-white">{t('historyPanel.title')}</h2>
+            <span className="text-sm text-text-muted">
+              {t('historyPanel.totalRecords', { count: total })}
+            </span>
           </div>
           <button
             onClick={() => setIsOpen(false)}
@@ -125,12 +130,12 @@ export function HistoryPanel() {
                 }`}
               >
                 {tab === 'all'
-                  ? '全部'
+                  ? t('historyPanel.filter.all')
                   : tab === 'completed'
-                    ? '成功'
+                    ? t('historyPanel.filter.completed')
                     : tab === 'failed'
-                      ? '失败'
-                      : '已取消'}
+                      ? t('historyPanel.filter.failed')
+                      : t('historyPanel.filter.cancelled')}
               </button>
             ))}
           </div>
@@ -138,14 +143,14 @@ export function HistoryPanel() {
           <div className="flex items-center gap-2">
             <input
               type="text"
-              placeholder="搜索任务..."
+              placeholder={t('historyPanel.search')}
               value={searchKeyword}
               onChange={(e) => setSearchKeyword(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
               className="w-48 px-3 py-1 bg-background border border-border rounded text-sm text-white placeholder-text-muted focus:outline-none focus:border-primary"
             />
             <button onClick={handleSearch} className="btn btn-secondary text-sm">
-              搜索
+              {t('historyPanel.search')}
             </button>
           </div>
         </div>
@@ -155,10 +160,12 @@ export function HistoryPanel() {
           {/* Task List */}
           <div className="w-96 border-r border-border overflow-y-auto">
             {isLoading && tasks.length === 0 ? (
-              <div className="flex items-center justify-center h-32 text-text-muted">加载中...</div>
+              <div className="flex items-center justify-center h-32 text-text-muted">
+                {t('historyPanel.loading')}
+              </div>
             ) : tasks.length === 0 ? (
               <div className="flex items-center justify-center h-32 text-text-muted">
-                暂无任务记录
+                {t('historyPanel.noHistory')}
               </div>
             ) : (
               <div className="p-2 space-y-1">
@@ -181,15 +188,15 @@ export function HistoryPanel() {
                       </div>
                       <span className={`text-xs ${getStatusColor(task.status)}`}>
                         {task.status === 'completed'
-                          ? '成功'
+                          ? t('historyPanel.filter.completed')
                           : task.status === 'failed'
-                            ? '失败'
-                            : '已取消'}
+                            ? t('historyPanel.filter.failed')
+                            : t('historyPanel.filter.cancelled')}
                       </span>
                     </div>
                     {task.duration > 0 && (
                       <div className="text-xs text-text-muted mt-1">
-                        耗时: {formatDuration(task.duration)}
+                        {t('historyPanel.duration')}: {formatDuration(task.duration)}
                       </div>
                     )}
                   </div>
@@ -205,23 +212,29 @@ export function HistoryPanel() {
                 <div className="flex-1 overflow-y-auto p-4">
                   <div className="space-y-4">
                     <div>
-                      <h3 className="text-sm font-medium text-text-muted mb-1">任务描述</h3>
+                      <h3 className="text-sm font-medium text-text-muted mb-1">
+                        {t('historyPanel.taskDescription')}
+                      </h3>
                       <p className="text-white">{selectedTask.task}</p>
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <h3 className="text-sm font-medium text-text-muted mb-1">状态</h3>
+                        <h3 className="text-sm font-medium text-text-muted mb-1">
+                          {t('historyPanel.status')}
+                        </h3>
                         <span className={`text-sm ${getStatusColor(selectedTask.status)}`}>
                           {selectedTask.status === 'completed'
-                            ? '成功'
+                            ? t('historyPanel.filter.completed')
                             : selectedTask.status === 'failed'
-                              ? '失败'
-                              : '已取消'}
+                              ? t('historyPanel.filter.failed')
+                              : t('historyPanel.filter.cancelled')}
                         </span>
                       </div>
                       <div>
-                        <h3 className="text-sm font-medium text-text-muted mb-1">耗时</h3>
+                        <h3 className="text-sm font-medium text-text-muted mb-1">
+                          {t('historyPanel.duration')}
+                        </h3>
                         <span className="text-sm text-white">
                           {formatDuration(selectedTask.duration)}
                         </span>
@@ -230,13 +243,17 @@ export function HistoryPanel() {
 
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <h3 className="text-sm font-medium text-text-muted mb-1">开始时间</h3>
+                        <h3 className="text-sm font-medium text-text-muted mb-1">
+                          {t('historyPanel.startTime')}
+                        </h3>
                         <span className="text-sm text-white">
                           {formatTime(selectedTask.startTime)}
                         </span>
                       </div>
                       <div>
-                        <h3 className="text-sm font-medium text-text-muted mb-1">结束时间</h3>
+                        <h3 className="text-sm font-medium text-text-muted mb-1">
+                          {t('historyPanel.endTime')}
+                        </h3>
                         <span className="text-sm text-white">
                           {formatTime(selectedTask.endTime)}
                         </span>
@@ -245,12 +262,16 @@ export function HistoryPanel() {
 
                     {selectedTask.result && (
                       <div>
-                        <h3 className="text-sm font-medium text-text-muted mb-1">结果</h3>
+                        <h3 className="text-sm font-medium text-text-muted mb-1">
+                          {t('historyPanel.result')}
+                        </h3>
                         {selectedTask.result.success ? (
-                          <div className="text-sm text-green-400">执行成功</div>
+                          <div className="text-sm text-green-400">
+                            {t('historyPanel.executionSuccess')}
+                          </div>
                         ) : (
                           <div className="text-sm text-red-400">
-                            {selectedTask.result.error || '执行失败'}
+                            {selectedTask.result.error || t('historyPanel.executionFailed')}
                           </div>
                         )}
                       </div>
@@ -259,7 +280,7 @@ export function HistoryPanel() {
                     {selectedTask.steps && selectedTask.steps.length > 0 && (
                       <div>
                         <h3 className="text-sm font-medium text-text-muted mb-2">
-                          执行步骤 ({selectedTask.steps.length})
+                          {t('historyPanel.executionSteps', { count: selectedTask.steps.length })}
                         </h3>
                         <div className="space-y-2">
                           {selectedTask.steps.map((step, index) => (
@@ -293,7 +314,9 @@ export function HistoryPanel() {
 
                     {selectedTask.metadata && (
                       <div>
-                        <h3 className="text-sm font-medium text-text-muted mb-1">元数据</h3>
+                        <h3 className="text-sm font-medium text-text-muted mb-1">
+                          {t('historyPanel.metadata')}
+                        </h3>
                         <div className="bg-background rounded p-2 text-xs font-mono text-text-muted">
                           {JSON.stringify(selectedTask.metadata, null, 2)}
                         </div>
@@ -306,13 +329,13 @@ export function HistoryPanel() {
                 <div className="p-4 border-t border-border flex justify-between">
                   <button
                     onClick={() => {
-                      if (confirm('确定删除此任务记录？')) {
+                      if (confirm(t('historyPanel.confirmDelete'))) {
                         deleteTask(selectedTask.id);
                       }
                     }}
                     className="btn btn-danger text-sm"
                   >
-                    删除
+                    {t('historyPanel.delete')}
                   </button>
                   <div className="flex gap-2">
                     <button
@@ -321,20 +344,20 @@ export function HistoryPanel() {
                       }}
                       className="btn btn-secondary text-sm"
                     >
-                      关闭
+                      {t('historyPanel.close')}
                     </button>
                     <button
                       onClick={() => replayTask(selectedTask.id)}
                       className="btn btn-primary text-sm"
                     >
-                      回放
+                      {t('historyPanel.replay')}
                     </button>
                   </div>
                 </div>
               </>
             ) : (
               <div className="flex-1 flex items-center justify-center text-text-muted">
-                选择一个任务查看详情
+                {t('historyPanel.selectTask')}
               </div>
             )}
           </div>

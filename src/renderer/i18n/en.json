@@ -1,0 +1,250 @@
+{
+  "app": {
+    "title": "OpenCowork",
+    "noActiveTask": "No active task"
+  },
+  "taskStatus": {
+    "idle": "Waiting for task",
+    "planning": "Planning...",
+    "executing": "Executing",
+    "paused": "Paused",
+    "waitingConfirm": "Waiting confirmation",
+    "completed": "Completed",
+    "failed": "Failed",
+    "cancelled": "Cancelled"
+  },
+  "executionSteps": {
+    "title": "Execution Steps",
+    "inProgress": "In Progress",
+    "completed": "Completed",
+    "failed": "Failed",
+    "noSteps": "No execution steps yet",
+    "duration": "Duration",
+    "result": "Result",
+    "currentStep": "Current",
+    "task": "Task",
+    "noTask": "No task"
+  },
+  "controlBar": {
+    "detectLogin": "Detect Login",
+    "takeover": "Takeover",
+    "resume": "Resume",
+    "pause": "Pause",
+    "stop": "Stop",
+    "history": "History",
+    "scheduler": "Scheduler",
+    "skills": "Skills",
+    "plan": "Plan",
+    "sidebarPreview": "Sidebar Preview",
+    "independentWindow": "Independent Window"
+  },
+  "executionStepsPanel": {
+    "open": "Open",
+    "click": "Click",
+    "input": "Input",
+    "extract": "Extract Content",
+    "screenshot": "Screenshot",
+    "browserAction": "Browser Action",
+    "cliAction": "CLI Action",
+    "toolAction": "Tool Action"
+  },
+  "takeoverModal": {
+    "title": "Taken Over",
+    "message": "AI has paused. You can take over browser control.",
+    "returnToAI": "Return to AI",
+    "restart": "Restart",
+    "manualComplete": "Manual Complete",
+    "cancelTask": "Cancel Task"
+  },
+  "imConfig": {
+    "title": "IM Configuration",
+    "platform": {
+      "feishu": "Feishu",
+      "dingtalk": "DingTalk",
+      "wecom": "WeCom",
+      "slack": "Slack"
+    },
+    "status": {
+      "connected": "{{platform}} connected",
+      "connecting": "Connecting...",
+      "error": "Connection error",
+      "notConfigured": "{{platform}} not configured"
+    },
+    "enableFeishu": "Enable Feishu Integration",
+    "show": "Show",
+    "hide": "Hide",
+    "appId": "App ID",
+    "appSecret": "App Secret",
+    "unsavedChanges": "You have unsaved changes. Are you sure you want to switch?",
+    "comingSoon": "Coming soon",
+    "notSupported": "This platform is not supported yet",
+    "testConnection": "Test Connection",
+    "testing": "Testing...",
+    "cancel": "Cancel",
+    "save": "Save",
+    "saving": "Saving..."
+  },
+  "skillPanel": {
+    "title": "Install Skill",
+    "skillPath": "Skill directory path",
+    "cancel": "Cancel",
+    "installing": "Installing...",
+    "install": "Install",
+    "uninstall": "Uninstall",
+    "confirmUninstall": "Are you sure you want to uninstall \"{{name}}\"?",
+    "installSuccess": "Installation successful",
+    "installFailed": "Installation failed",
+    "uninstallSuccess": "Uninstallation successful",
+    "uninstallFailed": "Uninstallation failed",
+    "skillManagement": "Skill Management",
+    "noSkills": "No skills installed",
+    "addSkill": "Add Skill",
+    "openFolder": "Open Folder"
+  },
+  "historyPanel": {
+    "title": "Task History",
+    "totalRecords": "{{count}} records",
+    "search": "Search tasks...",
+    "noHistory": "No task history",
+    "loading": "Loading...",
+    "taskDescription": "Task Description",
+    "status": "Status",
+    "duration": "Duration",
+    "startTime": "Start Time",
+    "endTime": "End Time",
+    "result": "Result",
+    "executionSuccess": "Execution successful",
+    "executionFailed": "Execution failed",
+    "executionSteps": "Execution Steps ({{count}})",
+    "metadata": "Metadata",
+    "delete": "Delete",
+    "close": "Close",
+    "replay": "Replay",
+    "confirmDelete": "Are you sure you want to delete this task record?",
+    "selectTask": "Select a task to view details",
+    "filter": {
+      "all": "All",
+      "completed": "Completed",
+      "failed": "Failed",
+      "cancelled": "Cancelled"
+    }
+  },
+  "schedulerPanel": {
+    "title": "Scheduled Tasks",
+    "totalTasks": "{{count}} tasks",
+    "addTask": "New Task",
+    "refresh": "Refresh",
+    "noTasks": "No scheduled tasks",
+    "loading": "Loading...",
+    "taskName": "Task Name",
+    "taskDescription": "Task Description",
+    "scheduleType": "Schedule Type",
+    "cron": "Cron Expression",
+    "interval": "Interval (ms)",
+    "oneTime": "One Time",
+    "intervalMs": "Interval (ms)",
+    "startTime": "Execution Time",
+    "taskContent": "Task Content",
+    "timeout": "Timeout (ms)",
+    "presets": "Presets",
+    "createTask": "Create Scheduled Task",
+    "create": "Create",
+    "cancel": "Cancel",
+    "save": "Save",
+    "delete": "Delete",
+    "confirmDelete": "Are you sure you want to delete this scheduled task?",
+    "edit": "Edit",
+    "runNow": "Run",
+    "disable": "Disable",
+    "enable": "Enable",
+    "disabled": "(Disabled)",
+    "schedule": "Schedule",
+    "nextRun": "Next Run",
+    "runCount": "Run Count",
+    "lastRun": "Last",
+    "lastSuccess": "Success",
+    "lastFailed": "Failed",
+    "lastCancelled": "Cancelled",
+    "hours": "hours",
+    "filter": {
+      "all": "All",
+      "executing": "Executing",
+      "scheduled": "Scheduled",
+      "completed": "Completed"
+    },
+    "status": {
+      "active": "Active",
+      "inactive": "Inactive"
+    },
+    "placeholder": {
+      "taskName": "Enter task name",
+      "taskDescription": "Enter task description",
+      "taskContent": "Describe the task to execute..."
+    }
+  },
+  "sessionPanel": {
+    "title": "Session History",
+    "newSession": "New Session",
+    "noSessions": "No sessions",
+    "loading": "Loading...",
+    "rename": "Rename",
+    "delete": "Delete",
+    "confirmDelete": "Are you sure you want to delete this session?"
+  },
+  "chatUI": {
+    "placeholder": "Enter your task...",
+    "send": "Send",
+    "thinking": "Thinking...",
+    "welcome": "Welcome to OpenCowork",
+    "welcomeDescription": "Describe a task and I'll help you execute it"
+  },
+  "chatMessage": {
+    "human": "You",
+    "ai": "AI"
+  },
+  "askUser": {
+    "title": "Confirmation Required",
+    "confirm": "Confirm",
+    "cancel": "Cancel",
+    "timeRemaining": "Time remaining",
+    "enterAnswer": "Enter your answer...",
+    "timeoutMessage": "Time expired, operation cancelled"
+  },
+  "planViewer": {
+    "title": "Execution Plan",
+    "totalSteps": "{{count}} steps",
+    "currentStep": "Current",
+    "pendingSteps": "Pending",
+    "noPlan": "No plan available",
+    "unknownStep": "Unknown step",
+    "condition": "Condition",
+    "loop": "Loop"
+  },
+  "whitelist": {
+    "title": "CLI Whitelist",
+    "add": "Add Command",
+    "noCommands": "No commands in whitelist"
+  },
+  "errors": {
+    "taskFailed": "Task execution failed",
+    "unknownError": "Unknown error",
+    "taskNotFound": "Task not found"
+  },
+  "logs": {
+    "step": "Step: {{action}}",
+    "success": "Completed: {{action}}",
+    "error": "Error: {{message}}",
+    "taskCompleted": "Task execution completed",
+    "waitingUserConfirm": "Waiting for user confirmation: {{question}}",
+    "replanning": "Replanning...",
+    "taskPaused": "Task paused",
+    "taskResumed": "Task resumed",
+    "taskCancelled": "Task cancelled",
+    "waitingLoginPopup": "Waiting to handle login popup"
+  },
+  "language": {
+    "switch": "Language",
+    "zh": "中文",
+    "en": "English"
+  }
+}

@@ -1,8 +1,10 @@
 import React, { useEffect, useRef } from 'react';
 import { useTaskStore, AgentStep } from '../stores/taskStore';
+import { useTranslation } from '../i18n/useTranslation';
 
 export function ExecutionStepsPanel() {
   const { activeSteps, task } = useTaskStore();
+  const { t } = useTranslation();
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -107,25 +109,25 @@ export function ExecutionStepsPanel() {
     switch (toolName) {
       case 'browser':
         if (args.action === 'goto' || args.action === 'navigate') {
-          return `打开: ${args.url}`;
+          return `${t('executionStepsPanel.open')}: ${args.url}`;
         }
         if (args.action === 'click') {
-          return `点击: ${args.selector}`;
+          return `${t('executionStepsPanel.click')}: ${args.selector}`;
         }
         if (args.action === 'input') {
-          return `输入: ${args.text}`;
+          return `${t('executionStepsPanel.input')}: ${args.text}`;
         }
         if (args.action === 'extract') {
-          return `提取内容`;
+          return t('executionStepsPanel.extract');
         }
         if (args.action === 'screenshot') {
-          return `截图`;
+          return t('executionStepsPanel.screenshot');
         }
-        return `浏览器操作`;
+        return t('executionStepsPanel.browserAction');
       case 'cli':
-        return `执行: ${args.command}`;
+        return `${t('executionStepsPanel.cliAction')}: ${args.command}`;
       default:
-        return `${toolName} 操作`;
+        return `${t('executionStepsPanel.toolAction')}: ${toolName}`;
     }
   };
 
@@ -153,16 +155,16 @@ export function ExecutionStepsPanel() {
               d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"
             />
           </svg>
-          <span className="text-sm font-medium text-white">执行步骤</span>
+          <span className="text-sm font-medium text-white">{t('executionSteps.title')}</span>
         </div>
         {task && (
           <div className="text-xs text-text-muted">
             {task.status === 'executing' ? (
-              <span className="text-yellow-500">执行中</span>
+              <span className="text-yellow-500">{t('executionSteps.inProgress')}</span>
             ) : task.status === 'completed' ? (
-              <span className="text-green-500">已完成</span>
+              <span className="text-green-500">{t('executionSteps.completed')}</span>
             ) : task.status === 'failed' ? (
-              <span className="text-red-500">失败</span>
+              <span className="text-red-500">{t('executionSteps.failed')}</span>
             ) : (
               <span>{task.status}</span>
             )}
@@ -173,7 +175,9 @@ export function ExecutionStepsPanel() {
       {/* Steps List */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto p-3 space-y-2">
         {activeSteps.length === 0 ? (
-          <div className="text-center text-sm text-text-muted py-8">暂无执行步骤</div>
+          <div className="text-center text-sm text-text-muted py-8">
+            {t('executionSteps.noSteps')}
+          </div>
         ) : (
           activeSteps.map((step, index) => (
             <div
@@ -209,18 +213,21 @@ export function ExecutionStepsPanel() {
                   </div>
                   {step.duration && step.status === 'completed' && (
                     <div className="text-xs text-text-muted mt-1 ml-7">
-                      耗时: {formatDuration(step.duration)}
+                      {t('executionSteps.duration')}: {formatDuration(step.duration)}
                     </div>
                   )}
                   {step.status === 'running' && (
                     <div className="flex items-center gap-1 mt-1 ml-7">
                       <div className="w-2 h-2 bg-yellow-500 rounded-full animate-bounce" />
-                      <span className="text-xs text-yellow-500/70">执行中...</span>
+                      <span className="text-xs text-yellow-500/70">
+                        {t('executionSteps.inProgress')}...
+                      </span>
                     </div>
                   )}
                   {step.result && step.status === 'completed' && (
                     <div className="text-xs text-text-muted mt-1 ml-7 truncate">
-                      结果: {typeof step.result === 'string' ? step.result.slice(0, 50) : '完成'}
+                      {t('executionSteps.result')}:{' '}
+                      {typeof step.result === 'string' ? step.result.slice(0, 50) : 'OK'}
                     </div>
                   )}
                 </div>
@@ -234,9 +241,13 @@ export function ExecutionStepsPanel() {
       {task && (
         <div className="border-t border-border p-3 bg-elevated">
           <div className="text-xs text-text-muted">
-            <div className="truncate">任务: {task.description || '无'}</div>
+            <div className="truncate">
+              {t('executionSteps.task')}: {task.description || t('executionSteps.noTask')}
+            </div>
             {task.currentStep && (
-              <div className="truncate mt-1 text-yellow-500/70">当前: {task.currentStep}</div>
+              <div className="truncate mt-1 text-yellow-500/70">
+                {t('executionSteps.currentStep')}: {task.currentStep}
+              </div>
             )}
           </div>
         </div>

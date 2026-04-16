@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useIMStore, IMPlatform, ConnectionStatus, IMPlatformConfig } from '../stores/imStore';
 import { FeishuConfig, DingTalkConfig, WeComConfig, SlackConfig } from '../stores/imStore';
+import { useTranslation } from '../i18n/useTranslation';
 
 interface TabConfig {
   key: IMPlatform;
@@ -29,16 +30,20 @@ const getStatusIcon = (status: ConnectionStatus): string => {
   }
 };
 
-const getStatusText = (status: ConnectionStatus, platform: string): string => {
+const getStatusText = (
+  status: ConnectionStatus,
+  platform: string,
+  t: ReturnType<typeof useTranslation>['t']
+): string => {
   switch (status) {
     case 'connected':
-      return `${platform}已连接`;
+      return t('imConfig.status.connected', { platform });
     case 'connecting':
-      return '连接中...';
+      return t('imConfig.status.connecting');
     case 'error':
-      return '连接错误';
+      return t('imConfig.status.error');
     default:
-      return `${platform}未配置`;
+      return t('imConfig.status.notConfigured', { platform });
   }
 };
 
@@ -127,6 +132,7 @@ export function IMConfigPanel() {
     test,
     setMessage,
   } = useIMStore();
+  const { t } = useTranslation();
 
   const [localConfigs, setLocalConfigs] = useState<Record<IMPlatform, IMPlatformConfig | null>>({
     feishu: { enabled: false, appId: '', appSecret: '' },
@@ -155,7 +161,7 @@ export function IMConfigPanel() {
 
   const handleTabChange = (newTab: IMPlatform) => {
     if (hasUnsavedChanges) {
-      const confirmed = window.confirm('有未保存的变更，确定要切换吗？');
+      const confirmed = window.confirm(t('imConfig.unsavedChanges'));
       if (!confirmed) return;
     }
     setMessage(null);
@@ -190,7 +196,7 @@ export function IMConfigPanel() {
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
       <div className="bg-surface border border-border rounded-xl w-[500px] max-h-[80vh] overflow-hidden">
         <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-          <h2 className="text-lg font-semibold">IM 配置</h2>
+          <h2 className="text-lg font-semibold">{t('imConfig.title')}</h2>
           <button
             onClick={() => setPanelOpen(false)}
             className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-elevated text-text-secondary"
@@ -213,7 +219,9 @@ export function IMConfigPanel() {
               } ${tab.disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
             >
               {tab.label}
-              {tab.disabled && <span className="ml-1 text-xs text-warning">即将支持</span>}
+              {tab.disabled && (
+                <span className="ml-1 text-xs text-warning">{t('imConfig.comingSoon')}</span>
+              )}
             </button>
           ))}
         </div>
@@ -233,7 +241,11 @@ export function IMConfigPanel() {
             <div className="flex items-center gap-2">
               <span className="text-text-secondary">{getStatusIcon(currentStatus)}</span>
               <span className="text-sm text-text-secondary">
-                {getStatusText(currentStatus, tabs.find((t) => t.key === activeTab)?.label || '')}
+                {getStatusText(
+                  currentStatus,
+                  tabs.find((t) => t.key === activeTab)?.label || '',
+                  t
+                )}
               </span>
             </div>
 

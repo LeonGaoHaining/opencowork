@@ -1,0 +1,250 @@
+{
+  "app": {
+    "title": "OpenCowork",
+    "noActiveTask": "无活动任务"
+  },
+  "taskStatus": {
+    "idle": "等待任务",
+    "planning": "规划中...",
+    "executing": "执行中",
+    "paused": "已暂停",
+    "waitingConfirm": "等待确认",
+    "completed": "已完成",
+    "failed": "失败",
+    "cancelled": "已取消"
+  },
+  "executionSteps": {
+    "title": "执行步骤",
+    "inProgress": "执行中",
+    "completed": "已完成",
+    "failed": "失败",
+    "noSteps": "暂无执行步骤",
+    "duration": "耗时",
+    "result": "结果",
+    "currentStep": "当前",
+    "task": "任务",
+    "noTask": "无"
+  },
+  "controlBar": {
+    "detectLogin": "检测登录",
+    "takeover": "接管",
+    "resume": "恢复",
+    "pause": "暂停",
+    "stop": "停止",
+    "history": "历史",
+    "scheduler": "定时",
+    "skills": "技能",
+    "plan": "计划",
+    "sidebarPreview": "侧边预览",
+    "independentWindow": "独立窗口"
+  },
+  "executionStepsPanel": {
+    "open": "打开",
+    "click": "点击",
+    "input": "输入",
+    "extract": "提取内容",
+    "screenshot": "截图",
+    "browserAction": "浏览器操作",
+    "cliAction": "命令行操作",
+    "toolAction": "工具操作"
+  },
+  "takeoverModal": {
+    "title": "已接管",
+    "message": "AI已暂停，您可以接管浏览器控制",
+    "returnToAI": "交还AI控制",
+    "restart": "重新开始",
+    "manualComplete": "人工完成",
+    "cancelTask": "取消任务"
+  },
+  "imConfig": {
+    "title": "IM 配置",
+    "platform": {
+      "feishu": "飞书",
+      "dingtalk": "钉钉",
+      "wecom": "企业微信",
+      "slack": "Slack"
+    },
+    "status": {
+      "connected": "{{platform}}已连接",
+      "connecting": "连接中...",
+      "error": "连接错误",
+      "notConfigured": "{{platform}}未配置"
+    },
+    "enableFeishu": "启用飞书集成",
+    "show": "显示",
+    "hide": "隐藏",
+    "appId": "App ID",
+    "appSecret": "App Secret",
+    "unsavedChanges": "有未保存的变更，确定要切换吗？",
+    "comingSoon": "即将支持",
+    "notSupported": "该平台即将支持，敬请期待",
+    "testConnection": "测试连接",
+    "testing": "测试中...",
+    "cancel": "取消",
+    "save": "保存",
+    "saving": "保存中..."
+  },
+  "skillPanel": {
+    "title": "安装 Skill",
+    "skillPath": "Skill 目录路径",
+    "cancel": "取消",
+    "installing": "安装中...",
+    "install": "安装",
+    "uninstall": "卸载",
+    "confirmUninstall": "确定卸载 \"{{name}}\"？",
+    "installSuccess": "安装成功",
+    "installFailed": "安装失败",
+    "uninstallSuccess": "卸载成功",
+    "uninstallFailed": "卸载失败",
+    "skillManagement": "Skill 管理",
+    "noSkills": "暂无安装的 Skill",
+    "addSkill": "添加 Skill",
+    "openFolder": "打开目录"
+  },
+  "historyPanel": {
+    "title": "任务历史",
+    "totalRecords": "共 {{count}} 条记录",
+    "search": "搜索任务...",
+    "noHistory": "暂无任务记录",
+    "loading": "加载中...",
+    "taskDescription": "任务描述",
+    "status": "状态",
+    "duration": "耗时",
+    "startTime": "开始时间",
+    "endTime": "结束时间",
+    "result": "结果",
+    "executionSuccess": "执行成功",
+    "executionFailed": "执行失败",
+    "executionSteps": "执行步骤 ({{count}})",
+    "metadata": "元数据",
+    "delete": "删除",
+    "close": "关闭",
+    "replay": "回放",
+    "confirmDelete": "确定删除此任务记录？",
+    "selectTask": "选择一个任务查看详情",
+    "filter": {
+      "all": "全部",
+      "completed": "成功",
+      "failed": "失败",
+      "cancelled": "已取消"
+    }
+  },
+  "schedulerPanel": {
+    "title": "定时任务",
+    "totalTasks": "共 {{count}} 个任务",
+    "addTask": "新建任务",
+    "refresh": "刷新",
+    "noTasks": "暂无定时任务",
+    "loading": "加载中...",
+    "taskName": "任务名称",
+    "taskDescription": "任务描述",
+    "scheduleType": "调度类型",
+    "cron": "Cron 表达式",
+    "interval": "间隔 (毫秒)",
+    "oneTime": "一次性",
+    "intervalMs": "间隔 (毫秒)",
+    "startTime": "执行时间",
+    "taskContent": "任务内容",
+    "timeout": "超时时间 (毫秒)",
+    "presets": "预设",
+    "createTask": "新建定时任务",
+    "create": "创建",
+    "cancel": "取消",
+    "save": "保存",
+    "delete": "删除",
+    "confirmDelete": "确定删除此定时任务？",
+    "edit": "编辑",
+    "runNow": "执行",
+    "disable": "禁用",
+    "enable": "启用",
+    "disabled": "(已禁用)",
+    "schedule": "调度",
+    "nextRun": "下次执行",
+    "runCount": "运行次数",
+    "lastRun": "上次",
+    "lastSuccess": "成功",
+    "lastFailed": "失败",
+    "lastCancelled": "已取消",
+    "hours": "小时",
+    "filter": {
+      "all": "全部",
+      "executing": "执行中",
+      "scheduled": "待执行",
+      "completed": "已完成"
+    },
+    "status": {
+      "active": "已启用",
+      "inactive": "已禁用"
+    },
+    "placeholder": {
+      "taskName": "输入任务名称",
+      "taskDescription": "输入任务描述",
+      "taskContent": "描述要执行的任务..."
+    }
+  },
+  "sessionPanel": {
+    "title": "会话历史",
+    "newSession": "新建会话",
+    "noSessions": "暂无会话",
+    "loading": "加载中...",
+    "rename": "重命名",
+    "delete": "删除",
+    "confirmDelete": "确定删除此会话？"
+  },
+  "chatUI": {
+    "placeholder": "输入您的任务...",
+    "send": "发送",
+    "thinking": "思考中...",
+    "welcome": "Welcome to OpenCowork",
+    "welcomeDescription": "Describe a task and I'll help you execute it"
+  },
+  "chatMessage": {
+    "human": "你",
+    "ai": "AI"
+  },
+  "askUser": {
+    "title": "需要确认",
+    "confirm": "确认",
+    "cancel": "取消",
+    "timeRemaining": "剩余时间",
+    "enterAnswer": "输入你的回答...",
+    "timeoutMessage": "时间已到期，操作已取消"
+  },
+  "planViewer": {
+    "title": "执行计划",
+    "totalSteps": "共 {{count}} 个步骤",
+    "currentStep": "当前",
+    "pendingSteps": "待执行",
+    "noPlan": "暂无计划",
+    "unknownStep": "Unknown step",
+    "condition": "条件",
+    "loop": "循环"
+  },
+  "whitelist": {
+    "title": "命令行白名单",
+    "add": "添加命令",
+    "noCommands": "白名单中暂无命令"
+  },
+  "errors": {
+    "taskFailed": "任务执行失败",
+    "unknownError": "未知错误",
+    "taskNotFound": "任务未找到"
+  },
+  "logs": {
+    "step": "执行步骤: {{action}}",
+    "success": "完成: {{action}}",
+    "error": "错误: {{message}}",
+    "taskCompleted": "任务执行完成",
+    "waitingUserConfirm": "等待用户确认: {{question}}",
+    "replanning": "正在重新规划...",
+    "taskPaused": "任务已暂停",
+    "taskResumed": "任务已恢复",
+    "taskCancelled": "任务已取消",
+    "waitingLoginPopup": "等待处理登录弹窗"
+  },
+  "language": {
+    "switch": "语言",
+    "zh": "中文",
+    "en": "English"
+  }
+}

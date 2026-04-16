@@ -1,6 +1,6 @@
 {
   "name": "opencowork",
-  "version": "0.10.8",
+  "version": "0.10.9",
   "description": "AI Native Desktop Agent - 让 AI 像人类一样操作电脑",
   "homepage": "https://opencowork.me",
   "repository": {
@@ -49,12 +49,14 @@
     "@larksuiteoapi/node-sdk": "^1.36.0",
     "axios": "^1.14.0",
     "better-sqlite3": "^12.8.0",
+    "i18next": "^26.0.5",
     "js-yaml": "^4.1.1",
     "node-cron": "^4.2.1",
     "playwright-extra": "^4.3.6",
     "playwright-stealth": "^0.0.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+    "react-i18next": "^17.0.3",
     "turndown": "^7.2.2",
     "ws": "^8.20.0",
     "zustand": "^4.5.7"

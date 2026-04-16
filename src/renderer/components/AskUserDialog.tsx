@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useTaskStore } from '../stores/taskStore';
+import { useTranslation } from '../i18n/useTranslation';
 
 export function AskUserDialog() {
+  const { t } = useTranslation();
   const { askUserRequest, setAskUserRequest, respondToAskUser } = useTaskStore();
   const [remainingTime, setRemainingTime] = useState<number>(0);
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
@@ -61,9 +63,11 @@ export function AskUserDialog() {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
       <div className="w-[400px] rounded-lg bg-[var(--color-surface)] p-6 shadow-lg">
         <div className="mb-4 flex items-center justify-between">
-          <h3 className="text-lg font-semibold text-[var(--color-text-primary)]">需要确认</h3>
+          <h3 className="text-lg font-semibold text-[var(--color-text-primary)]">
+            {t('askUser.title')}
+          </h3>
           <span className="text-sm text-[var(--color-text-muted)]">
-            剩余时间: {formatTime(remainingTime)}
+            {t('askUser.timeRemaining')}: {formatTime(remainingTime)}
           </span>
         </div>
 
@@ -94,14 +98,14 @@ export function AskUserDialog() {
                 onClick={handleCancel}
                 className="flex-1 rounded-md bg-[var(--color-elevated)] px-4 py-2 text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-border)]"
               >
-                取消
+                {t('askUser.cancel')}
               </button>
               <button
                 type="submit"
                 disabled={!selectedOption}
                 className="flex-1 rounded-md bg-[var(--color-primary)] px-4 py-2 text-white transition-colors hover:bg-[var(--color-primary-hover)] disabled:cursor-not-allowed disabled:opacity-50"
               >
-                确认
+                {t('askUser.confirm')}
               </button>
             </div>
           </form>
@@ -111,7 +115,7 @@ export function AskUserDialog() {
               <textarea
                 value={customAnswer}
                 onChange={(e) => setCustomAnswer(e.target.value)}
-                placeholder="输入你的回答..."
+                placeholder={t('askUser.enterAnswer')}
                 className="w-full rounded-md border border-[var(--color-border)] bg-[var(--color-elevated)] p-3 text-[var(--color-text-primary)] placeholder-[var(--color-text-muted)] focus:border-[var(--color-primary)] focus:outline-none"
                 rows={3}
               />
@@ -123,14 +127,14 @@ export function AskUserDialog() {
                 onClick={handleCancel}
                 className="flex-1 rounded-md bg-[var(--color-elevated)] px-4 py-2 text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-border)]"
               >
-                取消
+                {t('askUser.cancel')}
               </button>
               <button
                 type="submit"
                 disabled={!customAnswer.trim()}
                 className="flex-1 rounded-md bg-[var(--color-primary)] px-4 py-2 text-white transition-colors hover:bg-[var(--color-primary-hover)] disabled:cursor-not-allowed disabled:opacity-50"
               >
-                确认
+                {t('askUser.confirm')}
               </button>
             </div>
           </form>
@@ -138,7 +142,7 @@ export function AskUserDialog() {
 
         {remainingTime === 0 && (
           <p className="mt-3 text-center text-sm text-[var(--color-error)]">
-            时间已到期，操作已取消
+            {t('askUser.timeoutMessage')}
           </p>
         )}
       </div>

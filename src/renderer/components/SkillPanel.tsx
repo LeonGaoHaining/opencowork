@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { SkillListing } from '../../skills/skillMarket';
+import { useTranslation } from '../i18n/useTranslation';
 
 interface SkillPanelProps {
   isOpen: boolean;
@@ -14,6 +15,7 @@ interface InstallModalProps {
 }
 
 function InstallModal({ isOpen, onClose, onInstall, isLoading }: InstallModalProps) {
+  const { t } = useTranslation();
   const [path, setPath] = useState('');
 
   if (!isOpen) return null;
@@ -22,26 +24,26 @@ function InstallModal({ isOpen, onClose, onInstall, isLoading }: InstallModalPro
     <div className="fixed inset-0 z-[60] flex">
       <div className="flex-1 bg-black/50" onClick={onClose} />
       <div className="w-[400px] bg-surface border border-border rounded-lg p-6 m-auto">
-        <h3 className="text-lg font-semibold text-white mb-4">安装 Skill</h3>
+        <h3 className="text-lg font-semibold text-white mb-4">{t('skillPanel.title')}</h3>
         <input
           type="text"
           value={path}
           onChange={(e) => setPath(e.target.value)}
-          placeholder="输入 Skill 目录路径"
+          placeholder={t('skillPanel.skillPath')}
           className="w-full px-3 py-2 bg-background border border-border rounded text-sm text-white placeholder-text-muted focus:outline-none focus:border-primary mb-4"
           onKeyDown={(e) => e.key === 'Enter' && path.trim() && onInstall(path.trim())}
           disabled={isLoading}
         />
         <div className="flex justify-end gap-2">
           <button onClick={onClose} className="btn btn-secondary" disabled={isLoading}>
-            取消
+            {t('skillPanel.cancel')}
           </button>
           <button
             onClick={() => onInstall(path.trim())}
             className="btn btn-primary"
             disabled={!path.trim() || isLoading}
           >
-            {isLoading ? '安装中...' : '安装'}
+            {isLoading ? t('skillPanel.installing') : t('skillPanel.install')}
           </button>
         </div>
       </div>
@@ -50,6 +52,7 @@ function InstallModal({ isOpen, onClose, onInstall, isLoading }: InstallModalPro
 }
 
 export function SkillPanel({ isOpen, onClose }: SkillPanelProps) {
+  const { t } = useTranslation();
   const [skills, setSkills] = useState<SkillListing[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [showInstallModal, setShowInstallModal] = useState(false);
@@ -83,32 +86,32 @@ export function SkillPanel({ isOpen, onClose }: SkillPanelProps) {
     try {
       const result = await window.electron.invoke('skill:install', { path: skillPath });
       if (result.success) {
-        setMessage({ type: 'success', text: '安装成功' });
+        setMessage({ type: 'success', text: t('skillPanel.installSuccess') });
         loadSkills();
       } else {
-        setMessage({ type: 'error', text: result.error || '安装失败' });
+        setMessage({ type: 'error', text: result.error || t('skillPanel.installFailed') });
       }
     } catch (error) {
-      setMessage({ type: 'error', text: `安装失败: ${error}` });
+      setMessage({ type: 'error', text: `${t('skillPanel.installFailed')}: ${error}` });
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleUninstall = async (skillName: string) => {
-    if (!confirm(`确定卸载 "${skillName}"？`)) return;
+    if (!confirm(t('skillPanel.confirmUninstall', { name: skillName }))) return;
 
     setIsLoading(true);
     try {
       const result = await window.electron.invoke('skill:uninstall', { name: skillName });
       if (result.success) {
-        setMessage({ type: 'success', text: '卸载成功' });
+        setMessage({ type: 'success', text: t('skillPanel.uninstallSuccess') });
         loadSkills();
       } else {
-        setMessage({ type: 'error', text: result.error || '卸载失败' });
+        setMessage({ type: 'error', text: result.error || t('skillPanel.uninstallFailed') });
       }
     } catch (error) {
-      setMessage({ type: 'error', text: `卸载失败: ${error}` });
+      setMessage({ type: 'error', text: `${t('skillPanel.uninstallFailed')}: ${error}` });
     } finally {
       setIsLoading(false);
     }
@@ -134,7 +137,9 @@ export function SkillPanel({ isOpen, onClose }: SkillPanelProps) {
           {/* Header */}
           <div className="h-14 flex items-center justify-between px-4 border-b border-border">
             <div className="flex items-center gap-4">
-              <h2 className="text-lg font-semibold text-white">Skill 管理</h2>
+              <h2 className="text-lg font-semibold text-white">
+                {t('skillPanel.skillManagement')}
+              </h2>
               {message && (
                 <span
                   className={`text-sm ${
@@ -167,25 +172,24 @@ export function SkillPanel({ isOpen, onClose }: SkillPanelProps) {
               className="btn btn-primary text-sm"
               disabled={isLoading}
             >
-              安装 Skill
+              {t('skillPanel.addSkill')}
             </button>
             <button onClick={handleOpenSkillsDir} className="btn btn-secondary text-sm">
-              打开目录
+              {t('skillPanel.openFolder')}
             </button>
             <div className="flex-1" />
             <button onClick={loadSkills} className="btn btn-secondary text-sm" disabled={isLoading}>
-              刷新
+              ↻
             </button>
           </div>
 
           {/* Content */}
           <div className="flex-1 overflow-y-auto p-4">
             {isLoading && skills.length === 0 ? (
-              <div className="flex items-center justify-center h-32 text-text-muted">加载中...</div>
+              <div className="flex items-center justify-center h-32 text-text-muted">...</div>
             ) : skills.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-32 text-text-muted">
-                <p>暂无已安装的 Skill</p>
-                <p className="text-sm mt-2">点击"安装 Skill"开始使用</p>
+                <p>{t('skillPanel.noSkills')}</p>
               </div>
             ) : (
               <div className="grid grid-cols-2 gap-4">

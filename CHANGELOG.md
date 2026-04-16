@@ -2,6 +2,9 @@
 
 | Version | Date       | Status   |
 | ------- | ---------- | -------- |
+| v0.10.9 | 2026-04-16 | Released |
+| v0.10.8 | 2026-04-14 | Released |
+| v0.10.7 | 2026-04-14 | Released |
 | v0.10.6 | 2026-04-14 | Released |
 | v0.10.5 | 2026-04-14 | Released |
 | v0.10.4 | 2026-04-14 | Released |
@@ -14,6 +17,36 @@
 | v0.4.0  | 2026-03-29 | Planned  |
 | v0.3.0  | 2026-03-29 | Released |
 | v0.2.3  | 2026-03-29 | Released |
+
+---
+
+## v0.10.9 (2026-04-16) - Internationalization (i18n) Support 🌍
+
+### Release Goal
+
+Add internationalization support to the UI with English as default and Chinese as an option, including automatic system language detection.
+
+### Core Changes
+
+| Module              | Change Type | Description                                               |
+| ------------------- | ----------- | --------------------------------------------------------- |
+| i18n                | New Feature | Add react-i18next integration with zh/en language support |
+| Translation Files   | New Feature | Create comprehensive zh.json and en.json with 100+ keys   |
+| useTranslation Hook | New Feature | Custom hook for language switching                        |
+| HistoryPanel        | Enhancement | Add translations for all Chinese text                     |
+| SchedulerPanel      | Enhancement | Add translations for all Chinese text                     |
+| SessionPanel        | Enhancement | Add translations for all Chinese text                     |
+| ChatUI              | Enhancement | Add translations for welcome message                      |
+| AskUserDialog       | Enhancement | Add translations for confirmation dialog                  |
+| PlanViewer          | Enhancement | Add translations for plan viewer                          |
+| ControlBar          | Enhancement | Add language switcher dropdown (EN/中文)                  |
+
+### Features
+
+- Automatic system language detection on first load
+- Persistent language preference via localStorage
+- Language switcher in ControlBar for EN/中文 switching
+- Comprehensive translation coverage across all UI components
 
 ---
 
