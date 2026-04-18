@@ -74,7 +74,7 @@ export const useSchedulerStore = create<SchedulerState>((set, get) => ({
   deleteTask: async (id) => {
     set({ isLoading: true, error: null });
     try {
-      await window.electron.invoke('scheduler:delete', id);
+      await window.electron.invoke('scheduler:delete', { id });
       set({ selectedTaskId: null });
       await get().loadTasks();
     } catch (error) {

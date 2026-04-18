@@ -1,5 +1,5 @@
-import betterSqlite3 from 'better-sqlite3';
-import { TaskHistoryRecord } from './taskHistory';
+import betterSqlite3, { Database } from 'better-sqlite3';
+import { TaskHistoryRecord, HistorySearchOptions, HistorySearchResult } from './taskHistory';
 
 function safeJsonParse<T>(data: string): T | null {
   try {
@@ -11,7 +11,7 @@ function safeJsonParse<T>(data: string): T | null {
 }
 
 export class SQLiteStore {
-  private db: ReturnType<typeof betterSqlite3>;
+  private db: Database;
   private dbPath: string;
 
   constructor(dbPath: string = './history.db') {
@@ -34,6 +34,19 @@ export class SQLiteStore {
       CREATE INDEX IF NOT EXISTS idx_namespace ON task_history(namespace);
       CREATE INDEX IF NOT EXISTS idx_created_at ON task_history(created_at);
     `);
+
+    try {
+      this.db.exec(`
+        CREATE VIRTUAL TABLE IF NOT EXISTS sessions_fts USING fts5(
+          session_id,
+          task_description,
+          content,
+          tokenize='unicode61'
+        );
+      `);
+    } catch (error) {
+      console.warn('[SQLiteStore] FTS5 table may already exist:', error);
+    }
   }
 
   async put(namespace: string[], key: string, value: TaskHistoryRecord): Promise<void> {
@@ -45,6 +58,29 @@ export class SQLiteStore {
     const now = Date.now();
     const id = `${ns}:${key}`;
     stmt.run(id, ns, key, JSON.stringify(value), now, now);
+
+    try {
+      const indexedContent = this.buildIndexedContent(value);
+      const insertFts = this.db.prepare(`
+        INSERT OR REPLACE INTO sessions_fts(session_id, task_description, content)
+        VALUES (?, ?, ?)
+      `);
+      insertFts.run(value.id, value.task, indexedContent);
+    } catch (ftsError) {
+      console.warn('[SQLiteStore] Failed to index to FTS5:', ftsError);
+    }
+  }
+
+  private buildIndexedContent(value: TaskHistoryRecord): string {
+    const stepContent = value.steps
+      .map(
+        (step) =>
+          `${step.toolName} ${JSON.stringify(step.args || {})} ${JSON.stringify(step.result || {})}`
+      )
+      .join('\n');
+    const resultContent = value.result ? JSON.stringify(value.result) : '';
+    const metadataContent = value.metadata ? JSON.stringify(value.metadata) : '';
+    return [value.task, resultContent, stepContent, metadataContent].filter(Boolean).join('\n');
   }
 
   async get(namespace: string[], key: string): Promise<TaskHistoryRecord | null> {
@@ -109,6 +145,63 @@ export class SQLiteStore {
       .filter((r): r is TaskHistoryRecord => r !== null);
   }
 
+  async search(query: string, options: HistorySearchOptions = {}): Promise<HistorySearchResult[]> {
+    const limit = options.limit || 10;
+
+    try {
+      const searchQuery = this.db.prepare(`
+        SELECT session_id, task_description, bm25(sessions_fts) as score
+        FROM sessions_fts
+        WHERE sessions_fts MATCH ?
+        ORDER BY score
+        LIMIT ?
+      `);
+
+      const searchTerm = `${query}*`;
+      const rows = searchQuery.all(searchTerm, limit * 2) as Array<{
+        session_id: string;
+        task_description: string;
+        score: number;
+      }>;
+
+      const results: HistorySearchResult[] = [];
+      for (const row of rows) {
+        const record = await this.get(['history'], `task_${row.session_id}`);
+        if (record) {
+          if (options.sessionId && record.taskId !== options.sessionId) {
+            continue;
+          }
+          if (options.status && record.status !== options.status) {
+            continue;
+          }
+          if (options.dateRange) {
+            if (
+              record.startTime < options.dateRange.start ||
+              record.endTime > options.dateRange.end
+            ) {
+              continue;
+            }
+          }
+
+          const match = this.buildIndexedContent(record);
+          results.push({
+            sessionId: row.session_id,
+            task: record.task,
+            timestamp: record.startTime,
+            status: record.status,
+            match: match.substring(0, 300),
+            score: Math.abs(row.score),
+          });
+        }
+      }
+
+      return results.slice(0, limit);
+    } catch (error) {
+      console.error('[SQLiteStore] FTS5 search failed:', error);
+      return [];
+    }
+  }
+
   async list(namespace: string[]): Promise<TaskHistoryRecord[]> {
     const ns = namespace.join(':');
     const stmt = this.db.prepare(`
@@ -132,6 +225,7 @@ export class SQLiteStore {
   async clear(): Promise<void> {
     try {
       this.db.exec('DELETE FROM task_history');
+      this.db.exec('DELETE FROM sessions_fts');
     } catch (error) {
       console.error('[SQLiteStore] Failed to clear database:', error);
     }

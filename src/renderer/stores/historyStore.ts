@@ -1,5 +1,10 @@
 import { create } from 'zustand';
-import { TaskHistoryRecord, HistoryQueryOptions } from '../../history/taskHistory';
+import {
+  TaskHistoryRecord,
+  HistoryQueryOptions,
+  HistorySearchResult,
+} from '../../history/taskHistory';
+import { useTaskStore } from './taskStore';
 
 interface HistoryState {
   isOpen: boolean;
@@ -9,6 +14,8 @@ interface HistoryState {
   selectedTask: TaskHistoryRecord | null;
   filter: HistoryQueryOptions;
   total: number;
+  searchResults: HistorySearchResult[];
+  searchSummary: string | null;
 
   setIsOpen: (isOpen: boolean) => void;
   setFilter: (filter: HistoryQueryOptions) => void;
@@ -17,6 +24,8 @@ interface HistoryState {
   loadTaskDetail: (taskId: string) => Promise<void>;
   deleteTask: (taskId: string) => Promise<void>;
   replayTask: (taskId: string) => Promise<void>;
+  searchTasks: (query: string) => Promise<void>;
+  summarizeSearch: (query: string) => Promise<void>;
   clearSelectedTask: () => void;
 }
 
@@ -28,6 +37,8 @@ export const useHistoryStore = create<HistoryState>((set, get) => ({
   selectedTask: null,
   filter: {},
   total: 0,
+  searchResults: [],
+  searchSummary: null,
 
   setIsOpen: (isOpen) => set({ isOpen }),
 
@@ -52,16 +63,10 @@ export const useHistoryStore = create<HistoryState>((set, get) => ({
     try {
       const filter = { ...get().filter, ...options };
       const response = await window.electron.invoke('history:list', { options: filter });
-      // 检查返回值是否是对象且包含 data 数组
-      const tasks =
-        response && typeof response === 'object' && Array.isArray(response.data)
-          ? response.data
-          : [];
-      const total =
-        response && typeof response === 'object' && typeof response.total === 'number'
-          ? response.total
-          : 0;
-      set({ tasks, total, filter });
+      const payload = response?.data || response || {};
+      const tasks = Array.isArray(payload?.data) ? payload.data : [];
+      const total = typeof payload?.total === 'number' ? payload.total : tasks.length;
+      set({ tasks, total, filter, searchResults: [], searchSummary: null });
     } catch (error) {
       console.error('[HistoryStore] Failed to load tasks:', error);
       set({ tasks: [], total: 0 });
@@ -72,7 +77,8 @@ export const useHistoryStore = create<HistoryState>((set, get) => ({
 
   loadTaskDetail: async (taskId) => {
     try {
-      const task = await window.electron.invoke('history:get', { taskId });
+      const response = await window.electron.invoke('history:get', { taskId });
+      const task = response?.data?.data || response?.data || null;
       set({ selectedTask: task });
     } catch (error) {
       console.error('[HistoryStore] Failed to load task detail:', error);
@@ -95,9 +101,112 @@ export const useHistoryStore = create<HistoryState>((set, get) => ({
 
   replayTask: async (taskId) => {
     try {
-      await window.electron.invoke('history:replay', { taskId });
+      const result = await window.electron.invoke('history:replay', { taskId });
+      const payload = result?.data?.data || result?.data || result;
+      if (!result?.success || payload?.success === false) {
+        throw new Error(payload?.error || result?.error || '重放失败');
+      }
+
+      const taskRecord =
+        get().selectedTask?.id === taskId
+          ? get().selectedTask
+          : get().tasks.find((task) => task.id === taskId) || null;
+
+      useTaskStore.getState().setTask({
+        id: payload?.handle || `task-${Date.now()}`,
+        status: 'executing',
+        description: taskRecord?.task || '重放任务',
+        progress: { current: 0, total: 0 },
+      });
     } catch (error) {
       console.error('[HistoryStore] Failed to replay task:', error);
+    }
+  },
+
+  searchTasks: async (query) => {
+    set({ isLoading: true });
+    try {
+      const { filter } = get();
+      const response = await window.electron.invoke('history:search', {
+        query,
+        options: {
+          limit: 20,
+          status: filter.status,
+          dateRange:
+            filter.startDate || filter.endDate
+              ? {
+                  start: filter.startDate || 0,
+                  end: filter.endDate || Date.now(),
+                }
+              : undefined,
+        },
+      });
+      const results: HistorySearchResult[] = Array.isArray(response?.data?.data)
+        ? response.data.data
+        : Array.isArray(response?.data)
+          ? response.data
+          : [];
+      const tasks = await Promise.all(
+        results.map(async (result: HistorySearchResult) => {
+          const detailResponse = await window.electron.invoke('history:get', {
+            taskId: result.sessionId,
+          });
+          return detailResponse?.data?.data || detailResponse?.data || null;
+        })
+      );
+      set({
+        searchResults: results,
+        tasks: tasks.filter((task): task is TaskHistoryRecord => task !== null),
+        total: results.length,
+        searchSummary: null,
+      });
+    } catch (error) {
+      console.error('[HistoryStore] Failed to search tasks:', error);
+      set({ searchResults: [], tasks: [] });
+    } finally {
+      set({ isLoading: false });
+    }
+  },
+
+  summarizeSearch: async (query) => {
+    set({ isLoading: true });
+    try {
+      const { filter } = get();
+      const response = await window.electron.invoke('history:summarizeSearch', {
+        query,
+        options: {
+          limit: 20,
+          status: filter.status,
+          dateRange:
+            filter.startDate || filter.endDate
+              ? {
+                  start: filter.startDate || 0,
+                  end: filter.endDate || Date.now(),
+                }
+              : undefined,
+        },
+      });
+      const payload = response?.data?.data || response?.data || null;
+      const results = Array.isArray(payload?.results) ? payload.results : [];
+      const tasks = await Promise.all(
+        results.map(async (result: HistorySearchResult) => {
+          const detailResponse = await window.electron.invoke('history:get', {
+            taskId: result.sessionId,
+          });
+          return detailResponse?.data?.data || detailResponse?.data || null;
+        })
+      );
+      set({
+        searchSummary: typeof payload?.summary === 'string' ? payload.summary : null,
+        searchResults: results,
+        tasks: tasks.filter((task): task is TaskHistoryRecord => task !== null),
+        total: results.length,
+      });
+    } catch (error) {
+      console.error('[HistoryStore] Failed to summarize tasks:', error);
+      set({ searchSummary: null });
+    } finally {
+      set({ isLoading: false });
     }
   },
 

@@ -7,6 +7,11 @@ export interface SkillFrontmatter {
   disableModelInvocation?: boolean;
   userInvocable?: boolean;
   allowedTools?: string[];
+  platforms?: string[];
+  tags?: string[];
+  usageCount?: number;
+  version?: string;
+  source?: 'official' | 'agent-created' | 'market';
   context?: 'fork';
   agent?: 'Explore' | 'Plan' | 'general-purpose';
   effort?: 'low' | 'medium' | 'high' | 'max';
@@ -37,6 +42,7 @@ export interface SkillManifest {
   content: string;
   frontmatter: SkillFrontmatter;
   directory: string;
+  source?: 'official' | 'agent-created' | 'market';
   files?: {
     path: string;
     content: string;
@@ -49,6 +55,7 @@ export interface InstalledSkill {
   manifest: SkillManifest;
   path: string;
   enabled: boolean;
+  source?: 'official' | 'agent-created' | 'market';
   version?: string;
   author?: string;
 }
@@ -99,6 +106,7 @@ function normalizeFrontmatter(parsed: Record<string, unknown>): SkillFrontmatter
       case 'name':
       case 'description':
       case 'argumentHint':
+      case 'version':
         frontmatter[key] = typeof value === 'string' ? value : String(value);
         break;
       case 'shell':
@@ -111,7 +119,7 @@ function normalizeFrontmatter(parsed: Record<string, unknown>): SkillFrontmatter
         frontmatter[key] = typeof value === 'boolean' ? value : value === 'true';
         break;
       case 'allowedTools':
-      case 'paths':
+      case 'platforms':
         if (Array.isArray(value)) {
           frontmatter[key] = value.map((v) => String(v));
         }
@@ -119,6 +127,11 @@ function normalizeFrontmatter(parsed: Record<string, unknown>): SkillFrontmatter
       case 'context':
         if (value === 'fork') {
           frontmatter.context = 'fork';
+        }
+        break;
+      case 'source':
+        if (value === 'official' || value === 'agent-created' || value === 'market') {
+          frontmatter.source = value;
         }
         break;
       case 'agent':

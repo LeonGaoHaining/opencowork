@@ -14,3 +14,7 @@ logs/
 # Exclude compiled .js files from src/ to prevent stale files from overriding .ts source
 src/**/*.js
 !src/**/*.test.js
+PRD.md
+docs/PRD.md
+SPEC*.md
+docs/SPEC*.md

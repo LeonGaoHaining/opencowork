@@ -1,4 +1,9 @@
-import { TaskHistoryRecord, HistoryQueryOptions } from './taskHistory';
+import {
+  TaskHistoryRecord,
+  HistoryQueryOptions,
+  HistorySearchOptions,
+  HistorySearchResult,
+} from './taskHistory';
 import { MemoryStore } from './memoryStore';
 import { SQLiteStore } from './sqliteStore';
 
@@ -110,6 +115,10 @@ export class HistoryStore {
 
   async searchByDate(start: number, end: number): Promise<TaskHistoryRecord[]> {
     return this.listTasks({ startDate: start, endDate: end });
+  }
+
+  async search(query: string, options?: HistorySearchOptions): Promise<HistorySearchResult[]> {
+    return this.sqliteStore.search(query, options);
   }
 
   async replayTask(taskId: string): Promise<{ taskId: string; status: 'started' }> {

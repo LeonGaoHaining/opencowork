@@ -15,12 +15,16 @@ export function HistoryPanel() {
     selectedTaskId,
     filter,
     total,
+    searchResults,
+    searchSummary,
     setIsOpen,
     setFilter,
     setSelectedTaskId,
     loadTasks,
     deleteTask,
     replayTask,
+    searchTasks,
+    summarizeSearch,
     clearSelectedTask,
   } = useHistoryStore();
 
@@ -48,8 +52,16 @@ export function HistoryPanel() {
   }, [activeTab]);
 
   const handleSearch = () => {
-    setFilter({ ...filter, keyword: searchKeyword || undefined });
+    if (searchKeyword.trim()) {
+      searchTasks(searchKeyword.trim());
+      return;
+    }
+    setFilter({ ...filter, keyword: undefined });
   };
+
+  const displayedTasks = searchKeyword.trim()
+    ? tasks.filter((task) => searchResults.some((result) => result.sessionId === task.id))
+    : tasks;
 
   const handleTabChange = (tab: FilterTab) => {
     setActiveTab(tab);
@@ -152,55 +164,79 @@ export function HistoryPanel() {
             <button onClick={handleSearch} className="btn btn-secondary text-sm">
               {t('historyPanel.search')}
             </button>
+            <button
+              onClick={() => searchKeyword.trim() && summarizeSearch(searchKeyword.trim())}
+              className="btn btn-secondary text-sm"
+              disabled={!searchKeyword.trim()}
+            >
+              {t('historyPanel.summarize')}
+            </button>
           </div>
         </div>
+
+        {searchSummary && (
+          <div className="px-4 py-3 border-b border-border bg-background/40">
+            <div className="text-sm font-medium text-white mb-1">
+              {t('historyPanel.searchSummary')}
+            </div>
+            <div className="text-sm text-text-secondary whitespace-pre-wrap">{searchSummary}</div>
+          </div>
+        )}
 
         {/* Content */}
         <div className="flex-1 flex overflow-hidden">
           {/* Task List */}
           <div className="w-96 border-r border-border overflow-y-auto">
-            {isLoading && tasks.length === 0 ? (
+            {isLoading && displayedTasks.length === 0 ? (
               <div className="flex items-center justify-center h-32 text-text-muted">
                 {t('historyPanel.loading')}
               </div>
-            ) : tasks.length === 0 ? (
+            ) : displayedTasks.length === 0 ? (
               <div className="flex items-center justify-center h-32 text-text-muted">
                 {t('historyPanel.noHistory')}
               </div>
             ) : (
               <div className="p-2 space-y-1">
-                {tasks.map((task) => (
-                  <div
-                    key={task.id}
-                    onClick={() => setSelectedTaskId(task.id)}
-                    className={`p-3 rounded cursor-pointer transition-colors ${
-                      selectedTaskId === task.id
-                        ? 'bg-primary/20 border border-primary/30'
-                        : 'hover:bg-border/50 border border-transparent'
-                    }`}
-                  >
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1 min-w-0">
-                        <div className="text-sm font-medium text-white truncate">{task.task}</div>
-                        <div className="text-xs text-text-muted mt-1">
-                          {formatTime(task.startTime)}
+                {displayedTasks.map((task) => {
+                  const searchResult = searchResults.find((result) => result.sessionId === task.id);
+                  return (
+                    <div
+                      key={task.id}
+                      onClick={() => setSelectedTaskId(task.id)}
+                      className={`p-3 rounded cursor-pointer transition-colors ${
+                        selectedTaskId === task.id
+                          ? 'bg-primary/20 border border-primary/30'
+                          : 'hover:bg-border/50 border border-transparent'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm font-medium text-white truncate">{task.task}</div>
+                          <div className="text-xs text-text-muted mt-1">
+                            {formatTime(task.startTime)}
+                          </div>
                         </div>
+                        <span className={`text-xs ${getStatusColor(task.status)}`}>
+                          {task.status === 'completed'
+                            ? t('historyPanel.filter.completed')
+                            : task.status === 'failed'
+                              ? t('historyPanel.filter.failed')
+                              : t('historyPanel.filter.cancelled')}
+                        </span>
                       </div>
-                      <span className={`text-xs ${getStatusColor(task.status)}`}>
-                        {task.status === 'completed'
-                          ? t('historyPanel.filter.completed')
-                          : task.status === 'failed'
-                            ? t('historyPanel.filter.failed')
-                            : t('historyPanel.filter.cancelled')}
-                      </span>
+                      {task.duration > 0 && (
+                        <div className="text-xs text-text-muted mt-1">
+                          {t('historyPanel.duration')}: {formatDuration(task.duration)}
+                        </div>
+                      )}
+                      {searchResult?.match && searchKeyword.trim() && (
+                        <div className="text-xs text-text-muted mt-1 line-clamp-2">
+                          {searchResult.match}
+                        </div>
+                      )}
                     </div>
-                    {task.duration > 0 && (
-                      <div className="text-xs text-text-muted mt-1">
-                        {t('historyPanel.duration')}: {formatDuration(task.duration)}
-                      </div>
-                    )}
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>

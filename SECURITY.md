@@ -1,92 +1,45 @@
-# 安全漏洞报告政策
+# Security Policy
 
-我们非常重视项目安全问题。如果您发现安全漏洞，请按照以下流程报告。
+We take security issues seriously and appreciate responsible disclosure.
 
----
+## Reporting a Vulnerability
 
-## 报告范围
+Please use GitHub Security Advisories instead of opening a public issue for sensitive findings.
 
-以下类型的问题属于安全漏洞报告范围：
+- Security Advisories: https://github.com/LeonGaoHaining/opencowork/security/advisories
+- Contact: leon.gao@opencowork.com
 
-- 🔴 严重：远程代码执行、权限提升、数据泄露
-- 🟠 高危：敏感信息泄露、未授权访问
-- 🟡 中危：拒绝服务、身份验证绕过
-- 🟢 低危：信息泄露、CSRF
+## What to Include
 
-以下问题**不在**报告范围内：
+Please include:
 
-- XSS（单用户桌面应用场景）
-- 路径穿越（内部工具）
-- SQL Injection（本地 SQLite）
+- affected version(s),
+- severity assessment,
+- reproduction steps,
+- expected vs actual behavior,
+- and an optional remediation suggestion.
 
----
+## Response Targets
 
-## 报告流程
+| Severity | First Response | Target Fix Window |
+| -------- | -------------- | ----------------- |
+| Critical | 24 hours       | 7 days            |
+| High     | 3 days         | 14 days           |
+| Medium   | 7 days         | 30 days           |
+| Low      | 14 days        | 90 days           |
 
-### 1. 发现漏洞
+## Scope Notes
 
-请通过 **GitHub Security Advisories** 而不是公开 Issue 报告安全漏洞。
+OpenCowork is often deployed in trusted single-user desktop environments. That deployment model changes risk priorities for some classes of issues, but it does not eliminate the need to report meaningful vulnerabilities.
 
-### 2. 报告内容
+## Security Release Process
 
-请包含以下信息：
+Security fixes are released in patch versions whenever possible.
 
-```
-标题：[CVE-YYYY-XXXX] 简短描述
+Example:
 
-影响版本：vX.X.X - vX.X.X
-严重程度：Critical / High / Medium / Low
+- `v0.10.9` -> `v0.10.10`
 
-复现步骤：
-1. ...
-2. ...
+## Thanks
 
-期望行为：
-实际行为：
-
-修复建议（可选）：
-```
-
-### 3. 响应时间
-
-| 严重程度 | 响应时间  | 修复时间 |
-| -------- | --------- | -------- |
-| Critical | 24 小时内 | 7 天内   |
-| High     | 3 天内    | 14 天内  |
-| Medium   | 7 天内    | 30 天内  |
-| Low      | 14 天内   | 90 天内  |
-
-### 4. 公开时间
-
-漏洞修复并发布后，我们会：
-
-- 在 Release Notes 中注明安全修复
-- 通知报告者并致谢
-
----
-
-## 安全版本发布
-
-我们会为安全漏洞发布补丁版本：
-
-- **.patch** 版本：紧急安全修复
-- 例如：v1.0.0 → v1.0.1
-
----
-
-## 致谢
-
-感谢以下报告者帮助我们改进项目安全：
-
-[将在此列出贡献者姓名]
-
----
-
-## 联系方式
-
-- GitHub Security Advisories：https://github.com/LeonGaoHaining/opencowork/security/advisories
-- Email：leon.gao@opencowork.com
-
----
-
-感谢您的负责任披露！
+We appreciate responsible disclosure and will credit reporters when appropriate.

@@ -1,185 +1,59 @@
-# 产品路线图
+# OpenCowork Roadmap
 
-## 概述
+## Product Direction
 
-本文档列出 OpenCowork 项目的开发计划，包括已发布功能、正在开发的功能和未来规划。
+OpenCowork is evolving from an internal high-velocity agent shell into a sharper open-source desktop automation platform with strong MCP interoperability.
 
----
+## Current Stage
 
-## 版本发布历史
+### Available now
 
-| 版本   | 日期    | 主要内容           |
-| ------ | ------- | ------------------ |
-| v0.8.x | 2026-04 | 飞书集成、版本同步 |
-| v0.7.x | 2026-04 | IM 集成、定时任务  |
-| v0.6.x | 2026-04 | 预览模式、持久化   |
-| v0.5.x | 2026-03 | 任务历史、技能系统 |
+- desktop AI task execution,
+- browser automation,
+- skill installation and execution,
+- task history and recovery groundwork,
+- Feishu integration,
+- MCP client support,
+- MCP server mode,
+- English and Chinese UI.
 
----
+## Near-Term Roadmap
 
-## v1.0.0 - 正式版（目标：2026年Q2）
+### v0.10.x stabilization
 
-### 核心功能
+- Reduce redundant screenshot usage in text-centric tasks.
+- Improve extraction quality for noisy pages.
+- Improve handling of desktop opener commands such as `xdg-open`.
+- Continue reducing MCP tool misfires on first attempt.
 
-- [x] AI 任务规划与执行
-- [x] 浏览器自动化
-- [x] WebFetch 网页获取
-- [x] 定时任务调度
-- [x] IM 集成（飞书）
-- [x] 任务历史
-- [x] 技能系统
-- [ ] **企业微信集成**
-- [ ] **钉钉集成**
+### v0.11.x workflow depth
 
-### 基础设施
+- Stronger memory workflows and summaries.
+- Better skill discovery and skill authoring UX.
+- More robust task restore and continuation flows.
+- Cleaner exposure control for MCP server tools.
 
-- [x] 完整的日志系统
-- [x] 错误恢复机制
-- [x] 任务检查点持久化
-- [ ] **完善的测试用例**
-- [ ] **CI/CD 自动化**
+### v0.12.x ecosystem readiness
 
-### 文档
+- Better docs and example configurations.
+- Improved tests for browser and agent flows.
+- More polished release packaging.
+- Stronger open-source contributor ergonomics.
 
-- [x] LICENSE (Apache 2.0)
-- [x] CONTRIBUTING.md
-- [x] SECURITY.md
-- [x] README.md
-- [x] USER_GUIDE.md
-- [x] ARCHITECTURE.md
-- [ ] **API 文档**
+## Strategic Themes
 
----
+### 1. MCP-native agent workflows
 
-## v1.1.0 - 生态扩展（目标：2026年Q3）
+OpenCowork should be able to both consume and expose MCP tools cleanly.
 
-### IM 平台支持
+### 2. Practical desktop automation
 
-- [ ] 企业微信 (WeCom) 集成
-- [ ] 钉钉 (DingTalk) 集成
-- [ ] Slack 集成（规划中）
+The product should solve real work: browsing, searching, collecting, summarizing, generating assets, and orchestrating repeatable local tasks.
 
-### 技能市场
+### 3. Skills as reusable product surface
 
-- [ ] 内置技能商店
-- [ ] 一键安装常用技能
-- [ ] 技能评分系统
+Skills should become a compelling layer for community extension and lightweight automation packaging.
 
-### 协作功能
+### 4. Open-source credibility
 
-- [ ] 团队协作模式
-- [ ] 任务分享
-- [ ] 多人同时使用
-
----
-
-## v1.2.0 - 企业版准备（目标：2026年Q4）
-
-### 企业级功能
-
-- [ ] 本地模型支持 (Ollama, LM Studio)
-- [ ] 私有化部署方案
-- [ ] 用户管理/权限控制
-- [ ] 审计日志
-- [ ] API 开放接口
-
-### 性能优化
-
-- [ ] 并发任务执行
-- [ ] 资源占用优化
-- [ ] 启动速度优化
-
----
-
-## v2.0.0 - AI Agent 平台（目标：2027年）
-
-### 多 Agent 协作
-
-- [ ] Agent 间通信
-- [ ] Agent 团队协作
-- [ ] Agent 任务分配
-
-### 智能化增强
-
-- [ ] 更强的任务理解能力
-- [ ] 自适应学习方法
-- [ ] 预测性任务建议
-
-### 平台扩展
-
-- [ ] macOS 原生支持
-- [ ] Windows 原生支持
-- [ ] 移动端（iOS/Android）远程控制
-
----
-
-## 已完成功能详情
-
-### v0.8.x (2026-04)
-
-| 功能                  | 状态 |
-| --------------------- | ---- |
-| 飞书 WebSocket 长连接 | ✅   |
-| 消息去重机制          | ✅   |
-| 任务结果推送通知      | ✅   |
-| 版本号自动同步        | ✅   |
-| CLI 白名单扩展        | ✅   |
-
-### v0.7.x (2026-04)
-
-| 功能          | 状态 |
-| ------------- | ---- |
-| 飞书 IM 集成  | ✅   |
-| 定时任务调度  | ✅   |
-| 人工接管/交还 | ✅   |
-| 执行日志记录  | ✅   |
-
-### v0.6.x (2026-04)
-
-| 功能              | 状态 |
-| ----------------- | ---- |
-| 实时预览模式      | ✅   |
-| Checkpoint 持久化 | ✅   |
-| 任务恢复          | ✅   |
-
-### v0.5.x (2026-03)
-
-| 功能          | 状态 |
-| ------------- | ---- |
-| 任务历史      | ✅   |
-| 技能系统      | ✅   |
-| 白名单配置 UI | ✅   |
-
----
-
-## 功能优先级
-
-| 优先级 | 功能          | 原因         |
-| ------ | ------------- | ------------ |
-| P0     | 企业微信/钉钉 | 用户需求强烈 |
-| P0     | 测试用例      | 质量保障     |
-| P1     | API 文档      | 开发者需求   |
-| P1     | 本地模型支持  | 企业需求     |
-| P2     | macOS/Windows | 扩展平台     |
-
----
-
-## 贡献者指南
-
-如果您想参与 OpenCowork 的开发：
-
-1. 查看 [CONTRIBUTING.md](CONTRIBUTING.md)
-2. 选择一个 "Help Wanted" 标签的 Issue
-3. 提交 PR 前先讨论实现方案
-
----
-
-## 反馈与建议
-
-- 通过 GitHub Issues 提出功能建议
-- 通过 GitHub Discussions 进行讨论
-- 欢迎提交 PR 贡献代码
-
----
-
-_最后更新：2026-04-06_
+The project should feel reliable, well-documented, and easy to evaluate for builders, tinkerers, and product teams.

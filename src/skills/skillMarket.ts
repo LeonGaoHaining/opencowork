@@ -1,6 +1,9 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { SkillLoader, getSkillLoader } from './skillLoader';
+import { SkillFrontmatter, InstalledSkill } from './skillManifest';
+
+type SkillSource = 'official' | 'agent-created' | 'market';
 
 export interface SkillListing {
   name: string;
@@ -9,6 +12,7 @@ export interface SkillListing {
   path: string;
   installed: boolean;
   updateAvailable?: boolean;
+  source?: SkillSource;
 }
 
 export class SkillMarket {
@@ -21,15 +25,18 @@ export class SkillMarket {
     this.loader = loader || getSkillLoader();
   }
 
-  async listInstalledSkills(): Promise<SkillListing[]> {
+  async listInstalledSkills(source?: SkillSource): Promise<SkillListing[]> {
     const skills = await this.loader.loadAllSkills();
-    return skills.map((s) => ({
-      name: s.manifest.name,
-      version: s.version,
-      description: s.manifest.description,
-      path: s.path,
-      installed: true,
-    }));
+    return skills
+      .map((s) => ({
+        name: s.manifest.name,
+        version: s.version,
+        description: s.manifest.description,
+        path: s.path,
+        installed: true,
+        source: s.source,
+      }))
+      .filter((skill) => !source || skill.source === source);
   }
 
   async installSkill(skillPath: string): Promise<{ success: boolean; error?: string }> {
@@ -47,12 +54,8 @@ export class SkillMarket {
         return { success: false, error: 'Source directory must contain SKILL.md' };
       }
 
-      if (!fs.existsSync(this.skillsDir)) {
-        await fs.promises.mkdir(this.skillsDir, { recursive: true });
-      }
-
       const skillName = path.basename(resolvedPath);
-      const targetPath = path.join(this.skillsDir, skillName);
+      const targetPath = path.join(await this.getSourceDirectory('market'), skillName);
 
       if (fs.existsSync(targetPath)) {
         return {
@@ -75,7 +78,12 @@ export class SkillMarket {
 
   async uninstallSkill(skillName: string): Promise<{ success: boolean; error?: string }> {
     try {
-      const skillPath = path.join(this.skillsDir, skillName);
+      const skill = await this.loader.getSkill(skillName);
+      if (!skill?.source) {
+        return { success: false, error: 'Skill not found' };
+      }
+
+      const skillPath = path.join(await this.getSourceDirectory(skill.source), skillName);
       const stats = await fs.promises.stat(skillPath);
 
       if (!stats.isDirectory()) {
@@ -117,7 +125,36 @@ export class SkillMarket {
       description: skill.manifest.description,
       path: skill.path,
       installed: true,
+      source: skill.source,
     };
+  }
+
+  async getSkillManifest(skillName: string): Promise<InstalledSkill | null> {
+    return this.loader.getSkill(skillName);
+  }
+
+  async saveSkill(
+    frontmatter: SkillFrontmatter,
+    content: string,
+    source: SkillSource = 'agent-created'
+  ): Promise<InstalledSkill> {
+    return this.loader.saveSkill(frontmatter, content, source);
+  }
+
+  async patchSkill(
+    name: string,
+    patch: { frontmatter?: Partial<SkillFrontmatter>; content?: string },
+    source: SkillSource
+  ): Promise<InstalledSkill> {
+    return this.loader.patchSkill(name, source, patch);
+  }
+
+  async deleteSkill(name: string, source: SkillSource): Promise<void> {
+    await this.loader.deleteSkill(name, source);
+  }
+
+  async incrementUsageCount(name: string, source: SkillSource): Promise<InstalledSkill> {
+    return this.loader.incrementSkillUsage(name, source);
   }
 
   async getSkillsDirectory(): Promise<string> {
@@ -132,6 +169,14 @@ export class SkillMarket {
       await fs.promises.mkdir(this.skillsDir, { recursive: true });
     }
     return this.skillsDir;
+  }
+
+  private async getSourceDirectory(source: SkillSource): Promise<string> {
+    const sourceDir = path.join(this.skillsDir, source);
+    if (!fs.existsSync(sourceDir)) {
+      await fs.promises.mkdir(sourceDir, { recursive: true });
+    }
+    return sourceDir;
   }
 
   cleanup(): void {

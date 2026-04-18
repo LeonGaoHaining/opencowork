@@ -40,6 +40,10 @@ export interface Task {
   currentStep?: string;
   plan?: any;
   error?: string;
+  interrupted?: boolean;
+  interruptReason?: string;
+  savedStateHandleId?: string | null;
+  matchedSkill?: string;
 }
 
 export interface TaskLog {
@@ -74,6 +78,12 @@ interface TaskState {
   updateTaskStatus: (status: Task['status']) => void;
   updateCurrentStep: (step: string) => void;
   setTaskError: (error: string) => void;
+  setTaskInterrupted: (
+    interrupted: boolean,
+    reason?: string,
+    savedStateHandleId?: string | null
+  ) => void;
+  setMatchedSkill: (matchedSkill: string | undefined) => void;
 
   // Active Steps (for real-time step display)
   activeSteps: AgentStep[];
@@ -143,6 +153,22 @@ export const useTaskStore = create<TaskState>((set) => ({
   setTaskError: (error) =>
     set((state) => ({
       task: state.task ? { ...state.task, error } : null,
+    })),
+  setTaskInterrupted: (interrupted, reason, savedStateHandleId = null) =>
+    set((state) => ({
+      task: state.task
+        ? {
+            ...state.task,
+            interrupted,
+            interruptReason: reason,
+            savedStateHandleId,
+            status: interrupted ? 'paused' : state.task.status,
+          }
+        : null,
+    })),
+  setMatchedSkill: (matchedSkill) =>
+    set((state) => ({
+      task: state.task ? { ...state.task, matchedSkill } : null,
     })),
 
   // Active Steps

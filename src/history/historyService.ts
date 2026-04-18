@@ -1,6 +1,14 @@
 import crypto from 'crypto';
-import { TaskHistoryRecord, HistoryQueryOptions, TaskStep } from './taskHistory';
+import {
+  TaskHistoryRecord,
+  HistoryQueryOptions,
+  TaskStep,
+  HistorySearchOptions,
+  HistorySearchResult,
+} from './taskHistory';
 import { getHistoryStore, HistoryStore } from './historyStore';
+import { ChatOpenAI } from '@langchain/openai';
+import { loadLLMConfig } from '../llm/config';
 
 function deepClone<T>(obj: T): T {
   if (obj === null || typeof obj !== 'object') {
@@ -227,6 +235,61 @@ export class HistoryService {
 
   async searchByDateRange(start: number, end: number): Promise<TaskHistoryRecord[]> {
     return this.store.searchByDate(start, end);
+  }
+
+  async search(query: string, options: HistorySearchOptions = {}): Promise<HistorySearchResult[]> {
+    return this.store.search(query, options);
+  }
+
+  async summarizeSearch(query: string, results: HistorySearchResult[]): Promise<string> {
+    if (results.length === 0) {
+      return '没有找到相关历史记录。';
+    }
+
+    const llmConfig = loadLLMConfig();
+    const model = new ChatOpenAI({
+      model: llmConfig.model || 'gpt-4-turbo',
+      temperature: 0,
+      apiKey: llmConfig.apiKey,
+      configuration: {
+        baseURL: llmConfig.baseUrl,
+      },
+      timeout: llmConfig.timeout || 60000,
+      maxRetries: llmConfig.maxRetries || 3,
+    });
+
+    const context = results
+      .slice(0, 10)
+      .map(
+        (result, index) =>
+          `${index + 1}. 任务: ${result.task}\n状态: ${result.status}\n匹配内容: ${result.match}`
+      )
+      .join('\n\n');
+
+    const response = await model.invoke([
+      {
+        role: 'system',
+        content:
+          '你是历史记录搜索总结助手。请用简洁中文总结搜索结果，先给总体结论，再列出2-4条关键发现。',
+      },
+      {
+        role: 'user',
+        content: `搜索词: ${query}\n\n结果:\n${context}`,
+      },
+    ]);
+
+    if (typeof response.content === 'string') {
+      return response.content.trim();
+    }
+
+    if (Array.isArray(response.content)) {
+      return response.content
+        .map((item: any) => item.text || '')
+        .join('')
+        .trim();
+    }
+
+    return '搜索结果总结生成失败。';
   }
 
   async getTaskStats(): Promise<{

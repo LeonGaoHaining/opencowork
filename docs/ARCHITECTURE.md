@@ -1,191 +1,110 @@
-# 技术架构文档
+# OpenCowork Architecture
 
-## 系统概述
+## Overview
 
-OpenCowork 是一个 **AI Native Desktop Agent**，让 AI 能够像人类一样操作电脑完成复杂任务。
+OpenCowork is an Electron-based desktop agent that combines a renderer UI, a main-process orchestration layer, LangGraph-based agent execution, browser and CLI executors, a skill system, and MCP integration on both the client and server side.
 
----
+## Architecture Layers
 
-## 核心设计原则
-
-1. **AI-First**：所有设计围绕 AI 能力展开
-2. **Desktop Native**：充分利用桌面环境能力
-3. **Extensible**：通过 Skill 系统支持功能扩展
-4. **Safe by Design**：白名单机制确保安全
-
----
-
-## 整体架构
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                      用户交互层 (Renderer)                       │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐        │
-│  │  ChatUI  │  │ControlBar│  │ Preview  │  │ Settings │        │
-│  └──────────┘  └──────────┘  └──────────┘  └──────────┘        │
-└─────────────────────────────────────────────────────────────────┘
-                              ↓ IPC
-┌─────────────────────────────────────────────────────────────────┐
-│                      主进程层 (Main Process)                      │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐        │
-│  │    IPC   │  │ Session  │  │Scheduler │  │IM(飞书)  │        │
-│  │ Handlers│  │ Manager  │  │ Manager  │  │ Service  │        │
-│  └──────────┘  └──────────┘  └──────────┘  └──────────┘        │
-└─────────────────────────────────────────────────────────────────┘
-                              ↓
-┌─────────────────────────────────────────────────────────────────┐
-│                      核心引擎层 (Core Engine)                     │
-│  ┌──────────────────────────────────────────────────────────┐   │
-│  │                    TaskEngine                            │   │
-│  │  ┌────────────┐  ┌────────────┐  ┌────────────┐         │   │
-│  │  │TaskPlanner│  │PlanExecutor│  │Takeover   │         │   │
-│  │  │            │  │            │  │ Manager   │         │   │
-│  │  └────────────┘  └────────────┘  └────────────┘         │   │
-│  └──────────────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────────────┘
-                              ↓
-┌─────────────────────────────────────────────────────────────────┐
-│                      执行器层 (Executors)                         │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐        │
-│  │ Browser   │  │   CLI    │  │AskUser   │  │Scheduler │        │
-│  │Executor  │  │Executor  │  │Executor  │  │ Tool     │        │
-│  └──────────┘  └──────────┘  └──────────┘  └──────────┘        │
-└─────────────────────────────────────────────────────────────────┘
+```text
+Renderer UI (React)
+  -> IPC Layer (Electron main process)
+  -> Agent and Runtime Layer
+  -> Executors and Tools
+  -> Persistence and External Integrations
 ```
 
----
+## Renderer Layer
 
-## 组件说明
+The renderer provides the operator-facing product experience:
 
-### 1. 渲染进程 (Renderer)
+- chat input and task lifecycle UI,
+- live preview,
+- history panel,
+- skill panel,
+- MCP panel,
+- settings and control surfaces.
 
-| 组件       | 职责                   |
-| ---------- | ---------------------- |
-| ChatUI     | 对话界面，用户输入任务 |
-| ControlBar | 控制栏，启动/暂停/接管 |
-| Preview    | 实时预览 AI 操作过程   |
-| TaskStatus | 任务状态显示           |
+## Main Process Layer
 
-### 2. 主进程 (Main Process)
+The main process owns:
 
-| 组件              | 职责             |
-| ----------------- | ---------------- |
-| IPC Handlers      | 处理渲染进程请求 |
-| Session Manager   | 会话管理         |
-| Scheduler Manager | 定时任务管理     |
-| IM Service        | 飞书/钉钉集成    |
+- IPC handlers,
+- shared agent lifecycle,
+- session and window management,
+- scheduler integration,
+- browser executor access,
+- MCP client/server coordination.
 
-### 3. 核心引擎 (Core Engine)
+## Agent Layer
 
-| 组件            | 职责                       |
-| --------------- | -------------------------- |
-| TaskPlanner     | 将用户任务分解为可执行步骤 |
-| PlanExecutor    | 按步骤顺序执行任务         |
-| TakeoverManager | 人工接管/交还控制          |
-| MainAgent       | LLM 驱动的 AI 代理         |
+The main agent is built around LangGraph ReAct patterns and can combine:
 
-### 4. 执行器 (Executors)
+- browser actions,
+- CLI actions,
+- installed skills,
+- MCP-discovered tools,
+- memory workflows,
+- history-aware follow-up execution.
 
-| 执行器          | 能力                             |
-| --------------- | -------------------------------- |
-| BrowserExecutor | 浏览器操作（点击、输入、导航等） |
-| CLIExecutor     | 系统命令执行（白名单保护）       |
-| AskUserExecutor | 请求用户确认/输入                |
-| SchedulerTool   | 定时任务管理                     |
+The agent can now preserve thread continuity across follow-up turns while also protecting model context from oversized tool outputs.
 
----
+## Executors and Tools
 
-## 工具系统
+### Browser Executor
 
-### 内置工具
+Supports:
 
-| 工具      | 说明          |
-| --------- | ------------- |
-| WebFetch  | HTTP 网页获取 |
-| WebSearch | 网络搜索      |
-| Scheduler | 定时任务      |
-| Skills    | 自定义技能    |
+- navigation,
+- clicking,
+- text input,
+- waiting,
+- extraction,
+- screenshots.
 
-### 技能系统 (Skills)
+### CLI Executor
 
-```
-技能目录：~/.opencowork/skills/
-├── ppt-creator/
-│   ├── SKILL.yaml
-│   └── scripts/
-│       └── create_ppt.py
-└── git-helper/
-    ├── SKILL.yaml
-    └── scripts/
-        └── git_operations.sh
-```
+Supports controlled command execution for local workflows and skill-backed scripts.
 
----
+### Skill System
 
-## 数据流
+Skills provide reusable, installable capabilities. The current product already includes patterns such as presentation generation through `ppt-creator`.
 
-```
-用户输入任务
-    ↓
-ChatUI → IPC → MainAgent
-    ↓
-TaskPlanner (LLM) → 生成执行计划
-    ↓
-PlanExecutor → 按步骤执行
-    ↓
-┌────────────────────────────────────────────┐
-│         执行步骤 (Steps)                    │
-│  Step 1: Browser.navigate(url)           │
-│  Step 2: Browser.click(selector)          │
-│  Step 3: CLI.execute(command)              │
-│  ...                                      │
-└────────────────────────────────────────────┘
-    ↓
-每个 Step → 对应 Executor 执行
-    ↓
-结果返回 → MainAgent → ChatUI 显示
-```
+### MCP Client
 
----
+OpenCowork can connect to:
 
-## 安全机制
+- local `stdio` MCP servers,
+- remote standard `streamable-http` MCP servers.
 
-### CLI 白名单
+Connected MCP tools become available to the main agent.
 
-```typescript
-const CLI_WHITELIST = {
-  git: ['status', 'pull', 'push'],
-  npm: ['install', 'run'],
-  python3: ['*'],
-  // ...
-};
-```
+### MCP Server
 
-### Action 验证
+OpenCowork can also expose its own selected capabilities as a standard MCP server through `/mcp`, while preserving a legacy `/tools` compatibility path.
 
-- 所有 Action 执行前经过 Schema 验证
-- 参数类型和范围检查
-- 黑名单命令过滤
+## Persistence
 
----
+OpenCowork currently uses a mix of:
 
-## 状态管理
+- SQLite-backed task history and checkpoints,
+- in-memory runtime state,
+- persisted skill data,
+- local configuration files.
 
-| 存储                    | 用途                       |
-| ----------------------- | -------------------------- |
-| SQLite (better-sqlite3) | 任务历史、定时任务、持久化 |
-| In-Memory               | 运行时状态、会话缓存       |
-| Checkpoint (LangGraph)  | LLM 会话状态持久化         |
+## Design Priorities
 
----
+The project currently prioritizes:
 
-## 版本历史
+- real task completion over synthetic demos,
+- desktop-native workflows,
+- pragmatic extensibility,
+- stable follow-up continuity,
+- safe handling of large tool outputs.
 
-- v0.8.x - 飞书集成、版本同步
-- v0.7.x - IM 集成、定时任务
-- v0.6.x - 预览模式、持久化
-- v0.5.x - 任务历史、技能系统
+## Near-Term Technical Focus
 
----
-
-_最后更新：2026-04-06_
+- improve text extraction quality for browser tasks,
+- reduce unnecessary screenshot usage,
+- improve desktop opener command handling,
+- continue hardening MCP tool selection and execution.

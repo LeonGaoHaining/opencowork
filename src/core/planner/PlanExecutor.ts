@@ -1,5 +1,14 @@
 import { Plan, PlanNode, AnyAction } from '../action/ActionSchema';
 import { ExecutorRouter } from '../executor/ExecutorRouter';
+import { BrowserSnapshotState } from '../executor/BrowserExecutor';
+
+export interface SerializedExecutionState {
+  planId: string | null;
+  currentNodeId: string | null;
+  paused: boolean;
+  cancelled: boolean;
+  completedNodeIds: string[];
+}
 
 interface ExecutionCallbacks {
   onNodeStart?: (node: PlanNode) => void;
@@ -32,6 +41,7 @@ export class PlanExecutor {
   private cancelled: boolean = false;
   private callbacks: ExecutionCallbacks = {};
   private router: ExecutorRouter;
+  private completedNodeIds: Set<string> = new Set();
 
   constructor() {
     this.router = new ExecutorRouter();
@@ -98,12 +108,14 @@ export class PlanExecutor {
 
   async *execute(
     plan: Plan,
-    callbacks?: ExecutionCallbacks
+    callbacks?: ExecutionCallbacks,
+    options?: { completedNodeIds?: string[] }
   ): AsyncGenerator<ExecutionEvent, void, unknown> {
     this.plan = plan;
     this.paused = false;
     this.cancelled = false;
     this.callbacks = callbacks || {};
+    this.completedNodeIds = new Set(options?.completedNodeIds || []);
     let lastResult: any = null;
 
     console.log(`[PlanExecutor] Starting execution of plan ${plan.id}`);
@@ -111,6 +123,10 @@ export class PlanExecutor {
     const actionNodes = plan.nodes.filter((n) => n.type === 'action');
 
     for (const node of actionNodes) {
+      if (this.completedNodeIds.has(node.id)) {
+        continue;
+      }
+
       if (this.cancelled) {
         console.log(`[PlanExecutor] Execution cancelled`);
         break;
@@ -131,6 +147,7 @@ export class PlanExecutor {
 
           if (result.success) {
             lastResult = result;
+            this.completedNodeIds.add(node.id);
             yield { type: 'node_complete', node, result };
             this.callbacks.onNodeComplete?.(node, result);
           } else {
@@ -291,6 +308,23 @@ export class PlanExecutor {
     return this.currentNodeId;
   }
 
+  serializeExecutionState(): SerializedExecutionState {
+    return {
+      planId: this.plan?.id || null,
+      currentNodeId: this.currentNodeId,
+      paused: this.paused,
+      cancelled: this.cancelled,
+      completedNodeIds: Array.from(this.completedNodeIds),
+    };
+  }
+
+  restoreExecutionState(state: SerializedExecutionState): void {
+    this.currentNodeId = state.currentNodeId;
+    this.paused = state.paused;
+    this.cancelled = state.cancelled;
+    this.completedNodeIds = new Set(state.completedNodeIds || []);
+  }
+
   isPaused(): boolean {
     return this.paused;
   }
@@ -307,6 +341,14 @@ export class PlanExecutor {
   async cleanup(): Promise<void> {
     this.stopScreencast();
     await this.router.cleanup();
+  }
+
+  async browserCaptureState(): Promise<BrowserSnapshotState | null> {
+    return this.router.browserExecutor.captureBrowserState();
+  }
+
+  async restoreBrowserState(snapshot: BrowserSnapshotState): Promise<void> {
+    await this.router.browserExecutor.restoreBrowserState(snapshot);
   }
 
   async getScreenshot(): Promise<string | null> {

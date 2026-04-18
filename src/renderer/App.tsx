@@ -1,18 +1,22 @@
-import React, { useEffect, useState, Component, ReactNode } from 'react';
+import React, { useEffect, useRef, useState, Component, ReactNode } from 'react';
 import { ChatUI } from './components/ChatUI';
 import { ControlBar } from './components/ControlBar';
 import { TaskStatus } from './components/TaskStatus';
 import { TakeoverModal } from './components/TakeoverModal';
 import { AskUserDialog } from './components/AskUserDialog';
+import { SkillGenerateDialog } from './components/SkillGenerateDialog';
 import { SessionPanel } from './components/SessionPanel';
 import { HistoryPanel } from './components/HistoryPanel';
 import SchedulerPanel from './components/SchedulerPanel';
 import { SkillPanel } from './components/SkillPanel';
+import MCPPanel from './components/MCPPanel';
 import { PlanViewer } from './components/PlanViewer';
 import { IMConfigPanel } from './components/IMConfigPanel';
 import { ExecutionStepsPanel } from './components/ExecutionStepsPanel';
+import { SettingsPanel } from './components/SettingsPanel';
 import { useTaskStore } from './stores/taskStore';
 import { useSessionStore } from './stores/sessionStore';
+import { useTranslation } from './i18n/useTranslation';
 
 interface ErrorBoundaryProps {
   children: ReactNode;
@@ -78,8 +82,47 @@ function App() {
   } = useTaskStore();
   const { saveMessages } = useSessionStore();
   const [isSkillOpen, setSkillOpen] = useState(false);
+  const [isMCPOpen, setMCPOpen] = useState(false);
+  const [skillPrompt, setSkillPrompt] = useState<{
+    taskId: string;
+    taskDescription: string;
+    actionCount: number;
+  } | null>(null);
+  const [isSettingsOpen, setSettingsOpen] = useState(false);
   const [screenshot, setScreenshot] = useState<string | null>(null);
   const [imageKey, setImageKey] = useState(0);
+  const interruptingRef = useRef(false);
+  const { t } = useTranslation();
+
+  const interruptCurrentTask = async (reason: 'shortcut_escape' | 'user_activity') => {
+    const currentTask = useTaskStore.getState().task;
+    if (!currentTask?.id || currentTask.status !== 'executing' || interruptingRef.current) {
+      return;
+    }
+
+    interruptingRef.current = true;
+    try {
+      const result = await window.electron.invoke('task:interrupt', {
+        handleId: currentTask.id,
+        reason,
+      });
+      const payload = result?.data || result;
+      if (result?.success && payload?.handleId) {
+        const taskStore = useTaskStore.getState();
+        taskStore.setTaskInterrupted(true, reason, payload.handleId);
+        taskStore.addLog({
+          type: 'info',
+          message: t('restoreTask.logs.interruptedByEsc', { handleId: payload.handleId }),
+        });
+      }
+    } catch (error) {
+      console.error('[Renderer] interruptCurrentTask error:', error);
+    } finally {
+      setTimeout(() => {
+        interruptingRef.current = false;
+      }, 500);
+    }
+  };
 
   useEffect(() => {
     console.log('[Renderer] App useEffect running, window.electron:', !!window.electron);
@@ -89,6 +132,12 @@ function App() {
     }
 
     const unsubscribers: (() => void)[] = [];
+
+    unsubscribers.push(
+      window.electron.on('shortcut:interrupt', () => {
+        void interruptCurrentTask('shortcut_escape');
+      })
+    );
 
     unsubscribers.push(
       window.electron.on('task:nodeStart', (event: any) => {
@@ -239,6 +288,21 @@ function App() {
     );
 
     unsubscribers.push(
+      window.electron.on('skill:prompt-generate', (event: any) => {
+        try {
+          console.log('[Renderer] Received skill:prompt-generate', event);
+          setSkillPrompt({
+            taskId: event.taskId,
+            taskDescription: event.taskDescription,
+            actionCount: event.actionCount,
+          });
+        } catch (error) {
+          console.error('[Renderer] skill:prompt-generate handler error:', error);
+        }
+      })
+    );
+
+    unsubscribers.push(
       window.electron.on('preview:screenshot', (data: any) => {
         try {
           const screenshot = data?.screenshot || data;
@@ -257,7 +321,7 @@ function App() {
       console.log('[Renderer] Cleaning up event listeners');
       unsubscribers.forEach((unsub) => unsub());
     };
-  }, []);
+  }, [t]);
 
   return (
     <ErrorBoundary>
@@ -291,13 +355,26 @@ function App() {
         </main>
 
         {/* Control bar */}
-        <ControlBar onSkillClick={() => setSkillOpen(true)} />
+        <ControlBar
+          onSkillClick={() => setSkillOpen(true)}
+          onMCPClick={() => setMCPOpen(true)}
+          onSettingsClick={() => setSettingsOpen(true)}
+        />
 
         {/* Takeover modal */}
         {isTakeover && <TakeoverModal />}
 
         {/* Ask User Dialog */}
         <AskUserDialog />
+
+        {/* Skill Generate Dialog */}
+        {skillPrompt && (
+          <SkillGenerateDialog
+            taskDescription={skillPrompt.taskDescription}
+            actionCount={skillPrompt.actionCount}
+            onClose={() => setSkillPrompt(null)}
+          />
+        )}
 
         {/* History Panel */}
         <HistoryPanel />
@@ -313,6 +390,12 @@ function App() {
 
         {/* Skill Panel */}
         <SkillPanel isOpen={isSkillOpen} onClose={() => setSkillOpen(false)} />
+
+        {/* MCP Panel */}
+        <MCPPanel isOpen={isMCPOpen} onClose={() => setMCPOpen(false)} />
+
+        {/* Settings Panel */}
+        <SettingsPanel isOpen={isSettingsOpen} onClose={() => setSettingsOpen(false)} />
       </div>
     </ErrorBoundary>
   );

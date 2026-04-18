@@ -14,9 +14,91 @@ interface InstallModalProps {
   isLoading: boolean;
 }
 
+interface SkillPreview {
+  name?: string;
+  description?: string;
+}
+
+function getSkillDirectoryValidationMessage(
+  code: string | undefined,
+  fallback: string | undefined,
+  t: ReturnType<typeof useTranslation>['t']
+): string {
+  switch (code) {
+    case 'PATH_REQUIRED':
+      return t('skillPanel.pathRequired');
+    case 'NOT_DIRECTORY':
+      return t('skillPanel.notDirectory');
+    case 'MISSING_SKILL_MD':
+      return t('skillPanel.missingSkillFile');
+    default:
+      return fallback || t('skillPanel.invalidDirectory');
+  }
+}
+
 function InstallModal({ isOpen, onClose, onInstall, isLoading }: InstallModalProps) {
   const { t } = useTranslation();
   const [path, setPath] = useState('');
+  const [validationMessage, setValidationMessage] = useState<{
+    type: 'error' | 'success';
+    text: string;
+  } | null>(null);
+  const [skillPreview, setSkillPreview] = useState<SkillPreview | null>(null);
+
+  const validatePath = async (skillPath: string): Promise<boolean> => {
+    const trimmedPath = skillPath.trim();
+    if (!trimmedPath) {
+      setValidationMessage(null);
+      setSkillPreview(null);
+      return false;
+    }
+
+    try {
+      const result = await window.electron.invoke('skill:validateDirectory', { path: trimmedPath });
+      const payload = result?.data || result;
+      if (result?.success && payload?.valid) {
+        setValidationMessage({ type: 'success', text: t('skillPanel.validDirectory') });
+        setSkillPreview(payload?.preview || null);
+        return true;
+      }
+
+      setSkillPreview(null);
+      setValidationMessage({
+        type: 'error',
+        text: getSkillDirectoryValidationMessage(payload?.code, payload?.error || result?.error, t),
+      });
+      return false;
+    } catch (error) {
+      console.error('[SkillPanel] Failed to validate skill directory:', error);
+      setSkillPreview(null);
+      setValidationMessage({
+        type: 'error',
+        text: `${t('skillPanel.selectDirectoryFailed')}: ${error}`,
+      });
+      return false;
+    }
+  };
+
+  const handleBrowse = async () => {
+    try {
+      const result = await window.electron.invoke('skill:selectDirectory');
+      const payload = result?.data || result;
+      if (result?.success && payload?.path) {
+        setPath(payload.path);
+        await validatePath(payload.path);
+      }
+    } catch (error) {
+      console.error('[SkillPanel] Failed to select skill directory:', error);
+      alert(`${t('skillPanel.selectDirectoryFailed')}: ${error}`);
+    }
+  };
+
+  const handleInstallClick = async () => {
+    const isValid = await validatePath(path);
+    if (isValid) {
+      onInstall(path.trim());
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -25,21 +107,55 @@ function InstallModal({ isOpen, onClose, onInstall, isLoading }: InstallModalPro
       <div className="flex-1 bg-black/50" onClick={onClose} />
       <div className="w-[400px] bg-surface border border-border rounded-lg p-6 m-auto">
         <h3 className="text-lg font-semibold text-white mb-4">{t('skillPanel.title')}</h3>
-        <input
-          type="text"
-          value={path}
-          onChange={(e) => setPath(e.target.value)}
-          placeholder={t('skillPanel.skillPath')}
-          className="w-full px-3 py-2 bg-background border border-border rounded text-sm text-white placeholder-text-muted focus:outline-none focus:border-primary mb-4"
-          onKeyDown={(e) => e.key === 'Enter' && path.trim() && onInstall(path.trim())}
-          disabled={isLoading}
-        />
+        <div className="flex gap-2 mb-4">
+          <input
+            type="text"
+            value={path}
+            onChange={(e) => {
+              setPath(e.target.value);
+              setValidationMessage(null);
+              setSkillPreview(null);
+            }}
+            placeholder={t('skillPanel.skillPath')}
+            className="flex-1 px-3 py-2 bg-background border border-border rounded text-sm text-white placeholder-text-muted focus:outline-none focus:border-primary"
+            onBlur={() => {
+              if (path.trim()) {
+                void validatePath(path);
+              }
+            }}
+            onKeyDown={(e) => e.key === 'Enter' && path.trim() && void handleInstallClick()}
+            disabled={isLoading}
+          />
+          <button onClick={handleBrowse} className="btn btn-secondary" disabled={isLoading}>
+            {t('skillPanel.browse')}
+          </button>
+        </div>
+        {validationMessage && (
+          <div
+            className={`text-sm mb-4 ${
+              validationMessage.type === 'success' ? 'text-green-400' : 'text-red-400'
+            }`}
+          >
+            {validationMessage.text}
+          </div>
+        )}
+        {skillPreview && (
+          <div className="mb-4 rounded border border-border bg-background/60 p-3 text-sm">
+            <div className="text-text-secondary mb-1">{t('skillPanel.previewTitle')}</div>
+            <div className="text-white font-medium">
+              {t('skillPanel.previewName')}: {skillPreview.name || '-'}
+            </div>
+            <div className="text-text-muted mt-1 whitespace-pre-wrap">
+              {t('skillPanel.previewDescription')}: {skillPreview.description || '-'}
+            </div>
+          </div>
+        )}
         <div className="flex justify-end gap-2">
           <button onClick={onClose} className="btn btn-secondary" disabled={isLoading}>
             {t('skillPanel.cancel')}
           </button>
           <button
-            onClick={() => onInstall(path.trim())}
+            onClick={() => void handleInstallClick()}
             className="btn btn-primary"
             disabled={!path.trim() || isLoading}
           >
@@ -85,11 +201,15 @@ export function SkillPanel({ isOpen, onClose }: SkillPanelProps) {
 
     try {
       const result = await window.electron.invoke('skill:install', { path: skillPath });
-      if (result.success) {
+      const payload = result?.data || result;
+      if (result?.success && payload?.success !== false) {
         setMessage({ type: 'success', text: t('skillPanel.installSuccess') });
         loadSkills();
       } else {
-        setMessage({ type: 'error', text: result.error || t('skillPanel.installFailed') });
+        setMessage({
+          type: 'error',
+          text: payload?.error || result?.error || t('skillPanel.installFailed'),
+        });
       }
     } catch (error) {
       setMessage({ type: 'error', text: `${t('skillPanel.installFailed')}: ${error}` });
@@ -104,11 +224,15 @@ export function SkillPanel({ isOpen, onClose }: SkillPanelProps) {
     setIsLoading(true);
     try {
       const result = await window.electron.invoke('skill:uninstall', { name: skillName });
-      if (result.success) {
+      const payload = result?.data || result;
+      if (result?.success && payload?.success !== false) {
         setMessage({ type: 'success', text: t('skillPanel.uninstallSuccess') });
         loadSkills();
       } else {
-        setMessage({ type: 'error', text: result.error || t('skillPanel.uninstallFailed') });
+        setMessage({
+          type: 'error',
+          text: payload?.error || result?.error || t('skillPanel.uninstallFailed'),
+        });
       }
     } catch (error) {
       setMessage({ type: 'error', text: `${t('skillPanel.uninstallFailed')}: ${error}` });
@@ -119,9 +243,22 @@ export function SkillPanel({ isOpen, onClose }: SkillPanelProps) {
 
   const handleOpenSkillsDir = async () => {
     try {
-      await window.electron.invoke('skill:openDirectory');
+      const result = await window.electron.invoke('skill:openDirectory');
+      const payload = result?.data || result;
+      if (!result?.success || payload?.success === false) {
+        const pathDetails = payload?.attemptedPaths?.length
+          ? ` (${payload.attemptedPaths.join(' -> ')})`
+          : payload?.path
+            ? ` (${payload.path})`
+            : '';
+        setMessage({
+          type: 'error',
+          text: `${payload?.error || result?.error || t('skillPanel.openFolderFailed')}${pathDetails}`,
+        });
+      }
     } catch (error) {
       console.error('[SkillPanel] Failed to open skills directory:', error);
+      setMessage({ type: 'error', text: `${t('skillPanel.openFolderFailed')}: ${error}` });
     }
   };
 

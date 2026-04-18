@@ -32,6 +32,20 @@ export interface RobustSelector {
   xpath?: string;
 }
 
+export interface BrowserSnapshotState {
+  url: string | null;
+  title: string | null;
+  cookies: any[];
+  storageState: any;
+  localStorage: Record<string, string>;
+  sessionStorage: Record<string, string>;
+  scrollPosition: { x: number; y: number };
+  focusedSelector: string | null;
+  pageStructure: any;
+  screenshot: string | null;
+  capturedAt: number;
+}
+
 export class BrowserExecutor {
   private browser: any = null;
   private context: any = null;
@@ -44,6 +58,50 @@ export class BrowserExecutor {
   private isHeadedMode: boolean = true;
 
   constructor() {}
+
+  private async injectStorageSnapshot(
+    page: any,
+    localStorageSnapshot: Record<string, string>,
+    sessionStorageSnapshot: Record<string, string>
+  ): Promise<void> {
+    await page.addInitScript(
+      ({
+        localStorageSnapshot: ls,
+        sessionStorageSnapshot: ss,
+      }: {
+        localStorageSnapshot: Record<string, string>;
+        sessionStorageSnapshot: Record<string, string>;
+      }) => {
+        try {
+          if (ls && typeof localStorage !== 'undefined') {
+            for (const [key, value] of Object.entries(ls)) {
+              try {
+                localStorage.setItem(key, String(value));
+              } catch {
+                // ignore storage quota errors during restore
+              }
+            }
+          }
+
+          if (ss && typeof sessionStorage !== 'undefined') {
+            for (const [key, value] of Object.entries(ss)) {
+              try {
+                sessionStorage.setItem(key, String(value));
+              } catch {
+                // ignore storage quota errors during restore
+              }
+            }
+          }
+        } catch {
+          // ignore restore script failures
+        }
+      },
+      {
+        localStorageSnapshot,
+        sessionStorageSnapshot,
+      }
+    );
+  }
 
   async launchBrowser(): Promise<void> {
     await this.ensureBrowser();
@@ -458,41 +516,11 @@ export class BrowserExecutor {
 
           // 注入 localStorage 和 sessionStorage (在页面加载之前)
           if (sessionData?.localStorage || sessionData?.sessionStorage) {
-            const storageInitScript = `
-              (function() {
-                try {
-                  const ls = ${JSON.stringify(sessionData.localStorage || {})};
-                  const ss = ${JSON.stringify(sessionData.sessionStorage || {})};
-                  
-                  // Inject localStorage
-                  if (ls && typeof localStorage !== 'undefined') {
-                    for (const [key, value] of Object.entries(ls)) {
-                      try {
-                        localStorage.setItem(key, String(value));
-                      } catch (e) {
-                        // quota exceeded or other error
-                      }
-                    }
-                  }
-                  
-                  // Inject sessionStorage
-                  if (ss && typeof sessionStorage !== 'undefined') {
-                    for (const [key, value] of Object.entries(ss)) {
-                      try {
-                        sessionStorage.setItem(key, String(value));
-                      } catch (e) {
-                        // quota exceeded or other error
-                      }
-                    }
-                  }
-                } catch (e) {
-                  console.warn('Storage injection error:', e);
-                }
-              })();
-            `;
-            await this.page.addInitScript(() => {
-              eval(storageInitScript);
-            });
+            await this.injectStorageSnapshot(
+              this.page,
+              sessionData.localStorage || {},
+              sessionData.sessionStorage || {}
+            );
             console.log(
               '[BrowserExecutor] Storage injected - localStorage:',
               Object.keys(sessionData.localStorage || {}).length,
@@ -1099,6 +1127,115 @@ ${htmlSnippet}
     } catch (error) {
       console.error('[BrowserExecutor] Failed to get page URL:', error);
       return null;
+    }
+  }
+
+  async captureBrowserState(): Promise<BrowserSnapshotState | null> {
+    if (!this.page || !this.context) {
+      return null;
+    }
+
+    try {
+      const [cookies, storageState, pageSnapshot, pageStructure, screenshot] = await Promise.all([
+        this.context.cookies(),
+        this.context.storageState(),
+        this.page.evaluate(() => {
+          const active = document.activeElement as HTMLElement | null;
+          const focusedSelector = active
+            ? active.id
+              ? `#${active.id}`
+              : active.getAttribute('name')
+                ? `${active.tagName.toLowerCase()}[name="${active.getAttribute('name')}"]`
+                : active.tagName.toLowerCase()
+            : null;
+
+          const localStorageSnapshot: Record<string, string> = {};
+          const sessionStorageSnapshot: Record<string, string> = {};
+
+          for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key) {
+              localStorageSnapshot[key] = localStorage.getItem(key) || '';
+            }
+          }
+
+          for (let i = 0; i < sessionStorage.length; i++) {
+            const key = sessionStorage.key(i);
+            if (key) {
+              sessionStorageSnapshot[key] = sessionStorage.getItem(key) || '';
+            }
+          }
+
+          return {
+            title: document.title || '',
+            scrollPosition: { x: window.scrollX, y: window.scrollY },
+            focusedSelector,
+            localStorageSnapshot,
+            sessionStorageSnapshot,
+          };
+        }),
+        this.getPageStructure(),
+        this.getScreenshot(),
+      ]);
+
+      return {
+        url: await this.getPageUrl(),
+        title: pageSnapshot?.title || null,
+        cookies,
+        storageState,
+        localStorage: pageSnapshot?.localStorageSnapshot || {},
+        sessionStorage: pageSnapshot?.sessionStorageSnapshot || {},
+        scrollPosition: pageSnapshot?.scrollPosition || { x: 0, y: 0 },
+        focusedSelector: pageSnapshot?.focusedSelector || null,
+        pageStructure,
+        screenshot,
+        capturedAt: Date.now(),
+      };
+    } catch (error) {
+      console.error('[BrowserExecutor] Failed to capture browser state:', error);
+      return null;
+    }
+  }
+
+  async restoreBrowserState(snapshot: BrowserSnapshotState): Promise<void> {
+    await this.ensureBrowser();
+    if (!this.context) {
+      throw new Error('Browser context is not available for restore');
+    }
+
+    if (snapshot.cookies?.length > 0) {
+      try {
+        await this.context.addCookies(snapshot.cookies);
+      } catch (error) {
+        console.warn('[BrowserExecutor] Failed to restore cookies:', error);
+      }
+    }
+
+    if (this.page && (snapshot.localStorage || snapshot.sessionStorage)) {
+      await this.injectStorageSnapshot(
+        this.page,
+        snapshot.localStorage || {},
+        snapshot.sessionStorage || {}
+      );
+    }
+
+    if (snapshot.url && this.page) {
+      await this.page.goto(snapshot.url, { waitUntil: 'domcontentloaded', timeout: 30000 });
+
+      await this.page.evaluate(
+        ({ x, y, focusedSelector }: { x: number; y: number; focusedSelector: string | null }) => {
+          window.scrollTo(x, y);
+          if (focusedSelector) {
+            const el = document.querySelector(focusedSelector) as HTMLElement | null;
+            el?.focus?.();
+          }
+        },
+        {
+          x: snapshot.scrollPosition?.x || 0,
+          y: snapshot.scrollPosition?.y || 0,
+          focusedSelector: snapshot.focusedSelector,
+        }
+      );
     }
   }
 

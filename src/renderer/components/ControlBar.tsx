@@ -1,17 +1,31 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useTaskStore } from '../stores/taskStore';
 import { useHistoryStore } from '../stores/historyStore';
 import { useSchedulerStore } from '../stores/schedulerStore';
 import { useIMStore, ConnectionStatus } from '../stores/imStore';
 import { useTranslation } from '../i18n/useTranslation';
+import { PersistedTaskStateSummary } from '../../core/runtime/taskState';
 
 interface ControlBarProps {
   onSkillClick: () => void;
+  onMCPClick: () => void;
+  onSettingsClick: () => void;
 }
 
-export function ControlBar({ onSkillClick }: ControlBarProps) {
-  const { task, setTakeover, showPlanViewer, setShowPlanViewer, previewMode, setPreviewMode } =
-    useTaskStore();
+export function ControlBar({ onSkillClick, onMCPClick, onSettingsClick }: ControlBarProps) {
+  const [savedStates, setSavedStates] = useState<PersistedTaskStateSummary[]>([]);
+  const [isRestoreOpen, setRestoreOpen] = useState(false);
+  const {
+    task,
+    setTask,
+    setTaskInterrupted,
+    setTakeover,
+    showPlanViewer,
+    setShowPlanViewer,
+    previewMode,
+    setPreviewMode,
+    addLog,
+  } = useTaskStore();
   const { setIsOpen: setHistoryOpen } = useHistoryStore();
   const { setOpen: setSchedulerOpen } = useSchedulerStore();
   const { statuses, setPanelOpen: setImPanelOpen, loadAll: loadIMStatus } = useIMStore();
@@ -79,18 +93,118 @@ export function ControlBar({ onSkillClick }: ControlBarProps) {
     }
   };
 
+  const handleInterruptAndSave = async () => {
+    if (!task?.id) return;
+
+    try {
+      const result = await window.electron.invoke('task:interrupt', {
+        handleId: task.id,
+        reason: 'user_interrupt',
+      });
+      const payload = result?.data || result;
+
+      if (result?.success && payload?.handleId) {
+        setTaskInterrupted(true, 'user_interrupt', payload.handleId);
+        addLog({ type: 'info', message: t('restoreTask.saved', { handleId: payload.handleId }) });
+        await loadSavedStates();
+        alert(t('restoreTask.savedAlert', { handleId: payload.handleId }));
+      } else {
+        throw new Error(payload?.error || result?.error || t('restoreTask.saveFailed'));
+      }
+    } catch (error: any) {
+      console.error('Interrupt/save error:', error);
+      alert(error?.message || t('restoreTask.saveFailed'));
+    }
+  };
+
+  const loadSavedStates = async () => {
+    try {
+      const result = await window.electron.invoke('task:listSavedStates');
+      const payload = result?.data || result;
+      setSavedStates(Array.isArray(payload) ? payload : []);
+    } catch (error) {
+      console.error('Load saved states error:', error);
+      setSavedStates([]);
+    }
+  };
+
+  const handleRestoreTask = async (handleId?: string) => {
+    const targetHandle = handleId || task?.id || '';
+    if (!targetHandle) return;
+
+    try {
+      const result = await window.electron.invoke('task:restoreState', { handleId: targetHandle });
+      const payload = result?.data || result;
+
+      if (result?.success && payload?.handle) {
+        const matchedState = savedStates.find((state) => state.handleId === targetHandle);
+        setTask({
+          id: payload.handle,
+          status: payload.status || 'executing',
+          description:
+            matchedState?.taskDescription ||
+            task?.description ||
+            t('restoreTask.fallbackDescription', { handleId: payload.handle }),
+          progress: task?.progress || { current: 0, total: 0 },
+          interrupted: false,
+          interruptReason: undefined,
+          savedStateHandleId: targetHandle,
+        });
+        setTaskInterrupted(false, undefined, targetHandle);
+        addLog({ type: 'info', message: t('restoreTask.restored', { handleId: payload.handle }) });
+        setRestoreOpen(false);
+      } else {
+        throw new Error(payload?.error || result?.error || t('restoreTask.restoreFailed'));
+      }
+    } catch (error: any) {
+      console.error('Restore task error:', error);
+      alert(error?.message || t('restoreTask.restoreFailed'));
+    }
+  };
+
+  const handleOpenRestoreList = async () => {
+    await loadSavedStates();
+    setRestoreOpen(true);
+  };
+
+  const handleDeleteSavedState = async (handleId: string) => {
+    try {
+      const result = await window.electron.invoke('task:deleteSavedState', { handleId });
+      const payload = result?.data || result;
+      if (!result?.success || payload?.success === false) {
+        throw new Error(payload?.error || result?.error || t('restoreTask.deleteFailed'));
+      }
+      setSavedStates((states) => states.filter((state) => state.handleId !== handleId));
+      addLog({ type: 'info', message: t('restoreTask.deleted', { handleId }) });
+    } catch (error) {
+      console.error('Delete saved state error:', error);
+    }
+  };
+
   const handleCheckLogin = async () => {
     console.log('Checking login popup...');
     try {
-      // 通过IPC调用主进程的checkAndHandleLoginPopup
       const result = await window.electron.invoke('task:checkLoginPopup', {});
       console.log('Check login result:', result);
+      const payload = result?.data || result;
 
-      if (!result.handled) {
-        alert(result.message || '未检测到登录弹窗');
+      if (!payload?.handled) {
+        alert(payload?.message || '未检测到登录弹窗');
       }
     } catch (error) {
       console.error('Check login error:', error);
+    }
+  };
+
+  const handlePreviewModeChange = async (mode: 'sidebar' | 'detached') => {
+    try {
+      const result = await window.electron.invoke('preview:setMode', { mode });
+      const payload = result?.data || result;
+      if (result?.success && payload?.success !== false) {
+        setPreviewMode(mode);
+      }
+    } catch (error) {
+      console.error('Preview mode change error:', error);
     }
   };
 
@@ -138,6 +252,21 @@ export function ControlBar({ onSkillClick }: ControlBarProps) {
         >
           {t('controlBar.stop')}
         </button>
+        <button
+          onClick={handleInterruptAndSave}
+          className="btn btn-secondary"
+          disabled={!task || task.status !== 'executing'}
+          title={t('controlBar.interruptSaveTitle')}
+        >
+          {t('controlBar.interruptSave')}
+        </button>
+        <button
+          onClick={handleOpenRestoreList}
+          className="btn btn-secondary"
+          title={t('controlBar.restoreTaskTitle')}
+        >
+          {t('controlBar.restoreTask')}
+        </button>
       </div>
 
       {/* Center: Status */}
@@ -166,7 +295,7 @@ export function ControlBar({ onSkillClick }: ControlBarProps) {
         {/* Preview Mode Switcher - Icon buttons */}
         <div className="flex items-center gap-1">
           <button
-            onClick={() => setPreviewMode('sidebar')}
+            onClick={() => handlePreviewModeChange('sidebar')}
             className={`w-10 h-10 flex items-center justify-center rounded-lg transition-all ${
               previewMode === 'sidebar'
                 ? 'bg-primary text-white'
@@ -184,7 +313,7 @@ export function ControlBar({ onSkillClick }: ControlBarProps) {
             </svg>
           </button>
           <button
-            onClick={() => setPreviewMode('detached')}
+            onClick={() => handlePreviewModeChange('detached')}
             className={`w-10 h-10 flex items-center justify-center rounded-lg transition-all ${
               previewMode === 'detached'
                 ? 'bg-primary text-white'
@@ -217,6 +346,10 @@ export function ControlBar({ onSkillClick }: ControlBarProps) {
           title={t('controlBar.scheduler')}
         >
           {t('controlBar.scheduler')}
+        </button>
+
+        <button onClick={onMCPClick} className="btn btn-secondary" title="MCP">
+          MCP
         </button>
 
         <button
@@ -263,6 +396,22 @@ export function ControlBar({ onSkillClick }: ControlBarProps) {
           );
         })()}
 
+        <button
+          onClick={onSettingsClick}
+          className="btn btn-secondary"
+          title={t('settings.title') || '设置'}
+        >
+          <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M10.325 4.317c1.86-1.28 4.827-1.28 6.687 0M19 12h-2M12 19v-2m0-9V5m0 7h-2m9 0a9 9 0 11-18 0 9 9 0 0118 0z"
+            />
+          </svg>
+          {t('settings.title') || '设置'}
+        </button>
+
         {/* Language Switcher */}
         <select
           onChange={handleLanguageChange}
@@ -275,6 +424,68 @@ export function ControlBar({ onSkillClick }: ControlBarProps) {
           <option value="zh">中文</option>
         </select>
       </div>
+
+      {isRestoreOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="w-[680px] max-h-[80vh] overflow-hidden rounded-xl border border-border bg-surface shadow-xl">
+            <div className="flex items-center justify-between border-b border-border px-4 py-3">
+              <h3 className="text-base font-semibold text-white">{t('restoreTask.modalTitle')}</h3>
+              <button
+                onClick={() => setRestoreOpen(false)}
+                className="rounded p-1 text-text-muted hover:bg-border hover:text-white"
+              >
+                ×
+              </button>
+            </div>
+            <div className="max-h-[60vh] overflow-y-auto p-4">
+              {savedStates.length === 0 ? (
+                <div className="text-sm text-text-muted">{t('restoreTask.empty')}</div>
+              ) : (
+                <div className="space-y-3">
+                  {savedStates.map((state) => (
+                    <div
+                      key={state.handleId}
+                      className="rounded-lg border border-border bg-background px-4 py-3"
+                    >
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="min-w-0 flex-1">
+                          <div className="truncate text-sm font-medium text-white">
+                            {state.taskDescription || state.handleId}
+                          </div>
+                          <div className="mt-1 text-xs text-text-muted">
+                            {state.handleId} ·{' '}
+                            {state.runtimeType || t('restoreTask.unknownRuntime')} ·{' '}
+                            {new Date(state.savedAt).toLocaleString()}
+                          </div>
+                          {state.restoreHints.length > 0 && (
+                            <div className="mt-2 text-xs text-text-muted">
+                              {state.restoreHints.join(' | ')}
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => handleRestoreTask(state.handleId)}
+                            className="btn btn-primary text-sm"
+                          >
+                            {t('restoreTask.restore')}
+                          </button>
+                          <button
+                            onClick={() => handleDeleteSavedState(state.handleId)}
+                            className="btn btn-danger text-sm"
+                          >
+                            {t('restoreTask.delete')}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

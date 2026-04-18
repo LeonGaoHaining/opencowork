@@ -11,6 +11,8 @@
  */
 
 import { MemorySaver, BaseCheckpointSaver } from '@langchain/langgraph-checkpoint';
+import { SqliteSaver } from '@langchain/langgraph-checkpoint-sqlite';
+import * as path from 'path';
 
 export interface CheckpointerConfig {
   type: 'memory' | 'sqlite';
@@ -32,8 +34,15 @@ export class AgentCheckpointer {
         console.log('[Checkpointer] Using MemorySaver');
         return new MemorySaver();
       case 'sqlite':
-        console.log('[Checkpointer] SQLite not fully implemented, falling back to MemorySaver');
-        return new MemorySaver();
+        console.log('[Checkpointer] Using SqliteSaver');
+        return SqliteSaver.fromConnString(
+          this.config.dbPath ||
+            path.join(
+              process.env.HOME || process.env.USERPROFILE || '~',
+              '.opencowork',
+              'checkpoints.sqlite'
+            )
+        );
       default:
         console.log('[Checkpointer] Unknown type, using MemorySaver');
         return new MemorySaver();

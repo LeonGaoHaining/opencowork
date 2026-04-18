@@ -41,3 +41,22 @@ export interface HistoryQueryOptions {
   endDate?: number;
   keyword?: string;
 }
+
+export interface HistorySearchOptions {
+  limit?: number;
+  sessionId?: string;
+  dateRange?: {
+    start: number;
+    end: number;
+  };
+  status?: TaskHistoryRecord['status'];
+}
+
+export interface HistorySearchResult {
+  sessionId: string;
+  task: string;
+  timestamp: number;
+  status: TaskHistoryRecord['status'];
+  match: string;
+  score: number;
+}

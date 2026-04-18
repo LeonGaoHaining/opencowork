@@ -6,7 +6,10 @@ import {
   parseSkillFrontmatter,
   validateSkillManifest,
   SkillTrigger,
+  SkillFrontmatter,
 } from './skillManifest';
+
+type SkillSource = 'official' | 'agent-created' | 'market';
 
 const MAX_MANIFEST_CACHE = 200;
 
@@ -17,6 +20,7 @@ export class SkillLoader {
   private skillsCache: InstalledSkill[] | null = null;
   private skillsCacheTime: number = 0;
   private readonly CACHE_TTL_MS = 5000;
+  private readonly sources: SkillSource[] = ['official', 'agent-created', 'market'];
 
   constructor(skillsDirs?: string[]) {
     this.skillsDirs = skillsDirs || this.getDefaultSkillDirs();
@@ -24,10 +28,11 @@ export class SkillLoader {
 
   private getDefaultSkillDirs(): string[] {
     const homeDir = process.env.HOME || process.env.USERPROFILE || '~';
-    return [
+    const candidateDirs = [
       path.join(homeDir, '.opencowork', 'skills'),
       path.join(process.cwd(), '.opencowork', 'skills'),
     ];
+    return candidateDirs.filter((dir, index) => index === 0 || fs.existsSync(dir));
   }
 
   async loadSkill(skillPath: string): Promise<InstalledSkill> {
@@ -63,6 +68,7 @@ export class SkillLoader {
       content: body.trim(),
       frontmatter,
       directory: skillPath,
+      source: this.inferSourceFromPath(skillPath),
       triggers: this.parseTriggers(frontmatter),
       opencowork: this.parseOpenCoworkExtension(frontmatter),
     };
@@ -88,6 +94,7 @@ export class SkillLoader {
       manifest,
       path: skillPath,
       enabled: true,
+      source: manifest.source,
     };
 
     const packageJsonPath = path.join(skillPath, 'package.json');
@@ -143,12 +150,41 @@ export class SkillLoader {
 
     for (const dir of this.skillsDirs) {
       try {
-        const entries = await fs.promises.readdir(dir);
-        for (const entry of entries) {
+        const legacyEntries = await fs.promises.readdir(dir);
+        for (const entry of legacyEntries) {
           const skillPath = path.join(dir, entry);
-          const stats = await fs.promises.stat(skillPath);
-          if (stats.isDirectory() && !seen.has(entry)) {
-            seen.add(entry);
+          const stats = await fs.promises.stat(skillPath).catch(() => null);
+          if (!stats?.isDirectory() || seen.has(`legacy:${entry}`)) continue;
+          const manifestPath = path.join(skillPath, 'SKILL.md');
+          if (!fs.existsSync(manifestPath)) continue;
+
+          seen.add(`legacy:${entry}`);
+          try {
+            const skill = await this.loadSkill(skillPath);
+            skills.push(skill);
+          } catch (e) {
+            console.warn(`[SkillLoader] Failed to load legacy skill ${entry}:`, e);
+          }
+        }
+
+        for (const source of this.sources) {
+          const sourceDir = path.join(dir, source);
+          const sourceStats = await fs.promises.stat(sourceDir).catch(() => null);
+          if (!sourceStats?.isDirectory()) {
+            continue;
+          }
+
+          const entries = await fs.promises.readdir(sourceDir);
+          for (const entry of entries) {
+            const skillPath = path.join(sourceDir, entry);
+            const stats = await fs.promises.stat(skillPath).catch(() => null);
+
+            if (!stats?.isDirectory() || seen.has(`${source}:${entry}`)) continue;
+            seen.add(`${source}:${entry}`);
+
+            const manifestPath = path.join(skillPath, 'SKILL.md');
+            if (!fs.existsSync(manifestPath)) continue;
+
             try {
               const skill = await this.loadSkill(skillPath);
               skills.push(skill);
@@ -238,15 +274,147 @@ export class SkillLoader {
     }
 
     for (const dir of this.skillsDirs) {
-      const skillPath = path.join(dir, name);
+      const legacySkillPath = path.join(dir, name);
       try {
-        const stats = await fs.promises.stat(skillPath);
+        const stats = await fs.promises.stat(legacySkillPath);
         if (stats.isDirectory()) {
-          return this.loadSkill(skillPath);
+          return this.loadSkill(legacySkillPath);
         }
       } catch {}
+
+      for (const source of this.sources) {
+        const skillPath = path.join(dir, source, name);
+        try {
+          const stats = await fs.promises.stat(skillPath);
+          if (stats.isDirectory()) {
+            return this.loadSkill(skillPath);
+          }
+        } catch {}
+      }
     }
 
+    return null;
+  }
+
+  async saveSkill(
+    frontmatter: SkillFrontmatter,
+    content: string,
+    source: SkillSource = 'agent-created'
+  ): Promise<InstalledSkill> {
+    const name = frontmatter.name?.trim();
+    if (!name) {
+      throw new Error('Skill name is required');
+    }
+
+    const rootDir = await this.getPrimarySkillsRoot();
+    const skillDir = path.join(rootDir, source, name);
+    await fs.promises.mkdir(skillDir, { recursive: true });
+
+    const normalizedFrontmatter: SkillFrontmatter = {
+      ...frontmatter,
+      name,
+      description: frontmatter.description?.trim() || `${name} skill`,
+      source,
+      version: frontmatter.version || '1.0.0',
+    };
+
+    const serialized = this.serializeSkill(normalizedFrontmatter, content.trim());
+    await fs.promises.writeFile(path.join(skillDir, 'SKILL.md'), serialized, 'utf-8');
+    this.clearCache();
+
+    const skill = await this.loadSkill(skillDir);
+    if (!skill) {
+      throw new Error(`Failed to load saved skill: ${name}`);
+    }
+    return skill;
+  }
+
+  async deleteSkill(name: string, source: SkillSource): Promise<void> {
+    for (const dir of this.skillsDirs) {
+      const skillPath = path.join(dir, source, name);
+      const stats = await fs.promises.stat(skillPath).catch(() => null);
+      if (stats?.isDirectory()) {
+        await fs.promises.rm(skillPath, { recursive: true, force: true });
+        this.clearCache();
+        return;
+      }
+    }
+
+    throw new Error(`Skill not found: ${source}/${name}`);
+  }
+
+  async patchSkill(
+    name: string,
+    source: SkillSource,
+    patch: { frontmatter?: Partial<SkillFrontmatter>; content?: string }
+  ): Promise<InstalledSkill> {
+    const skill = await this.getSkill(name);
+    if (!skill || skill.source !== source) {
+      throw new Error(`Skill not found: ${source}/${name}`);
+    }
+
+    const mergedFrontmatter: SkillFrontmatter = {
+      ...skill.manifest.frontmatter,
+      ...patch.frontmatter,
+      name: patch.frontmatter?.name || skill.manifest.name,
+      description: patch.frontmatter?.description || skill.manifest.description,
+      source,
+    };
+
+    return this.saveSkill(mergedFrontmatter, patch.content ?? skill.manifest.content, source);
+  }
+
+  async incrementSkillUsage(name: string, source: SkillSource): Promise<InstalledSkill> {
+    const skill = await this.getSkill(name);
+    if (!skill || skill.source !== source) {
+      throw new Error(`Skill not found: ${source}/${name}`);
+    }
+
+    const usageCount = (skill.manifest.frontmatter.usageCount || 0) + 1;
+    return this.patchSkill(name, source, {
+      frontmatter: { usageCount },
+    });
+  }
+
+  private inferSourceFromPath(skillPath: string): SkillSource | undefined {
+    const normalizedPath = path.normalize(skillPath);
+    return this.sources.find((source) =>
+      normalizedPath.includes(`${path.sep}${source}${path.sep}`)
+    );
+  }
+
+  private async getPrimarySkillsRoot(): Promise<string> {
+    const rootDir = this.skillsDirs[0];
+    await fs.promises.mkdir(rootDir, { recursive: true });
+    for (const source of this.sources) {
+      await fs.promises.mkdir(path.join(rootDir, source), { recursive: true });
+    }
+    return rootDir;
+  }
+
+  private serializeSkill(frontmatter: SkillFrontmatter, content: string): string {
+    const lines: string[] = ['---'];
+    if (frontmatter.name) lines.push(`name: ${frontmatter.name}`);
+    if (frontmatter.description) lines.push(`description: ${frontmatter.description}`);
+    if (frontmatter.version) lines.push(`version: ${frontmatter.version}`);
+    if (frontmatter.source) lines.push(`source: ${frontmatter.source}`);
+    if (typeof frontmatter.userInvocable === 'boolean') {
+      lines.push(`userInvocable: ${frontmatter.userInvocable}`);
+    }
+    if (frontmatter.context) lines.push(`context: ${frontmatter.context}`);
+    if (frontmatter.platforms?.length)
+      lines.push(`platforms: [${frontmatter.platforms.join(', ')}]`);
+    if (frontmatter.tags?.length) lines.push(`tags: [${frontmatter.tags.join(', ')}]`);
+    if (typeof frontmatter.usageCount === 'number')
+      lines.push(`usageCount: ${frontmatter.usageCount}`);
+    lines.push('---', '', content);
+    return `${lines.join('\n').trim()}\n`;
+  }
+
+  getSkillSource(name: string): SkillSource | null {
+    if (this.manifestCache.has(name)) {
+      return this.manifestCache.get(name)?.source || null;
+    }
     return null;
   }
 

@@ -1,4 +1,5 @@
 import { BrowserWindow } from 'electron';
+import * as path from 'path';
 import { TaskPlanner } from '../planner/TaskPlanner';
 import { PlanExecutor } from '../planner/PlanExecutor';
 import { TakeoverManager } from './TakeoverManager';
@@ -13,6 +14,11 @@ import {
   RecoveryAction,
 } from '../../recovery/recoveryEngine';
 import { ShortTermMemory } from '../../memory/shortTermMemory';
+import { SkillGenerator, createSkillGenerator } from '../../skills/skillGenerator';
+import { SkillMatcher, createSkillMatcher } from '../../skills/skillMatcher';
+import { getSettingsManager } from '../../config/settings';
+import { PersistedTaskState } from './taskState';
+import { getTaskStateStore, TaskStateStore } from './taskStateStore';
 
 export enum TaskStatus {
   IDLE = 'idle',
@@ -33,6 +39,11 @@ export interface TaskHandle {
   createdAt: number;
   updatedAt: number;
   previousTaskResult?: any;
+  taskDescription?: string;
+  currentNodeId?: string | null;
+  completedNodeIds?: string[];
+  activeAction?: boolean;
+  lastSavedStatePath?: string;
 }
 
 export interface TakeoverContext {
@@ -44,6 +55,13 @@ export interface TakeoverContext {
     conversationHistory: any[];
     variables: Record<string, any>;
   };
+}
+
+interface SkillGenerationAction {
+  tool: string;
+  args: unknown;
+  result?: unknown;
+  success: boolean;
 }
 
 const MAX_TASKS = 500;
@@ -68,14 +86,26 @@ export class TaskEngine {
 
   private activePopupWait: { interval: NodeJS.Timeout; timeout: NodeJS.Timeout } | null = null;
   private activeUserConfirm: { interval: NodeJS.Timeout; timeout: NodeJS.Timeout } | null = null;
+  private skillGenerator: SkillGenerator | null = null;
+  private skillMatcher: SkillMatcher | null = null;
+  private executedActions: AnyAction[] = [];
+  private pendingSkillActions: SkillGenerationAction[] = [];
+  private pendingSkillTaskDescription: string | null = null;
+  private readonly MAX_EXECUTED_ACTIONS = 200;
+  private stateStore: TaskStateStore;
 
   cleanup(): void {
     this.clearPopupWait();
     this.clearUserConfirm();
     this.tasks.clear();
     this.taskOrder = [];
+    this.executedActions = [];
+    this.pendingSkillActions = [];
+    this.pendingSkillTaskDescription = null;
     this.mainWindow = null;
     this.previewWindow = null;
+    this.skillGenerator = null;
+    this.skillMatcher = null;
     this.executor
       .cleanup()
       .catch((err) => console.error('[TaskEngine] executor cleanup error:', err));
@@ -88,6 +118,12 @@ export class TaskEngine {
     this.replanner = new Replanner();
     this._takeoverManager = new TakeoverManager();
     this.memory = new ShortTermMemory();
+
+    const homeDir = process.env.HOME || process.env.USERPROFILE || '~';
+    const skillsDir = path.join(homeDir, '.opencowork', 'skills');
+    this.skillGenerator = createSkillGenerator(skillsDir);
+    this.skillMatcher = createSkillMatcher(skillsDir);
+    this.stateStore = getTaskStateStore();
   }
 
   setMainWindow(window: BrowserWindow | null): void {
@@ -125,6 +161,9 @@ export class TaskEngine {
       progress: { current: 0, total: 0 },
       createdAt: Date.now(),
       updatedAt: Date.now(),
+      currentNodeId: null,
+      completedNodeIds: [],
+      activeAction: false,
     };
 
     this.currentTaskId = handle.id;
@@ -188,9 +227,25 @@ export class TaskEngine {
         );
       }
 
+      if (this.skillMatcher) {
+        try {
+          const matchedSkills = await this.skillMatcher.findMatchingSkills(task);
+          if (matchedSkills.length > 0) {
+            planContext.matchedSkills = matchedSkills.slice(0, 3);
+            console.log(
+              '[TaskEngine] Matched skills:',
+              matchedSkills.map((s) => s.name)
+            );
+          }
+        } catch (error) {
+          console.warn('[TaskEngine] Skill matching failed:', error);
+        }
+      }
+
       const plan = await this.planner.plan(task, planContext);
 
       handle.plan = plan;
+      handle.taskDescription = task;
       handle.status = TaskStatus.EXECUTING;
       handle.progress = {
         current: 0,
@@ -256,10 +311,26 @@ export class TaskEngine {
     startTimeout();
 
     try {
-      for await (const event of this.executor.execute(planCopy)) {
+      this.executor.restoreExecutionState({
+        planId: handle.plan.id,
+        currentNodeId: handle.currentNodeId || null,
+        paused: false,
+        cancelled: false,
+        completedNodeIds: handle.completedNodeIds || [],
+      });
+
+      for await (const event of this.executor.execute(planCopy, undefined, {
+        completedNodeIds: handle.completedNodeIds || [],
+      })) {
         switch (event.type) {
           case 'node_start':
             handle.progress.current++;
+            handle.currentNodeId = event.node.id;
+            handle.activeAction = true;
+            this.executedActions.push(event.node.action as AnyAction);
+            if (this.executedActions.length >= this.MAX_EXECUTED_ACTIONS) {
+              this.executedActions = this.executedActions.slice(-100);
+            }
             // 如果是 ask:user action，设置状态为 waiting_confirm
             if (event.node.action?.type === 'ask:user') {
               handle.status = TaskStatus.WAITING_CONFIRM;
@@ -267,6 +338,10 @@ export class TaskEngine {
             this.sendToRenderer('task:nodeStart', event);
             break;
           case 'node_complete':
+            handle.activeAction = false;
+            handle.completedNodeIds = [
+              ...new Set([...(handle.completedNodeIds || []), event.node.id]),
+            ];
             // 如果之前是 ask:user，恢复执行状态
             if (handle.status === TaskStatus.WAITING_CONFIRM) {
               handle.status = TaskStatus.EXECUTING;
@@ -274,6 +349,7 @@ export class TaskEngine {
             this.sendToRenderer('task:nodeComplete', event);
             break;
           case 'node_error':
+            handle.activeAction = false;
             console.error(`[TaskEngine] Node error:`, event.error);
 
             // 移除自动检测登录弹窗逻辑（方案B：改为用户触发式）
@@ -459,13 +535,18 @@ export class TaskEngine {
             this.sendToRenderer('task:error', event);
             break;
           case 'completed':
+            handle.activeAction = false;
             handle.status = TaskStatus.COMPLETED;
             handle.previousTaskResult = event.summary;
             this.lastCompletedTaskId = handle.id;
             console.log(`[TaskEngine] Task completed, sending event to renderer`);
+
+            await this.checkSkillGeneration(handle.id);
+
             this.sendToRenderer('task:completed', { handleId, result: event.summary });
             break;
           case 'failed':
+            handle.activeAction = false;
             handle.status = TaskStatus.FAILED;
             console.log(`[TaskEngine] Task failed, sending event to renderer`);
             this.sendToRenderer('task:error', { handleId, error: event.error });
@@ -591,6 +672,165 @@ export class TaskEngine {
 
   getState(handleId: string): TaskHandle | null {
     return this.tasks.get(handleId) || null;
+  }
+
+  listTasks(): TaskHandle[] {
+    return this.taskOrder
+      .map((id) => this.tasks.get(id))
+      .filter((task): task is TaskHandle => task !== undefined)
+      .map((task) => ({ ...task }));
+  }
+
+  private async waitForActiveActionToDrain(
+    handle: TaskHandle,
+    timeoutMs: number = 30000
+  ): Promise<void> {
+    const startTime = Date.now();
+    while (handle.activeAction) {
+      if (Date.now() - startTime > timeoutMs) {
+        console.warn('[TaskEngine] Timed out waiting for active action to drain');
+        return;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+  }
+
+  private async buildPersistedTaskState(handle: TaskHandle): Promise<PersistedTaskState> {
+    const browserState = await this.executor.browserCaptureState();
+    const executionState = this.executor.serializeExecutionState();
+    const memorySnapshot = this.memory.getMemorySnapshot();
+    const conversationHistory = [
+      { role: 'user', content: handle.taskDescription || '' },
+      ...this.executedActions.slice(-20).map((action) => ({
+        role: 'assistant',
+        content: `已执行动作 ${action.type}: ${JSON.stringify(action.params || {})}`,
+      })),
+      ...(handle.previousTaskResult
+        ? [
+            {
+              role: 'assistant',
+              content: `最近结果: ${JSON.stringify(handle.previousTaskResult)}`,
+            },
+          ]
+        : []),
+      ...memorySnapshot.recentErrors.map((entry) => ({
+        role: 'assistant',
+        content: `最近错误: ${entry.error?.code || 'UNKNOWN'} ${entry.error?.message || ''}`,
+      })),
+    ].filter((message) => message.content);
+
+    const baseState = {
+      version: 1,
+      handleId: handle.id,
+      taskDescription: handle.taskDescription || '',
+      status: handle.status,
+      progress: {
+        current: (handle.completedNodeIds || []).length,
+        total: handle.progress.total,
+      },
+      plan: handle.plan || null,
+      currentNodeId: handle.currentNodeId || executionState.currentNodeId || null,
+      completedNodeIds: handle.completedNodeIds || executionState.completedNodeIds || [],
+      executedActions: this.executedActions,
+      executionState,
+      browserState,
+      conversationHistory,
+    };
+
+    return {
+      ...baseState,
+      metadata: {
+        savedAt: Date.now(),
+        integrityHash: this.stateStore.createIntegrityHash(baseState),
+        restoreHints: browserState?.url ? [`Resume at ${browserState.url}`] : [],
+      },
+    };
+  }
+
+  async saveState(handleId: string): Promise<PersistedTaskState> {
+    const handle = this.tasks.get(handleId);
+    if (!handle) {
+      throw new Error(`Task not found: ${handleId}`);
+    }
+
+    const persistedState = await this.buildPersistedTaskState(handle);
+    handle.lastSavedStatePath = this.stateStore.save(persistedState);
+    return persistedState;
+  }
+
+  async interrupt(handleId: string, reason?: string): Promise<PersistedTaskState> {
+    const handle = this.tasks.get(handleId);
+    if (!handle) {
+      throw new Error(`Task not found: ${handleId}`);
+    }
+
+    await this.pause(handleId);
+    await this.waitForActiveActionToDrain(handle);
+    const persistedState = await this.saveState(handleId);
+    console.log('[TaskEngine] Task interrupted:', handleId, reason || 'manual');
+    return persistedState;
+  }
+
+  async restoreState(stateOrHandleId: PersistedTaskState | string): Promise<TaskHandle> {
+    const persistedState =
+      typeof stateOrHandleId === 'string' ? this.stateStore.load(stateOrHandleId) : stateOrHandleId;
+
+    if (!persistedState) {
+      throw new Error('Persisted task state not found');
+    }
+
+    const { metadata, ...baseState } = persistedState;
+    const integrityHash = this.stateStore.createIntegrityHash(baseState);
+    if (integrityHash !== metadata.integrityHash) {
+      throw new Error('Persisted task state integrity check failed');
+    }
+
+    if (this.currentTaskId && this.currentTaskId !== persistedState.handleId) {
+      const currentHandle = this.tasks.get(this.currentTaskId);
+      if (
+        currentHandle &&
+        [TaskStatus.PLANNING, TaskStatus.EXECUTING].includes(currentHandle.status)
+      ) {
+        throw new Error('Another task is currently active');
+      }
+    }
+
+    const handle: TaskHandle = {
+      id: persistedState.handleId,
+      status: TaskStatus.EXECUTING,
+      plan: persistedState.plan || undefined,
+      progress: {
+        current: persistedState.completedNodeIds.length,
+        total: persistedState.progress.total,
+      },
+      createdAt: metadata.savedAt,
+      updatedAt: Date.now(),
+      taskDescription: persistedState.taskDescription,
+      currentNodeId: persistedState.currentNodeId,
+      completedNodeIds: persistedState.completedNodeIds,
+      activeAction: false,
+    };
+
+    this.tasks.set(handle.id, handle);
+    if (!this.taskOrder.includes(handle.id)) {
+      this.taskOrder.push(handle.id);
+    }
+    this.currentTaskId = handle.id;
+    this.executedActions = persistedState.executedActions || [];
+
+    this.executor.restoreExecutionState(persistedState.executionState);
+    if (persistedState.browserState) {
+      await this.executor.restoreBrowserState(persistedState.browserState);
+    }
+
+    this.sendToRenderer('task:statusUpdate', { handleId: handle.id, status: TaskStatus.EXECUTING });
+    void this.executePlan(handle.id).catch((error) => {
+      console.error('[TaskEngine] Failed to continue restored task:', error);
+      handle.status = TaskStatus.FAILED;
+      this.sendToRenderer('task:error', { handleId: handle.id, error: error.message });
+    });
+
+    return handle;
   }
 
   private agentModulesInitPromise: Promise<void> | null = null;
@@ -822,6 +1062,163 @@ export class TaskEngine {
     if (this.previewWindow && !this.previewWindow.isDestroyed()) {
       this.previewWindow.webContents.send(channel, data);
       console.log('[TaskEngine] Sent to previewWindow:', channel);
+    }
+  }
+
+  private async checkSkillGeneration(handleId: string): Promise<void> {
+    const handle = this.tasks.get(handleId);
+    if (!handle) return;
+
+    const settingsManager = getSettingsManager();
+    const skillSettings = settingsManager.getSkillSettings();
+    const actionCount = handle.progress.current;
+
+    if (actionCount < skillSettings.triggerThreshold) return;
+
+    if (skillSettings.autoGenerate) {
+      await this.autoGenerateSkill(handle, actionCount);
+      return;
+    }
+
+    this.sendToRenderer('skill:prompt-generate', {
+      taskId: handleId,
+      taskDescription: handle.taskDescription || '',
+      actionCount,
+    });
+  }
+
+  private buildSkillGenerationActions(actions: AnyAction[]): SkillGenerationAction[] {
+    return actions.map((action) => ({
+      tool: action.type,
+      args: action.params,
+      success: true,
+    }));
+  }
+
+  async checkSkillGenerationAfterTask(
+    result: { success: boolean; output?: any },
+    context?: {
+      taskDescription?: string;
+      actions?: SkillGenerationAction[];
+    }
+  ): Promise<void> {
+    if (!result.success) return;
+
+    try {
+      const settingsManager = getSettingsManager();
+      const skillSettings = settingsManager.getSkillSettings();
+      const skillActions =
+        context?.actions && context.actions.length > 0
+          ? context.actions
+          : this.buildSkillGenerationActions(this.executedActions);
+      const actionCount = skillActions.length;
+      const taskDescription = context?.taskDescription || this.lastCompletedTaskId || 'Task';
+
+      if (skillActions.length > 0) {
+        this.pendingSkillActions = skillActions.slice(-10);
+        this.pendingSkillTaskDescription = taskDescription;
+      }
+
+      if (actionCount < skillSettings.triggerThreshold) {
+        console.log(
+          '[TaskEngine] Action count below threshold:',
+          actionCount,
+          '<',
+          skillSettings.triggerThreshold
+        );
+        return;
+      }
+
+      if (skillSettings.autoGenerate) {
+        await this.autoGenerateSkillFromExternal(skillActions, taskDescription);
+        return;
+      }
+
+      this.sendToRenderer('skill:prompt-generate', {
+        taskId: 'main-session',
+        taskDescription,
+        actionCount,
+      });
+    } catch (error) {
+      console.warn('[TaskEngine] checkSkillGenerationAfterTask error:', error);
+    }
+  }
+
+  private async autoGenerateSkillFromExternal(
+    actions: SkillGenerationAction[],
+    taskDescription: string
+  ): Promise<void> {
+    if (!this.skillGenerator) return;
+
+    try {
+      const normalizedActions = actions.slice(-10);
+      const shouldGenerate = this.skillGenerator.shouldGenerate(normalizedActions);
+
+      if (shouldGenerate) {
+        const result = await this.skillGenerator.generateFromHistory(
+          'main-session',
+          taskDescription,
+          normalizedActions
+        );
+
+        if (result.success) {
+          console.log('[TaskEngine] Auto-generated skill:', result.skill?.name);
+        }
+      }
+    } catch (error) {
+      console.warn('[TaskEngine] Auto-generate skill failed:', error);
+    }
+  }
+
+  private async autoGenerateSkill(handle: TaskHandle, actionCount: number): Promise<void> {
+    if (!this.skillGenerator || !handle.taskDescription) return;
+
+    try {
+      const taskDescription = handle.taskDescription;
+      const actions = this.buildSkillGenerationActions(this.executedActions.slice(-10));
+
+      const shouldGenerate = this.skillGenerator.shouldGenerate(actions);
+
+      if (shouldGenerate) {
+        const result = await this.skillGenerator.generateFromHistory(
+          handle.id,
+          taskDescription,
+          actions
+        );
+
+        if (result.success) {
+          console.log('[TaskEngine] Auto-generated skill:', result.skill?.name);
+        }
+      }
+    } catch (error) {
+      console.warn('[TaskEngine] Auto-generate skill failed:', error);
+    }
+  }
+
+  async generateSkillFromTask(taskDescription: string, actionCount: number): Promise<void> {
+    if (!this.skillGenerator) return;
+
+    try {
+      const actions =
+        this.pendingSkillActions.length > 0
+          ? this.pendingSkillActions
+          : this.buildSkillGenerationActions(this.executedActions.slice(-10));
+      const effectiveTaskDescription =
+        taskDescription || this.pendingSkillTaskDescription || 'Task';
+
+      const result = await this.skillGenerator.generateFromHistory(
+        generateId(),
+        effectiveTaskDescription,
+        actions
+      );
+
+      if (result.success) {
+        this.sendToRenderer('skill:generated', { skillName: result.skill?.name });
+      } else {
+        console.warn('[TaskEngine] Generate skill failed:', result.error);
+      }
+    } catch (error) {
+      console.warn('[TaskEngine] Generate skill error:', error);
     }
   }
 }

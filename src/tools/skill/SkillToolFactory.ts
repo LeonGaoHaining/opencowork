@@ -8,6 +8,7 @@ import { z } from 'zod';
 import * as fs from 'fs';
 import * as path from 'path';
 import { InstalledSkill } from '../../skills/skillManifest';
+import { getSkillLoader } from '../../skills/skillLoader';
 import { getSkillRunner, SkillRunner } from '../../skills/skillRunner';
 
 export interface ScriptInfo {
@@ -20,6 +21,11 @@ export interface SkillToolConfig {
   skillRunner?: SkillRunner;
 }
 
+export interface SkillToolLevelConfig {
+  level?: 0 | 1 | 2;
+  summaryContent?: string;
+}
+
 export class SkillToolFactory {
   private skillRunner: SkillRunner;
 
@@ -30,7 +36,7 @@ export class SkillToolFactory {
   /**
    * 从已安装的 Skills 创建 LangChain Tools
    */
-  createToolsFromSkills(skills: InstalledSkill[]): any[] {
+  createToolsFromSkills(skills: InstalledSkill[], levelConfig?: SkillToolLevelConfig): any[] {
     console.log('[SkillToolFactory] Creating tools from', skills.length, 'skills');
 
     const tools: any[] = [];
@@ -42,7 +48,7 @@ export class SkillToolFactory {
       }
 
       try {
-        const skillTool = this.createSkillTool(skill);
+        const skillTool = this.createSkillTool(skill, levelConfig);
         tools.push(skillTool);
         console.log(`[SkillToolFactory] Created tool for skill: ${skill.manifest.name}`);
       } catch (error) {
@@ -60,12 +66,12 @@ export class SkillToolFactory {
   /**
    * 从单个 Skill 创建 LangChain Tool
    */
-  private createSkillTool(skill: InstalledSkill) {
+  private createSkillTool(skill: InstalledSkill, levelConfig?: SkillToolLevelConfig) {
     const skillName = this.normalizeSkillName(skill.manifest.name);
-    const description = skill.manifest.description || `执行 ${skill.manifest.name} 技能`;
+    const description = this.buildToolDescription(skill, levelConfig);
 
     // 检测是否有 scripts 目录
-    const scriptInfo = this.detectScriptsDir(skill);
+    const scriptInfo = this.getScriptInfo(skill);
 
     const SkillArgsSchema = z.object({
       input: z.string().describe('用户输入或任务描述'),
@@ -80,8 +86,10 @@ export class SkillToolFactory {
         console.log(`[SkillTool:${skillName}] Executing with input:`, params.input);
 
         try {
+          const fullSkill = await this.loadFullSkill(skill);
+
           // 先执行 skillRunner 获取 SKILL.md 内容
-          const result = await skillRunner.executeSkill(skill, [params.input]);
+          const result = await skillRunner.executeSkill(fullSkill, [params.input]);
 
           if (result.success) {
             console.log(`[SkillTool:${skillName}] Success:`, result.output?.substring(0, 100));
@@ -126,6 +134,29 @@ export class SkillToolFactory {
     return skillTool;
   }
 
+  private buildToolDescription(skill: InstalledSkill, levelConfig?: SkillToolLevelConfig): string {
+    const summaryContent = levelConfig?.summaryContent?.trim();
+
+    if (levelConfig?.level === 0 && summaryContent) {
+      return `${skill.manifest.name}: ${summaryContent}`;
+    }
+
+    if (levelConfig?.level === 1 && summaryContent) {
+      return `${skill.manifest.description || `执行 ${skill.manifest.name} 技能`}\n${summaryContent}`;
+    }
+
+    return skill.manifest.description || `执行 ${skill.manifest.name} 技能`;
+  }
+
+  private async loadFullSkill(skill: InstalledSkill): Promise<InstalledSkill> {
+    const loader = getSkillLoader();
+    const fullSkill = await loader.getSkill(skill.manifest.name);
+    if (!fullSkill) {
+      return skill;
+    }
+    return fullSkill;
+  }
+
   /**
    * 规范化 Skill 名称为合法的 tool 名称
    * 移除空格和特殊字符
@@ -141,7 +172,7 @@ export class SkillToolFactory {
   /**
    * 检测 skill 是否有 scripts 目录
    */
-  private detectScriptsDir(skill: InstalledSkill): ScriptInfo | null {
+  public getScriptInfo(skill: InstalledSkill): ScriptInfo | null {
     const scriptsDir = path.join(skill.manifest.directory, 'scripts');
 
     if (!fs.existsSync(scriptsDir)) {
@@ -206,7 +237,7 @@ export class SkillToolFactory {
   /**
    * 构建脚本信息输出
    */
-  private buildScriptInfoOutput(scriptInfo: ScriptInfo): string {
+  public buildScriptInfoOutput(scriptInfo: ScriptInfo): string {
     return `
 ---
 【可执行脚本】

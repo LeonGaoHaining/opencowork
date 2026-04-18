@@ -175,7 +175,13 @@ export class SkillRecorder {
    * 保存 Skill 到磁盘
    */
   private async saveSkill(skillName: string, content: string, triggers: string[]): Promise<string> {
-    const skillsDir = path.join(process.env.HOME || '/root', '.opencowork', 'skills', skillName);
+    const skillsDir = path.join(
+      process.env.HOME || '/root',
+      '.opencowork',
+      'skills',
+      'agent-created',
+      skillName
+    );
 
     fs.mkdirSync(skillsDir, { recursive: true });
 
@@ -204,6 +210,8 @@ export class SkillRecorder {
     let yamlFrontmatter = '---\n';
     yamlFrontmatter += `name: ${skillName}\n`;
     yamlFrontmatter += `description: ${description}\n`;
+    yamlFrontmatter += `version: 1.0.0\n`;
+    yamlFrontmatter += `source: agent-created\n`;
     yamlFrontmatter += `triggers:\n`;
     yamlFrontmatter += `  - type: keyword\n`;
     yamlFrontmatter += `    value: [${triggers.map((t) => `'${t}'`).join(', ')}]\n`;

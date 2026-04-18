@@ -1,16 +1,30 @@
 import { BrowserWindow, app } from 'electron';
 import * as path from 'path';
 import * as fs from 'fs';
+import { execFile } from 'child_process';
+import { promisify } from 'util';
 import { TaskEngine } from '../core/runtime/TaskEngine';
 import { sessionManager } from './SessionManager';
 import { BrowserExecutor } from '../core/executor/BrowserExecutor';
 import { CLIExecutor } from '../core/executor/CLIExecutor';
 import { ActionType } from '../core/action/ActionSchema';
-import { createMainAgent, MainAgent } from '../agents/mainAgent';
+import { createMainAgent, MainAgent, AgentStep } from '../agents/mainAgent';
 import { ScheduleType } from '../scheduler/types';
 import { getIMConfigStore } from '../config/imConfig';
+import { getSettingsManager } from '../config/settings';
+import { createPreviewWindow } from './window';
+import { getMemoryService } from '../memory';
+import { getTaskStateStore } from '../core/runtime/taskStateStore';
+import {
+  getMCPClient,
+  loadMCPConfig,
+  saveMCPConfig,
+  getMCPSamplingService,
+  getMCPServerMode,
+} from '../mcp';
 
 const taskEngine = new TaskEngine();
+const execFileAsync = promisify(execFile);
 
 let browserExecutor: BrowserExecutor | null = null;
 let cliExecutor: CLIExecutor | null = null;
@@ -19,6 +33,155 @@ let sharedThreadId: string = 'main-session';
 let isAgentInitializing: boolean = false;
 let agentInitPromise: Promise<void> | null = null;
 let agentInitResolver: (() => void) | null = null;
+let detachedPreviewWindow: BrowserWindow | null = null;
+let mcpToolsChangedSubscribed = false;
+let mcpToolsReloadInFlight = false;
+const mcpToolSignatures = new Map<string, string>();
+
+function createMCPToolSignature(
+  tools: Array<{ name: string; description?: string; inputSchema?: unknown }>
+): string {
+  return JSON.stringify(
+    tools
+      .map((tool) => ({
+        name: tool.name,
+        description: tool.description || '',
+        inputSchema: tool.inputSchema || null,
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name))
+  );
+}
+
+function generateAgentThreadId(): string {
+  return `main-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function ensureMCPToolsChangedSubscription(): void {
+  if (mcpToolsChangedSubscribed) {
+    return;
+  }
+
+  getMCPClient().onToolsChanged((serverName, tools) => {
+    const nextSignature = createMCPToolSignature(tools);
+    const previousSignature = mcpToolSignatures.get(serverName);
+    if (previousSignature === nextSignature) {
+      return;
+    }
+
+    mcpToolSignatures.set(serverName, nextSignature);
+    console.log(`[IPC] MCP tools changed: ${serverName}, tools=${tools.length}`);
+    if (sharedMainAgent && !mcpToolsReloadInFlight) {
+      mcpToolsReloadInFlight = true;
+      void sharedMainAgent
+        .reloadSkills()
+        .catch((error) => {
+          console.error('[IPC] Failed to reload agent after MCP tool change:', error);
+        })
+        .finally(() => {
+          mcpToolsReloadInFlight = false;
+        });
+    }
+  });
+
+  mcpToolsChangedSubscribed = true;
+}
+
+ensureMCPToolsChangedSubscription();
+getMCPServerMode().registerTool(
+  'task:status',
+  async ({ handleId }) => taskEngine.getState(handleId),
+  'Get task status by handleId',
+  { handleId: 'string' }
+);
+getMCPServerMode().registerTool('task:list', async () => taskEngine.listTasks(), 'List tasks');
+getMCPServerMode().registerTool(
+  'task:execute',
+  async ({ task, threadId }) => IPC_HANDLERS['task:start'](null, null, { task, threadId }),
+  'Execute a new task',
+  { task: 'string', threadId: 'string?' }
+);
+getMCPServerMode().registerTool(
+  'browser:navigate',
+  async ({ url }) => {
+    const executor = getBrowserExecutor();
+    return executor.execute({
+      id: `mcp-browser-goto-${Date.now()}`,
+      type: ActionType.BROWSER_NAVIGATE,
+      description: 'Navigate to URL',
+      params: { url, waitUntil: 'domcontentloaded' },
+    });
+  },
+  'Navigate browser to a URL',
+  { url: 'string' }
+);
+getMCPServerMode().registerTool(
+  'browser:screenshot',
+  async ({ fullPage = false, selector }) => {
+    const executor = getBrowserExecutor();
+    return executor.execute({
+      id: `mcp-browser-screenshot-${Date.now()}`,
+      type: ActionType.BROWSER_SCREENSHOT,
+      description: 'Take screenshot',
+      params: { fullPage, selector },
+    });
+  },
+  'Take browser screenshot',
+  { fullPage: 'boolean?', selector: 'string?' }
+);
+
+function syncPreviewWindow(window: BrowserWindow | null): void {
+  detachedPreviewWindow = window;
+  taskEngine.setPreviewWindow(window);
+  if (sharedMainAgent) {
+    sharedMainAgent.setPreviewWindow(window);
+  }
+}
+
+function ensureDetachedPreviewWindow(): BrowserWindow {
+  if (detachedPreviewWindow && !detachedPreviewWindow.isDestroyed()) {
+    return detachedPreviewWindow;
+  }
+
+  const window = createPreviewWindow();
+  window.on('closed', () => {
+    syncPreviewWindow(null);
+  });
+  syncPreviewWindow(window);
+  return window;
+}
+
+function closeDetachedPreviewWindow(): void {
+  if (!detachedPreviewWindow || detachedPreviewWindow.isDestroyed()) {
+    syncPreviewWindow(null);
+    return;
+  }
+
+  const window = detachedPreviewWindow;
+  syncPreviewWindow(null);
+  window.close();
+}
+
+function mapAgentStepsToSkillActions(steps: AgentStep[] | undefined): Array<{
+  tool: string;
+  args: unknown;
+  result?: unknown;
+  success: boolean;
+}> {
+  if (!steps || steps.length === 0) return [];
+
+  return steps.map((step) => {
+    const action = typeof step.args?.action === 'string' ? step.args.action : undefined;
+    const tool = action ? `${step.toolName}:${action}` : step.toolName;
+    const success = step.status !== 'error' && step.result?.success !== false;
+
+    return {
+      tool,
+      args: step.args,
+      result: step.result,
+      success,
+    };
+  });
+}
 
 function getBrowserExecutor(): BrowserExecutor {
   if (!browserExecutor) {
@@ -140,7 +303,9 @@ export const IPC_HANDLERS: Record<string, IpcHandler> = {
         agent.setThreadId(threadId);
         sharedThreadId = threadId;
       } else {
-        agent.setThreadId(sharedThreadId);
+        const generatedThreadId = generateAgentThreadId();
+        agent.setThreadId(generatedThreadId);
+        sharedThreadId = generatedThreadId;
       }
 
       const handleId = agent.getThreadId();
@@ -149,6 +314,16 @@ export const IPC_HANDLERS: Record<string, IpcHandler> = {
       const result = await agent.run(task);
 
       console.log('[IPC] MainAgent completed, result:', result.success);
+
+      try {
+        const taskEngine = getTaskEngine();
+        await taskEngine.checkSkillGenerationAfterTask(result, {
+          taskDescription: task,
+          actions: mapAgentStepsToSkillActions(result.steps),
+        });
+      } catch (error) {
+        console.warn('[IPC] checkSkillGeneration error:', error);
+      }
 
       return {
         success: result.success,
@@ -185,6 +360,65 @@ export const IPC_HANDLERS: Record<string, IpcHandler> = {
       await taskEngine.resume(handleId);
     }
     mainWindow?.webContents.send('task:statusUpdate', { handleId, status: 'executing' });
+    return { success: true };
+  },
+
+  'task:interrupt': async (mainWindow, previewWindow, { handleId, reason }) => {
+    if (sharedMainAgent && sharedMainAgent.getThreadId() === handleId) {
+      const state = await sharedMainAgent.interrupt(reason);
+      mainWindow?.webContents.send('task:statusUpdate', { handleId, status: 'paused' });
+      return state;
+    }
+
+    const state = await taskEngine.interrupt(handleId, reason);
+    mainWindow?.webContents.send('task:statusUpdate', { handleId, status: 'paused' });
+    return state;
+  },
+
+  'task:saveState': async (mainWindow, previewWindow, { handleId }) => {
+    if (sharedMainAgent && sharedMainAgent.getThreadId() === handleId) {
+      return await sharedMainAgent.saveState();
+    }
+
+    return await taskEngine.saveState(handleId);
+  },
+
+  'task:restoreState': async (mainWindow, previewWindow, { handleId, state }) => {
+    const persistedState = state || (handleId ? getTaskStateStore().load(handleId) : null);
+    if (
+      persistedState?.runtimeType === 'main-agent' ||
+      (!persistedState && sharedMainAgent?.getThreadId() === handleId)
+    ) {
+      if (!sharedMainAgent) {
+        sharedMainAgent = await createMainAgent({
+          threadId: persistedState?.threadId || handleId,
+          logger: { level: 'debug', output: 'console' },
+        });
+      }
+      sharedMainAgent.setMainWindow(mainWindow);
+      sharedMainAgent.setPreviewWindow(previewWindow);
+
+      const result = await sharedMainAgent.restoreFromState(persistedState);
+      return {
+        handle: sharedMainAgent.getThreadId(),
+        status: sharedMainAgent.getStatus(),
+        resumed: result.success,
+      };
+    }
+
+    const restoredHandle = await taskEngine.restoreState(state || handleId);
+    return {
+      handle: restoredHandle.id,
+      status: restoredHandle.status,
+    };
+  },
+
+  'task:listSavedStates': async () => {
+    return getTaskStateStore().list();
+  },
+
+  'task:deleteSavedState': async (mainWindow, previewWindow, { handleId }) => {
+    getTaskStateStore().delete(handleId);
     return { success: true };
   },
 
@@ -226,6 +460,24 @@ export const IPC_HANDLERS: Record<string, IpcHandler> = {
     }
     const status = taskEngine.getState(handleId);
     return { status };
+  },
+
+  'task:checkLoginPopup': async () => {
+    return await taskEngine.checkAndHandleLoginPopup();
+  },
+
+  'preview:setMode': async (mainWindow, previewWindow, { mode }) => {
+    if (mode === 'detached') {
+      ensureDetachedPreviewWindow();
+      return { success: true, mode };
+    }
+
+    if (mode === 'sidebar') {
+      closeDetachedPreviewWindow();
+      return { success: true, mode };
+    }
+
+    return { success: false, error: `Unsupported preview mode: ${mode}` };
   },
 
   // IM配置相关
@@ -842,7 +1094,14 @@ export const IPC_HANDLERS: Record<string, IpcHandler> = {
     try {
       const { getHistoryService } = await import('../history/historyService.js');
       const historyService = getHistoryService();
-      const result = await historyService.replayTask(taskId);
+      const task = await historyService.getTask(taskId);
+      if (!task) {
+        return { success: false, error: `Task not found: ${taskId}` };
+      }
+
+      const result = await IPC_HANDLERS['task:start'](mainWindow, previewWindow, {
+        task: task.task,
+      });
       return { success: true, data: result };
     } catch (error: any) {
       console.error('[IPC] history:replay error:', error);
@@ -850,15 +1109,134 @@ export const IPC_HANDLERS: Record<string, IpcHandler> = {
     }
   },
 
-  'skill:list': async (mainWindow, previewWindow) => {
+  'history:search': async (mainWindow, previewWindow, { query, options } = {}) => {
+    try {
+      const { getHistoryService } = await import('../history/historyService.js');
+      const historyService = getHistoryService();
+      const results = await historyService.search(query || '', options || {});
+      return { success: true, data: results };
+    } catch (error: any) {
+      console.error('[IPC] history:search error:', error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  'history:summarizeSearch': async (mainWindow, previewWindow, { query, options } = {}) => {
+    try {
+      const { getHistoryService } = await import('../history/historyService.js');
+      const historyService = getHistoryService();
+      const results = await historyService.search(query || '', options || {});
+      const summary = await historyService.summarizeSearch(query || '', results);
+      return {
+        success: true,
+        data: {
+          results,
+          summary,
+        },
+      };
+    } catch (error: any) {
+      console.error('[IPC] history:summarizeSearch error:', error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  'skill:list': async (mainWindow, previewWindow, payload = {}) => {
     try {
       const { SkillMarket } = await import('../skills/skillMarket.js');
       const market = new SkillMarket();
-      const skills = await market.listInstalledSkills();
+      const skills = await market.listInstalledSkills(payload.source);
       return skills;
     } catch (error: any) {
       console.error('[IPC] skill:list error:', error);
       return [];
+    }
+  },
+
+  'skill:get': async (mainWindow, previewWindow, { name }: { name: string }) => {
+    try {
+      const { SkillMarket } = await import('../skills/skillMarket.js');
+      const market = new SkillMarket();
+      const skill = await market.getSkillManifest(name);
+      return skill?.manifest || null;
+    } catch (error: any) {
+      console.error('[IPC] skill:get error:', error);
+      return null;
+    }
+  },
+
+  'skill:save': async (mainWindow, previewWindow, payload) => {
+    try {
+      const { SkillMarket } = await import('../skills/skillMarket.js');
+      const market = new SkillMarket();
+      const frontmatter = payload.frontmatter || {
+        name: payload.name,
+        description: payload.description,
+      };
+      await market.saveSkill(
+        frontmatter,
+        payload.content,
+        payload.source || frontmatter.source || 'agent-created'
+      );
+      return { success: true };
+    } catch (error: any) {
+      console.error('[IPC] skill:save error:', error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  'skill:update': async (mainWindow, previewWindow, payload) => {
+    try {
+      const { SkillMarket } = await import('../skills/skillMarket.js');
+      const market = new SkillMarket();
+      const frontmatter = payload.frontmatter || {
+        name: payload.name,
+        description: payload.description,
+      };
+      await market.saveSkill(
+        frontmatter,
+        payload.content,
+        payload.source || frontmatter.source || 'agent-created'
+      );
+      return { success: true };
+    } catch (error: any) {
+      console.error('[IPC] skill:update error:', error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  'skill:patch': async (mainWindow, previewWindow, { name, patch, source }) => {
+    try {
+      const { SkillMarket } = await import('../skills/skillMarket.js');
+      const market = new SkillMarket();
+      await market.patchSkill(name, patch, source || 'agent-created');
+      return { success: true };
+    } catch (error: any) {
+      console.error('[IPC] skill:patch error:', error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  'skill:delete': async (mainWindow, previewWindow, { name, source }) => {
+    try {
+      const { SkillMarket } = await import('../skills/skillMarket.js');
+      const market = new SkillMarket();
+      await market.deleteSkill(name, source || 'agent-created');
+      return { success: true };
+    } catch (error: any) {
+      console.error('[IPC] skill:delete error:', error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  'skill:increment': async (mainWindow, previewWindow, { name, source }) => {
+    try {
+      const { SkillMarket } = await import('../skills/skillMarket.js');
+      const market = new SkillMarket();
+      await market.incrementUsageCount(name, source || 'agent-created');
+      return { success: true };
+    } catch (error: any) {
+      console.error('[IPC] skill:increment error:', error);
+      return { success: false, error: error.message };
     }
   },
 
@@ -871,6 +1249,90 @@ export const IPC_HANDLERS: Record<string, IpcHandler> = {
     } catch (error: any) {
       console.error('[IPC] skill:install error:', error);
       return { success: false, error: error.message };
+    }
+  },
+
+  'skill:selectDirectory': async (mainWindow) => {
+    try {
+      const { dialog } = await import('electron');
+      const result = mainWindow
+        ? await dialog.showOpenDialog(mainWindow, {
+            properties: ['openDirectory'],
+            title: 'Select Skill Directory',
+          })
+        : await dialog.showOpenDialog({
+            properties: ['openDirectory'],
+            title: 'Select Skill Directory',
+          });
+
+      if (result.canceled || result.filePaths.length === 0) {
+        return { success: false, cancelled: true };
+      }
+
+      return { success: true, path: result.filePaths[0] };
+    } catch (error: any) {
+      console.error('[IPC] skill:selectDirectory error:', error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  'skill:validateDirectory': async (mainWindow, previewWindow, { path: skillPath }) => {
+    try {
+      if (!skillPath || typeof skillPath !== 'string') {
+        return {
+          success: false,
+          valid: false,
+          error: 'Skill path is required',
+          code: 'PATH_REQUIRED',
+        };
+      }
+
+      const resolvedPath = path.resolve(skillPath);
+      const stats = await fs.promises.stat(resolvedPath).catch(() => null);
+      if (!stats?.isDirectory()) {
+        return {
+          success: false,
+          valid: false,
+          error: 'Selected path is not a directory',
+          code: 'NOT_DIRECTORY',
+          path: resolvedPath,
+        };
+      }
+
+      const manifestPath = path.join(resolvedPath, 'SKILL.md');
+      const manifestStats = await fs.promises.stat(manifestPath).catch(() => null);
+      if (!manifestStats?.isFile()) {
+        return {
+          success: false,
+          valid: false,
+          error: 'SKILL.md not found in selected directory',
+          code: 'MISSING_SKILL_MD',
+          path: resolvedPath,
+        };
+      }
+
+      let preview: { name?: string; description?: string } = {};
+      try {
+        const { parseSkillFrontmatter } = await import('../skills/skillManifest.js');
+        const content = await fs.promises.readFile(manifestPath, 'utf-8');
+        const { frontmatter } = parseSkillFrontmatter(content);
+        preview = {
+          name: frontmatter.name || path.basename(resolvedPath),
+          description: frontmatter.description || '',
+        };
+      } catch (error) {
+        console.warn('[IPC] skill:validateDirectory preview parse failed:', error);
+      }
+
+      return {
+        success: true,
+        valid: true,
+        path: resolvedPath,
+        preview,
+      };
+    } catch (error: any) {
+      console.error('[IPC] skill:validateDirectory error:', error);
+      return { success: false, valid: false, error: error.message, code: 'VALIDATION_ERROR' };
     }
   },
 
@@ -889,13 +1351,333 @@ export const IPC_HANDLERS: Record<string, IpcHandler> = {
   'skill:openDirectory': async (mainWindow, previewWindow) => {
     try {
       const { shell } = await import('electron');
-      const homeDir = process.env.HOME || process.env.USERPROFILE || '~';
-      const skillsDir = `${homeDir}/.opencowork/skills`;
-      await shell.openPath(skillsDir);
-      return { success: true };
+      const { SkillMarket } = await import('../skills/skillMarket.js');
+      const market = new SkillMarket();
+      const skillsDir = await market.getSkillsDirectory();
+      const candidatePaths = [path.join(skillsDir, 'agent-created'), skillsDir];
+      const attemptedPaths: string[] = [];
+      const attemptedStrategies: string[] = [];
+
+      for (const candidatePath of candidatePaths) {
+        attemptedPaths.push(candidatePath);
+        attemptedStrategies.push(`shell.openPath:${candidatePath}`);
+        const openResult = await shell.openPath(candidatePath);
+        if (!openResult) {
+          return { success: true, path: candidatePath, strategy: 'shell.openPath' };
+        }
+      }
+
+      if (process.platform === 'linux') {
+        const linuxOpenCommands: Array<{
+          command: string;
+          args: (targetPath: string) => string[];
+        }> = [
+          { command: 'gio', args: (targetPath: string) => ['open', targetPath] },
+          { command: 'xdg-open', args: (targetPath: string) => [targetPath] },
+        ];
+        for (const { command, args } of linuxOpenCommands) {
+          for (const candidatePath of candidatePaths) {
+            attemptedStrategies.push(`${command}:${candidatePath}`);
+            try {
+              await execFileAsync(command, args(candidatePath), { timeout: 5000 });
+              return { success: true, path: candidatePath, strategy: command };
+            } catch (error) {
+              // continue to next strategy
+            }
+          }
+        }
+      }
+
+      for (const candidatePath of candidatePaths) {
+        const entries = await fs.promises.readdir(candidatePath).catch(() => []);
+        const skillDir = entries.find((entry) =>
+          fs.existsSync(path.join(candidatePath, entry, 'SKILL.md'))
+        );
+        if (skillDir) {
+          const skillFilePath = path.join(candidatePath, skillDir, 'SKILL.md');
+          attemptedStrategies.push(`shell.showItemInFolder:${skillFilePath}`);
+          shell.showItemInFolder(skillFilePath);
+          return { success: true, path: skillFilePath, strategy: 'shell.showItemInFolder' };
+        }
+      }
+
+      return {
+        success: false,
+        error: 'The item does not exist',
+        path: skillsDir,
+        attemptedPaths,
+        attemptedStrategies,
+      };
     } catch (error: any) {
       console.error('[IPC] skill:openDirectory error:', error);
       return { success: false, error: error.message };
     }
+  },
+
+  'settings:get': async () => {
+    try {
+      const settingsManager = getSettingsManager();
+      return settingsManager.get();
+    } catch (error: any) {
+      console.error('[IPC] settings:get error:', error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  'settings:set': async (mainWindow, previewWindow, payload) => {
+    try {
+      const settingsManager = getSettingsManager();
+      if (payload.skill) {
+        settingsManager.setSkillSettings(payload.skill);
+      }
+      if (payload.preview) {
+        settingsManager.setPreviewSettings(payload.preview);
+      }
+      return { success: true };
+    } catch (error: any) {
+      console.error('[IPC] settings:set error:', error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  'skill:generate': async (mainWindow, previewWindow, payload) => {
+    try {
+      const { taskDescription, actionCount, rememberChoice } = payload;
+      const taskEngine = getTaskEngine();
+      await taskEngine.generateSkillFromTask(taskDescription, actionCount);
+      return { success: true };
+    } catch (error: any) {
+      console.error('[IPC] skill:generate error:', error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  'memory:read': async () => {
+    try {
+      const homeDir = process.env.HOME || process.env.USERPROFILE || '~';
+      return await getMemoryService(homeDir).read();
+    } catch (error: any) {
+      console.error('[IPC] memory:read error:', error);
+      return '# MEMORY.md\n\n- ';
+    }
+  },
+
+  'memory:add': async (mainWindow, previewWindow, { content }) => {
+    try {
+      const homeDir = process.env.HOME || process.env.USERPROFILE || '~';
+      const success = await getMemoryService(homeDir).add(content);
+      return { success };
+    } catch (error: any) {
+      console.error('[IPC] memory:add error:', error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  'memory:replace': async (mainWindow, previewWindow, { oldText, newText }) => {
+    try {
+      const homeDir = process.env.HOME || process.env.USERPROFILE || '~';
+      const success = await getMemoryService(homeDir).replace(oldText, newText);
+      return { success };
+    } catch (error: any) {
+      console.error('[IPC] memory:replace error:', error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  'memory:remove': async (mainWindow, previewWindow, { text }) => {
+    try {
+      const homeDir = process.env.HOME || process.env.USERPROFILE || '~';
+      const success = await getMemoryService(homeDir).remove(text);
+      return { success };
+    } catch (error: any) {
+      console.error('[IPC] memory:remove error:', error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  'memory:inject': async () => {
+    try {
+      const homeDir = process.env.HOME || process.env.USERPROFILE || '~';
+      return await getMemoryService(homeDir).inject();
+    } catch (error: any) {
+      console.error('[IPC] memory:inject error:', error);
+      return '';
+    }
+  },
+
+  'memory:scan': async (mainWindow, previewWindow, { content }) => {
+    try {
+      const homeDir = process.env.HOME || process.env.USERPROFILE || '~';
+      return getMemoryService(homeDir).scan(content);
+    } catch (error: any) {
+      console.error('[IPC] memory:scan error:', error);
+      return { safe: false, dangerousPatterns: [] };
+    }
+  },
+
+  'mcp:listServers': async () => {
+    const client = getMCPClient();
+    const config = loadMCPConfig();
+    const connected = client.listServers();
+    const connectedMap = new Map(connected.map((server) => [server.name, server]));
+
+    return Object.entries(config.servers).map(([name, serverConfig]) => ({
+      name,
+      config: serverConfig,
+      status: connectedMap.get(name)?.status || 'disconnected',
+      toolCount: connectedMap.get(name)?.tools.length || 0,
+      error: connectedMap.get(name)?.error,
+    }));
+  },
+
+  'mcp:listTools': async (mainWindow, previewWindow, { serverName }) => {
+    const client = getMCPClient();
+    if (serverName) {
+      return await client.listTools(serverName);
+    }
+    return Array.from(client.getAllTools().values());
+  },
+
+  'mcp:saveConfig': async (mainWindow, previewWindow, { serverName, config }) => {
+    if (!serverName || !config) {
+      return { success: false, error: 'serverName and config are required' };
+    }
+
+    const fileConfig = loadMCPConfig();
+    fileConfig.servers[serverName] = config;
+    saveMCPConfig(fileConfig);
+    return { success: true };
+  },
+
+  'mcp:getConfig': async () => {
+    return loadMCPConfig();
+  },
+
+  'mcp:updateSettings': async (mainWindow, previewWindow, payload) => {
+    const fileConfig = loadMCPConfig();
+    fileConfig.sampling = {
+      ...fileConfig.sampling,
+      ...(payload?.sampling || {}),
+      rateLimit: {
+        ...fileConfig.sampling.rateLimit,
+        ...(payload?.sampling?.rateLimit || {}),
+      },
+    };
+    fileConfig.server = {
+      ...fileConfig.server,
+      ...(payload?.server || {}),
+    };
+    saveMCPConfig(fileConfig);
+    return { success: true, data: fileConfig };
+  },
+
+  'mcp:connect': async (mainWindow, previewWindow, { serverName, config }) => {
+    const client = getMCPClient();
+    const fileConfig = loadMCPConfig();
+    const resolvedConfig = config || fileConfig.servers[serverName];
+    if (!resolvedConfig) {
+      return { success: false, error: `MCP config not found for ${serverName}` };
+    }
+
+    await client.connect(serverName, resolvedConfig);
+    fileConfig.servers[serverName] = resolvedConfig;
+    saveMCPConfig(fileConfig);
+
+    if (sharedMainAgent) {
+      await sharedMainAgent.reloadSkills();
+    }
+
+    return {
+      success: true,
+      server: client.getServerState(serverName),
+    };
+  },
+
+  'mcp:disconnect': async (mainWindow, previewWindow, { serverName }) => {
+    const client = getMCPClient();
+    await client.disconnect(serverName);
+
+    if (sharedMainAgent) {
+      await sharedMainAgent.reloadSkills();
+    }
+
+    return { success: true };
+  },
+
+  'mcp:sample': async (mainWindow, previewWindow, payload) => {
+    try {
+      return {
+        success: true,
+        data: await getMCPSamplingService().handleSamplingRequest(payload),
+      };
+    } catch (error: any) {
+      return { success: false, error: error.message };
+    }
+  },
+
+  'mcp:refreshTools': async (mainWindow, previewWindow, { serverName }) => {
+    try {
+      const client = getMCPClient();
+      if (serverName) {
+        return { success: true, data: await client.refreshTools(serverName) };
+      }
+
+      const refreshed = await Promise.all(
+        client
+          .listServers()
+          .filter((server) => server.status === 'connected')
+          .map(async (server) => ({
+            serverName: server.name,
+            tools: await client.refreshTools(server.name),
+          }))
+      );
+      return { success: true, data: refreshed };
+    } catch (error: any) {
+      return { success: false, error: error.message };
+    }
+  },
+
+  'mcp:serverStart': async () => {
+    try {
+      const config = loadMCPConfig();
+      await getMCPServerMode().startServer(config.server.port);
+      return { success: true, data: getMCPServerMode().getStatus() };
+    } catch (error: any) {
+      return { success: false, error: error.message };
+    }
+  },
+
+  'mcp:serverStop': async () => {
+    try {
+      await getMCPServerMode().stopServer();
+      return { success: true, data: getMCPServerMode().getStatus() };
+    } catch (error: any) {
+      return { success: false, error: error.message };
+    }
+  },
+
+  'mcp:serverStatus': async () => {
+    return { success: true, data: getMCPServerMode().getStatus() };
+  },
+
+  'mcp:deleteServer': async (mainWindow, previewWindow, { serverName }) => {
+    const client = getMCPClient();
+    const fileConfig = loadMCPConfig();
+
+    if (fileConfig.servers[serverName]) {
+      delete fileConfig.servers[serverName];
+      saveMCPConfig(fileConfig);
+    }
+
+    const serverState = client.getServerState(serverName);
+    if (serverState && serverState.status !== 'disconnected') {
+      await client.disconnect(serverName);
+    }
+
+    if (sharedMainAgent) {
+      await sharedMainAgent.reloadSkills();
+    }
+
+    return { success: true };
   },
 };

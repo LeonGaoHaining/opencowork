@@ -1,55 +1,71 @@
 import React, { useState } from 'react';
 import { useTaskStore } from '../stores/taskStore';
+import { useTranslation } from '../i18n/useTranslation';
 
 export function ChatInput() {
   const [input, setInput] = useState('');
-  const { addMessage, setTask, updateTaskStatus } = useTaskStore();
+  const { addMessage, setTask, task, updateTaskStatus } = useTaskStore();
+  const { t } = useTranslation();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!input.trim()) return;
 
-    const taskId = `task-${Date.now()}`;
+    const taskDescription = input.trim();
+    const continuationThreadId = task?.id || undefined;
+    const taskId = continuationThreadId || `task-${Date.now()}`;
 
     // Add user message
-    addMessage({ role: 'user', content: input });
+    addMessage({ role: 'user', content: taskDescription });
 
     // Create a new task
     setTask({
       id: taskId,
       status: 'planning',
-      description: input,
+      description: taskDescription,
       progress: { current: 0, total: 0 },
     });
 
     // Add AI response
     addMessage({
       role: 'ai',
-      content: '任务已创建，开始执行...',
+      content: t('chatUI.taskCreated'),
     });
 
     setInput('');
 
     // Debug: check if electron API exists
     console.log('[Renderer] window.electron:', window.electron);
-    
+
     // Send to main process via IPC
     try {
       if (!window.electron) {
         throw new Error('window.electron not defined');
       }
-      const result = await window.electron.invoke('task:start', { task: input });
+      const result = await window.electron.invoke('task:start', {
+        task: taskDescription,
+        threadId: continuationThreadId,
+      });
       console.log('[Renderer] IPC result:', result);
-      if (result?.success) {
-        updateTaskStatus('executing');
+      const payload = result?.data || result;
+      if (result?.success && payload?.success !== false) {
+        const handleId = payload?.handle || taskId;
+        setTask({
+          id: handleId,
+          status: 'executing',
+          description: taskDescription,
+          progress: { current: 0, total: 0 },
+        });
+      } else {
+        throw new Error(payload?.error || result?.error || t('chatUI.taskStartFailed'));
       }
     } catch (error) {
       console.error('[Renderer] Failed to start task:', error);
       updateTaskStatus('failed');
       addMessage({
         role: 'ai',
-        content: `错误: ${error instanceof Error ? error.message : '启动任务失败'}`,
+        content: `${t('chatUI.errorPrefix')}: ${error instanceof Error ? error.message : t('chatUI.taskStartFailed')}`,
       });
     }
   };
@@ -60,11 +76,11 @@ export function ChatInput() {
         type="text"
         value={input}
         onChange={(e) => setInput(e.target.value)}
-        placeholder="输入任务描述..."
+        placeholder={t('chatUI.placeholder')}
         className="input flex-1"
       />
       <button type="submit" className="btn btn-primary px-6" disabled={!input.trim()}>
-        发送
+        {t('chatUI.send')}
       </button>
     </form>
   );

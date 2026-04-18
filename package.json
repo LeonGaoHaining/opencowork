@@ -1,7 +1,7 @@
 {
   "name": "opencowork",
-  "version": "0.10.9",
-  "description": "AI Native Desktop Agent - 让 AI 像人类一样操作电脑",
+  "version": "0.10.10",
+  "description": "Open-source desktop AI agent with browser automation, skills, and MCP support",
   "homepage": "https://opencowork.me",
   "repository": {
     "type": "git",
@@ -39,9 +39,13 @@
     "llm",
     "gpt",
     "automation",
-    "productivity"
+    "productivity",
+    "mcp",
+    "desktop-agent",
+    "ai-automation"
   ],
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
     "@langchain/core": "latest",
     "@langchain/langgraph": "latest",
     "@langchain/langgraph-checkpoint-sqlite": "latest",

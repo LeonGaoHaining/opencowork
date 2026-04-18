@@ -1,94 +1,46 @@
-# 代码审核上下文
+# Audit Context
 
-> 本文件定义了代码审核时的背景前提和优先级标准。
+This document explains the operating assumptions used when reviewing OpenCowork changes.
 
-## 部署场景
+## Deployment Context
 
-**AI 专用设备**
+OpenCowork is frequently used in a trusted single-user AI device environment.
 
-- 系统运行在专用的 AI 设备中
-- 非公开部署，环境内部可信
-- 用户为设备所有者，非普通消费者
+That means code review should focus first on issues that break runtime stability, task continuity, and long-running reliability.
 
-## 安全级别
+## Review Priorities
 
-| 级别         | 说明                       |
-| ------------ | -------------------------- |
-| **内部信任** | CLI 注入、路径穿越等可接受 |
-| **单用户**   | XSS 影响较小               |
-| **自我管理** | 用户对设备有完全控制权     |
+### P0
 
-## 代码审核优先级
+- memory leaks,
+- process crashes,
+- resource leaks,
+- hung tasks with no timeout protection,
+- severe race conditions.
 
-### P0 - 必须修复（立即）
+### P1
 
-| 问题类型 | 影响                                          |
-| -------- | --------------------------------------------- |
-| 内存泄漏 | 长时间运行 OOM，设备崩溃                      |
-| 进程崩溃 | uncaught exception 导致服务中断               |
-| 资源泄漏 | cleanup() 未调用，文件描述符/BrowserView 耗尽 |
-| 任务挂起 | 无超时保护，任务永不完成                      |
-| 竞态条件 | 导致进程冻结、数据损坏                        |
+- intermittent race conditions,
+- missing timeout protection,
+- data corruption or unguarded parsing,
+- busy loops and avoidable performance degradation.
 
-### P1 - 应该修复（尽快）
+### P2
 
-| 问题类型     | 影响                                    |
-| ------------ | --------------------------------------- |
-| 竞态条件     | 可能导致偶发性崩溃                      |
-| 超时保护缺失 | 长时间无响应                            |
-| 数据损坏     | JSON.parse 无 try-catch，文件损坏时崩溃 |
-| 忙等待       | CPU 占用率高                            |
+- general type-safety debt,
+- duplication,
+- minor maintainability concerns.
 
-### P2 - 可忽略（技术债务）
+## Review Emphasis
 
-| 问题类型         | 说明                           |
-| ---------------- | ------------------------------ |
-| TypeScript `any` | 类型安全问题在可信环境下影响小 |
-| 代码重复         | 不影响功能                     |
-| 空 catch 块      | 仅降低可调试性                 |
-| 安全限制过严     | AI 设备场景下不需要            |
+- listener cleanup,
+- timer cleanup,
+- bounded in-memory collections,
+- async error handling,
+- recoverability after partial failure,
+- browser and window cleanup,
+- checkpoint and restore safety.
 
-## 可忽略的安全问题
+## Why This Matters
 
-以下安全问题在 AI 设备场景下可忽略：
-
-- CLI Executor shell 注入
-- 路径穿越漏洞
-- 黑名单命令绕过
-- `cat *`、`rm -rf` 等危险命令
-- SQL 注入（内部数据）
-- 单用户 XSS
-
-## 稳定性关注点
-
-审核时应重点关注：
-
-1. **内存管理**
-   - EventEmitter listeners 是否清理
-   - setInterval/setTimeout 是否清理
-   - Map/Array 是否无限增长
-
-2. **异步安全**
-   - unhandled promise rejection
-   - 异步操作中的竞态条件
-   - 超时保护
-
-3. **资源清理**
-   - cleanup() 方法是否被调用
-   - BrowserView/BrowserWindow 是否销毁
-   - 文件句柄是否关闭
-
-4. **错误恢复**
-   - 关键操作是否有 try-catch
-   - 崩溃后是否能恢复
-   - 是否有健康检查机制
-
-## 变更记录
-
-| 日期       | 版本 | 变更内容 |
-| ---------- | ---- | -------- |
-| 2026-03-31 | v1.0 | 初始版本 |
-
----
-
-_本文档用于指导代码审核，确保审核标准与产品部署场景一致。_
+OpenCowork is an agent runtime, not just a UI app. The most important failures are the ones that quietly degrade long-running automation or destabilize operator trust.

@@ -112,7 +112,8 @@ export const useIMStore = create<IMStore>((set, get) => ({
     set({ isSaving: true, message: null });
     try {
       const result = await window.electron.invoke('im:save', { platform, config });
-      if (result.success) {
+      const payload = result?.data || result;
+      if (result?.success && payload?.success !== false) {
         set((state) => ({
           configs: { ...state.configs, [platform]: config },
           message: { type: 'success', text: '配置保存成功' },
@@ -123,7 +124,7 @@ export const useIMStore = create<IMStore>((set, get) => ({
         }));
         return true;
       } else {
-        set({ message: { type: 'error', text: result.error || '保存失败' } });
+        set({ message: { type: 'error', text: payload?.error || result?.error || '保存失败' } });
         return false;
       }
     } catch (error: any) {
@@ -144,12 +145,13 @@ export const useIMStore = create<IMStore>((set, get) => ({
           setTimeout(() => reject(new Error('连接超时(5s)')), 5000)
         ),
       ]);
+      const payload = result?.data || result;
 
-      if (result.success) {
+      if (result?.success && payload?.success !== false) {
         set({ message: { type: 'success', text: '连接成功' } });
         return true;
       } else {
-        set({ message: { type: 'error', text: result.error || '连接失败' } });
+        set({ message: { type: 'error', text: payload?.error || result?.error || '连接失败' } });
         return false;
       }
     } catch (error: any) {
