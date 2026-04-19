@@ -12,6 +12,8 @@ OpenCowork is evolving from an internal high-velocity agent shell into a Browser
 - browser automation,
 - skill installation and execution,
 - task history and recovery groundwork,
+- unified task runs and persisted task results,
+- reusable templates with parameterized reruns,
 - Feishu integration,
 - MCP client support,
 - MCP server mode,
@@ -24,7 +26,8 @@ The current codebase is entering an architectural convergence phase:
 - unify task models across chat, scheduler, IM, and history,
 - introduce a result-oriented task pipeline,
 - reduce direct entry-point to agent coupling,
-- prepare template-ready task abstractions for future automation reuse.
+- prepare template-ready task abstractions for future automation reuse,
+- harden the result sidebar, run scoping, and reusable workflow quality.
 
 ### Recently completed
 
@@ -36,6 +39,10 @@ The current codebase is entering an architectural convergence phase:
 - scheduler template execution with stored result metadata,
 - IM template commands, recent-task result summaries, and run links,
 - first-stage task orchestration convergence across chat, scheduler, IM, and replay.
+- result delivery moved into the sidebar execution area,
+- overview metrics panel restored and guarded against partial payloads,
+- broader i18n coverage for template, runs, result, history, and IM task surfaces,
+- regression coverage for template validation, result persistence, run-to-template conversion, IM run links, and result-first history rendering.
 
 ## Near-Term Roadmap
 
@@ -64,6 +71,7 @@ The current codebase is entering an architectural convergence phase:
 - Task templates and parameterized reruns.
 - Shared task model across chat, scheduler, IM, replay, and MCP.
 - Result-centric history and template-centric reuse flows.
+- Result delivery in the sidebar and stronger run inspection UX.
 - More productized skills and clearer skill contracts.
 - Better docs and example configurations.
 - Improved tests for browser, task, history, and template flows.

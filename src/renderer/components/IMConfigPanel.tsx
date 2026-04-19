@@ -334,7 +334,7 @@ export function IMConfigPanel() {
                         )}
                         {typeof task.artifactsCount === 'number' && (
                           <div className="mt-1 text-[11px] text-text-muted">
-                            artifacts: {task.artifactsCount}
+                            {t('taskPanels.artifacts')}: {task.artifactsCount}
                           </div>
                         )}
                         <div className="mt-2 flex items-center gap-2">
@@ -344,7 +344,7 @@ export function IMConfigPanel() {
                               onClick={() => openRunsPanel(task.runId as string)}
                               className="rounded px-2 py-1 text-xs text-primary hover:bg-primary/10"
                             >
-                              View Run
+                              {t('taskPanels.viewRun')}
                             </button>
                           )}
                         </div>

@@ -1,5 +1,8 @@
 import { AnyAction, ActionResult, CLIExecuteAction } from '../action/ActionSchema';
 import { exec } from 'child_process';
+import * as fs from 'fs';
+import * as os from 'os';
+import * as path from 'path';
 
 const CLI_WHITELIST: Record<string, string[]> = {
   git: ['status', 'pull', 'push', 'clone', 'log', 'diff', 'branch', 'checkout', 'fetch'],
@@ -42,10 +45,11 @@ export class CLIExecutor {
 
     const cliAction = action as CLIExecuteAction;
     const { command, workingDir, env } = cliAction.params;
+    const normalizedCommand = this.normalizeCommand(command, workingDir);
 
-    console.log(`[CLIExecutor] Executing: ${command}`);
+    console.log(`[CLIExecutor] Executing: ${normalizedCommand}`);
 
-    const validation = this.validateCommand(command);
+    const validation = this.validateCommand(normalizedCommand);
     if (!validation.valid) {
       return {
         success: false,
@@ -88,7 +92,7 @@ export class CLIExecutor {
         });
       }, commandTimeout);
 
-      exec(command, options, (error, stdout, stderr) => {
+      exec(normalizedCommand, options, (error, stdout, stderr) => {
         if (timeoutId) {
           clearTimeout(timeoutId);
           timeoutId = null;
@@ -145,6 +149,29 @@ export class CLIExecutor {
         }
       });
     });
+  }
+
+  private normalizeCommand(command: string, workingDir?: string): string {
+    if (!command.includes('create_ppt.py') || command.includes('--content-file')) {
+      return command;
+    }
+
+    const match = command.match(/^(.*?create_ppt\.py\b.*?--content)\s+'([\s\S]*)'\s*$/);
+    if (!match) {
+      return command;
+    }
+
+    try {
+      const [, prefix, rawContent] = match;
+      const tempDir = workingDir || os.tmpdir();
+      const tempFile = path.join(tempDir, `ppt-content-${Date.now()}.json`);
+      fs.writeFileSync(tempFile, rawContent, 'utf-8');
+      const quotedPath = JSON.stringify(tempFile);
+      return prefix.replace(/--content$/, '--content-file') + ` ${quotedPath}`;
+    } catch (error) {
+      console.warn('[CLIExecutor] Failed to normalize PPT content command:', error);
+      return command;
+    }
   }
 
   private validateCommand(command: string): { valid: boolean; error?: string } {

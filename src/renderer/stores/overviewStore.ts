@@ -32,6 +32,51 @@ export interface OverviewMetrics {
   };
 }
 
+const EMPTY_METRICS: OverviewMetrics = {
+  summary: {
+    totalTasks: 0,
+    completedTasks: 0,
+    failedTasks: 0,
+    runningTasks: 0,
+    successRate: 0,
+    avgDurationMs: 0,
+    totalDurationMs: 0,
+  },
+  sourceStats: {},
+  dailyStats: {},
+  schedulerStats: {
+    totalSchedules: 0,
+    activeSchedules: 0,
+  },
+  imStats: {
+    total: 0,
+    pending: 0,
+    completed: 0,
+    failed: 0,
+  },
+};
+
+function normalizeOverviewMetrics(payload: any): OverviewMetrics {
+  return {
+    summary: {
+      ...EMPTY_METRICS.summary,
+      ...(payload?.summary || {}),
+    },
+    sourceStats:
+      payload?.sourceStats && typeof payload.sourceStats === 'object' ? payload.sourceStats : {},
+    dailyStats:
+      payload?.dailyStats && typeof payload.dailyStats === 'object' ? payload.dailyStats : {},
+    schedulerStats: {
+      ...EMPTY_METRICS.schedulerStats,
+      ...(payload?.schedulerStats || {}),
+    },
+    imStats: {
+      ...EMPTY_METRICS.imStats,
+      ...(payload?.imStats || {}),
+    },
+  };
+}
+
 interface OverviewState {
   metrics: OverviewMetrics | null;
   isLoading: boolean;
@@ -63,7 +108,7 @@ export const useOverviewStore = create<OverviewState>((set, get) => ({
       const response = await window.electron.invoke('overview:getMetrics', { dateRange });
       const payload = response?.data;
       if (response?.success && payload) {
-        set({ metrics: payload });
+        set({ metrics: normalizeOverviewMetrics(payload) });
       } else {
         throw new Error(response?.error || 'Failed to load metrics');
       }

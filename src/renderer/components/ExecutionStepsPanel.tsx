@@ -2,7 +2,11 @@ import React, { useEffect, useRef } from 'react';
 import { useTaskStore, AgentStep } from '../stores/taskStore';
 import { useTranslation } from '../i18n/useTranslation';
 
-export function ExecutionStepsPanel() {
+interface ExecutionStepsPanelProps {
+  embedded?: boolean;
+}
+
+export function ExecutionStepsPanel({ embedded = false }: ExecutionStepsPanelProps) {
   const { activeSteps, task } = useTaskStore();
   const { t } = useTranslation();
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -138,7 +142,7 @@ export function ExecutionStepsPanel() {
   };
 
   return (
-    <div className="w-[40%] border-l border-border bg-surface flex flex-col">
+    <div className={`${embedded ? 'flex-1 min-h-0' : 'w-[40%] border-l'} border-border bg-surface flex flex-col`}>
       {/* Header */}
       <div className="h-12 flex items-center justify-between px-4 border-b border-border bg-elevated">
         <div className="flex items-center gap-2">

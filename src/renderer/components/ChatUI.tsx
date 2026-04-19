@@ -1,7 +1,6 @@
 import React from 'react';
 import { ChatMessage } from './ChatMessage';
 import { ChatInput } from './ChatInput';
-import { ResultPanel } from './ResultPanel';
 import { useTaskStore } from '../stores/taskStore';
 import { useTranslation } from '../i18n/useTranslation';
 
@@ -11,8 +10,6 @@ export function ChatUI() {
 
   return (
     <div className="h-full flex flex-col">
-      <ResultPanel />
-
       {/* Messages area */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {messages.length === 0 && (

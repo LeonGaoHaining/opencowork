@@ -15,24 +15,6 @@ export function createTaskResultError(message: string, code: string = 'TASK_FAIL
   };
 }
 
-function buildArtifacts(summary: string): TaskArtifact[] {
-  if (!summary) {
-    return [];
-  }
-
-  return [
-    {
-      id: createTaskEntityId('artifact'),
-      type: 'text',
-      name: 'Task summary',
-      content: summary,
-      metadata: {
-        generatedBy: 'task-result-mapper',
-      },
-    },
-  ];
-}
-
 function isRowArray(value: unknown): value is Array<Record<string, unknown>> {
   return (
     Array.isArray(value) &&
@@ -57,7 +39,7 @@ function deriveStructuredData(output: unknown): unknown {
 }
 
 function buildStructuredArtifacts(summary: string, output: unknown): TaskArtifact[] {
-  const artifacts = buildArtifacts(summary);
+  const artifacts: TaskArtifact[] = [];
   const structuredData = deriveStructuredData(output);
 
   if (isRowArray(structuredData)) {

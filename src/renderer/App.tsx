@@ -17,6 +17,7 @@ import { IMConfigPanel } from './components/IMConfigPanel';
 import { ExecutionStepsPanel } from './components/ExecutionStepsPanel';
 import { SettingsPanel } from './components/SettingsPanel';
 import OverviewPanel from './components/OverviewPanel';
+import ResultPanel from './components/ResultPanel';
 import { useTaskStore } from './stores/taskStore';
 import { useSessionStore } from './stores/sessionStore';
 import { useTranslation } from './i18n/useTranslation';
@@ -389,8 +390,13 @@ function App() {
             </div>
           </div>
 
-          {/* Sidebar - Execution Steps Panel */}
-          {previewMode === 'sidebar' && <ExecutionStepsPanel />}
+          {/* Sidebar - Result and Execution Panels */}
+          {previewMode === 'sidebar' && (
+            <div className="w-[40%] border-l border-border bg-surface flex flex-col overflow-hidden">
+              <ResultPanel embedded />
+              <ExecutionStepsPanel embedded />
+            </div>
+          )}
         </main>
 
         {/* Control bar */}

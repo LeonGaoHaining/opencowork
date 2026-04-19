@@ -1,6 +1,6 @@
 # OpenCowork User Guide
 
-This guide covers the current public workflow for using OpenCowork as a desktop AI agent.
+This guide covers the current public workflow for using OpenCowork as a desktop AI work system.
 
 ## What OpenCowork Does Best
 
@@ -61,6 +61,18 @@ OpenCowork can:
 
 The preview area shows the browser and agent activity in real time so you can observe what the agent is doing and decide when to intervene.
 
+### Result Delivery
+
+When a task completes, the result summary is shown in the right sidebar together with execution context.
+
+This makes it easier to:
+
+- review the final outcome without scrolling through the full chat,
+- inspect artifacts and structured output,
+- jump to the full run record,
+- save the task as a template,
+- or add it directly to the scheduler.
+
 ### History
 
 Task history stores prior executions, results, steps, and outcomes so you can review what happened and recover context when needed.
@@ -95,6 +107,16 @@ Current workflows include:
 - generating or previewing skills,
 - running specialized capabilities such as `ppt-creator`.
 
+### Templates and Runs
+
+OpenCowork now exposes reusable task flows more explicitly:
+
+- `Templates` stores reusable task definitions,
+- `Runs` stores recent task executions,
+- both surfaces support English and Chinese UI labels,
+- successful runs can become templates,
+- and templates can be rerun with parameters or added to the scheduler.
+
 ## MCP Client Guide
 
 Open the MCP panel and use the `Clients` tab to connect external MCP servers.
@@ -128,6 +150,14 @@ Use server mode when you want another MCP-capable app or agent to call OpenCowor
 ## Internationalization
 
 The desktop UI is English-first and supports Chinese. Language choice is persistent.
+
+Recent task-centric surfaces with language support include:
+
+- result delivery,
+- template panel,
+- runs panel,
+- history actions,
+- IM task cards.
 
 ## Recommended Prompt Style
 
@@ -164,6 +194,12 @@ Use LangChain docs MCP and give me a minimal Python example.
 
 - Make sure the task is being continued in the same active thread.
 - Avoid manually resetting the current task state between turns.
+
+### The overview panel opens but shows no useful data
+
+- Make sure the desktop app has writable access to the history database and config directory.
+- If there are simply no recent tasks, the overview panel may show zeroed metrics rather than charts.
+- `v0.12.1` adds safer fallback handling for partial metrics payloads.
 
 ### A browser task extracts noisy content
 

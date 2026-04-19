@@ -572,21 +572,21 @@ export function HistoryPanel() {
                         onClick={() => openRunsPanel(selectedTask.metadata?.runId as string)}
                         className="btn btn-secondary text-sm"
                       >
-                        View Run
+                        {t('taskPanels.viewRun')}
                       </button>
                     )}
                     <button
                       onClick={() => saveTaskAsTemplate(selectedTask.id)}
                       className="btn btn-secondary text-sm"
                     >
-                      Save Template
+                      {t('taskPanels.saveAsTemplate')}
                     </button>
                     {typeof selectedTask.metadata?.templateId === 'string' && (
                       <button
                         onClick={() => runTemplate(selectedTask.metadata?.templateId as string)}
                         className="btn btn-secondary text-sm"
                       >
-                        Run Template
+                        {t('taskPanels.runTemplate')}
                       </button>
                     )}
                     <button

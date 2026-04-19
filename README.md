@@ -1,6 +1,6 @@
 <h1 align="center">OpenCowork</h1>
 
-<p align="center"><strong>An open-source desktop AI agent that can browse, search, execute skills, expose MCP tools, and complete real work on your computer.</strong></p>
+<p align="center"><strong>An open-source desktop AI work system for browser automation, reusable task runs, templates, MCP-native tooling, and real local execution.</strong></p>
 
 <p align="center">
   <a href="https://github.com/LeonGaoHaining/opencowork/stargazers"><img src="https://img.shields.io/github/stars/LeonGaoHaining/opencowork?style=social" alt="stars"></a>
@@ -16,6 +16,13 @@ OpenCowork is built for people who want an agent that does more than chat. It ca
 
 It is designed for fast iteration on real desktop workflows: research, operations, internal tools, demos, browser automation, and repeatable task execution.
 
+Compared with many "chat-first" agent demos, OpenCowork is moving toward a result-first workflow:
+
+- every serious task should produce a reusable run record,
+- successful work should be reviewable as a result,
+- useful work should become a template,
+- repeated work should be schedulable or triggerable from IM.
+
 ## Current Product Direction
 
 The current work stream is converging around a result-centric task model:
@@ -25,6 +32,15 @@ The current work stream is converging around a result-centric task model:
 - history is shifting toward outcomes, artifacts, and rerun links,
 - templates can be created from successful runs and executed with parameters,
 - scheduler and IM surfaces now reuse the same task/result semantics.
+
+## What's New in v0.12.2
+
+- Unified `TaskRun`, `TaskResult`, and template-driven workflows across chat, history, scheduler, and IM.
+- Result delivery now appears in the sidebar alongside execution details instead of living only in the chat flow.
+- Successful runs can be saved as templates and rerun with parameters.
+- History, scheduler, and IM now surface run links, result summaries, and artifacts more consistently.
+- Added overview metrics, stronger i18n coverage for task/template surfaces, and regression tests for the new task model.
+- Fixed a `v0.12.0` packaging gap by restoring the missing overview panel files and continuing stabilization in `v0.12.1` and `v0.12.2`.
 
 ## Highlights in v0.10.10
 
@@ -46,8 +62,19 @@ The current work stream is converging around a result-centric task model:
 | MCP Client         | Connect external MCP tools and use them inside the agent      |
 | MCP Server         | Expose OpenCowork capabilities to other MCP clients           |
 | Task History       | Persist task results, steps, and recovery state               |
+| Task Templates     | Save successful work as reusable, parameterized task flows    |
 | Human-in-the-loop  | Pause, resume, interrupt, and take over tasks                 |
 | International UI   | English-first UI with Chinese support                         |
+
+## Who This Is For
+
+OpenCowork is a good fit if you are:
+
+- building a desktop AI copilot with real browser and local execution,
+- evaluating MCP-native agent UX beyond CLI-only demos,
+- automating recurring research, operations, or reporting workflows,
+- experimenting with reusable agent templates and result-centric history,
+- contributing to an open-source desktop agent stack that is still moving fast.
 
 ## Quick Start
 
@@ -94,6 +121,7 @@ Open Baidu, search for a company, and summarize what it does.
 Create a company overview PPT from the information on the page.
 Connect an MCP tool and use it to fetch LangChain docs examples.
 Open the generated PPT file.
+Turn the successful task into a reusable template and schedule it weekly.
 ```
 
 ## MCP Support
@@ -141,7 +169,16 @@ OpenCowork is moving from an internal fast-iteration agent into a stronger open-
 - a desktop automation foundation,
 - an MCP-native local agent shell,
 - a skill-based extensibility layer,
+- a result-centric task system with reusable templates,
 - and a project that is actively shipping core agent infrastructure.
+
+## Current Release Notes
+
+`v0.12.2` is the current recommended tag.
+
+- `v0.12.0` introduced the task-result-template workflow convergence.
+- `v0.12.1` fixed the missing overview panel files from that release.
+- `v0.12.2` adds follow-up stabilization for result delivery, i18n, run scoping, overview safety, and reusable workflow UX.
 
 ## Community
 

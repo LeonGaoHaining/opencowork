@@ -45,8 +45,20 @@ export function OverviewPanel({ isOpen, onClose }: OverviewPanelProps) {
     return `${(ms / 3600000).toFixed(1)}h`;
   };
 
+  const summary = metrics?.summary || {
+    totalTasks: 0,
+    completedTasks: 0,
+    failedTasks: 0,
+    runningTasks: 0,
+    successRate: 0,
+    avgDurationMs: 0,
+    totalDurationMs: 0,
+  };
+  const schedulerStats = metrics?.schedulerStats || { totalSchedules: 0, activeSchedules: 0 };
+  const imStats = metrics?.imStats || { total: 0, pending: 0, completed: 0, failed: 0 };
+  const sourceStats = metrics?.sourceStats || {};
   const dailyStatsArray = metrics
-    ? Object.entries(metrics.dailyStats).map(([date, stats]) => ({
+    ? Object.entries(metrics?.dailyStats || {}).map(([date, stats]) => ({
         date,
         ...stats,
       }))
@@ -109,40 +121,40 @@ export function OverviewPanel({ isOpen, onClose }: OverviewPanelProps) {
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <MetricCard
                   label={t('overview.totalTasks', '总任务数')}
-                  value={metrics.summary.totalTasks}
+                  value={summary.totalTasks}
                   color="info"
                 />
                 <MetricCard
                   label={t('overview.completed', '已完成')}
-                  value={metrics.summary.completedTasks}
+                  value={summary.completedTasks}
                   color="success"
                 />
                 <MetricCard
                   label={t('overview.failed', '已失败')}
-                  value={metrics.summary.failedTasks}
+                  value={summary.failedTasks}
                   color="error"
                 />
                 <MetricCard
                   label={t('overview.successRate', '成功率')}
-                  value={`${metrics.summary.successRate}%`}
-                  color={metrics.summary.successRate >= 80 ? 'success' : metrics.summary.successRate >= 50 ? 'warning' : 'error'}
+                  value={`${summary.successRate}%`}
+                  color={summary.successRate >= 80 ? 'success' : summary.successRate >= 50 ? 'warning' : 'error'}
                 />
               </div>
 
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                 <MetricCard
                   label={t('overview.avgDuration', '平均耗时')}
-                  value={formatDuration(metrics.summary.avgDurationMs)}
+                  value={formatDuration(summary.avgDurationMs)}
                   color="info"
                 />
                 <MetricCard
                   label={t('overview.totalDuration', '总耗时')}
-                  value={formatDuration(metrics.summary.totalDurationMs)}
+                  value={formatDuration(summary.totalDurationMs)}
                   color="info"
                 />
                 <MetricCard
                   label={t('overview.running', '进行中')}
-                  value={metrics.summary.runningTasks}
+                  value={summary.runningTasks}
                   color="warning"
                 />
               </div>
@@ -154,15 +166,15 @@ export function OverviewPanel({ isOpen, onClose }: OverviewPanelProps) {
                   </h3>
                   <div className="flex gap-6">
                     <div>
-                      <div className="text-2xl font-bold text-white">
-                        {metrics.schedulerStats.totalSchedules}
-                      </div>
+                        <div className="text-2xl font-bold text-white">
+                         {schedulerStats.totalSchedules}
+                        </div>
                       <div className="text-xs text-text-muted">{t('overview.total', '总数')}</div>
                     </div>
                     <div>
-                      <div className="text-2xl font-bold text-success">
-                        {metrics.schedulerStats.activeSchedules}
-                      </div>
+                        <div className="text-2xl font-bold text-success">
+                         {schedulerStats.activeSchedules}
+                        </div>
                       <div className="text-xs text-text-muted">{t('overview.active', '活跃')}</div>
                     </div>
                   </div>
@@ -174,17 +186,17 @@ export function OverviewPanel({ isOpen, onClose }: OverviewPanelProps) {
                   </h3>
                   <div className="flex gap-4">
                     <div>
-                      <div className="text-2xl font-bold text-white">{metrics.imStats.total}</div>
+                       <div className="text-2xl font-bold text-white">{imStats.total}</div>
                       <div className="text-xs text-text-muted">{t('overview.total', '总数')}</div>
                     </div>
                     <div>
                       <div className="text-2xl font-bold text-success">
-                        {metrics.imStats.completed}
+                         {imStats.completed}
                       </div>
                       <div className="text-xs text-text-muted">{t('overview.completed', '完成')}</div>
                     </div>
                     <div>
-                      <div className="text-2xl font-bold text-error">{metrics.imStats.failed}</div>
+                       <div className="text-2xl font-bold text-error">{imStats.failed}</div>
                       <div className="text-xs text-text-muted">{t('overview.failed', '失败')}</div>
                     </div>
                   </div>
@@ -196,7 +208,7 @@ export function OverviewPanel({ isOpen, onClose }: OverviewPanelProps) {
                   {t('overview.sourceDistribution', '来源分布')}
                 </h3>
                 <div className="flex flex-wrap gap-2">
-                  {Object.entries(metrics.sourceStats)
+                   {Object.entries(sourceStats)
                     .sort(([, a], [, b]) => b - a)
                     .map(([source, count]) => (
                       <div

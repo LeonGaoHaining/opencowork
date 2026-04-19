@@ -243,7 +243,10 @@ export class SkillToolFactory {
 【可执行脚本】
 脚本路径: ${scriptInfo.scriptPath}
 ${scriptInfo.commandTemplate ? `命令模板: ${scriptInfo.commandTemplate}` : '用法: 请参考上方 bash 示例'}
-提示: 请使用 cli 工具执行上述命令，将用户输入转换为 --content 参数`;
+提示:
+- 请使用 cli 工具执行上述命令
+- 当输入内容较长、包含 JSON、引号或多行文本时，不要直接拼接到 --content 参数
+- 优先先写入临时文件，再通过 --content-file 或脚本支持的文件参数传入`;
   }
 }
 

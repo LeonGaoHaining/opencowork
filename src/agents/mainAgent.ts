@@ -1002,13 +1002,15 @@ export class MainAgent {
       });
       const duration = 0;
       const messages = Array.isArray(result.messages) ? result.messages : [];
-      const steps = this.extractSteps(messages);
-      const finalMessage = this.extractFinalMessage(messages);
+      const scopedMessages = this.getCurrentRunMessages(messages, this.currentTask);
+      const scopedResult = { ...result, messages: scopedMessages };
+      const steps = this.extractSteps(scopedMessages);
+      const finalMessage = this.extractFinalMessage(scopedMessages);
       this.status = 'completed';
       this.sendTaskCompleted({
         result: {
           success: true,
-          output: result,
+          output: scopedResult,
           duration,
           steps,
           finalMessage,
@@ -1016,8 +1018,8 @@ export class MainAgent {
       });
       return {
         success: true,
-        output: result,
-        messages,
+        output: scopedResult,
+        messages: scopedMessages,
         duration,
         steps,
         finalMessage,
@@ -1329,10 +1331,12 @@ export class MainAgent {
       let steps: AgentStep[] = [];
       let finalMessage = '';
       const resultMessages = Array.isArray(result.messages) ? result.messages : [];
+      const scopedMessages = this.getCurrentRunMessages(resultMessages, task);
+      const scopedResult = { ...result, messages: scopedMessages };
 
       try {
-        steps = this.extractSteps(resultMessages);
-        finalMessage = this.extractFinalMessage(resultMessages);
+        steps = this.extractSteps(scopedMessages);
+        finalMessage = this.extractFinalMessage(scopedMessages);
       } catch (error: any) {
         console.error('[MainAgent] Failed to extract steps:', error);
       }
@@ -1354,7 +1358,7 @@ export class MainAgent {
       this.sendTaskCompleted({
         result: {
           success: true,
-          output: result,
+          output: scopedResult,
           duration,
           steps,
           finalMessage,
@@ -1366,12 +1370,12 @@ export class MainAgent {
         if (this.currentHistoryTaskId) {
           const taskResult = mapAgentResultToTaskResult({
             success: true,
-            output: result,
+            output: scopedResult,
             finalMessage,
           });
           await historyService.completeTask(this.currentHistoryTaskId, {
             success: true,
-            output: result,
+            output: scopedResult,
             summary: taskResult.summary,
             artifacts: taskResult.artifacts,
             rawOutput: taskResult.rawOutput,
@@ -1395,8 +1399,8 @@ export class MainAgent {
 
       return {
         success: true,
-        output: result,
-        messages: resultMessages,
+        output: scopedResult,
+        messages: scopedMessages,
         duration,
         steps,
         finalMessage,
@@ -1448,6 +1452,24 @@ export class MainAgent {
       this.currentHistoryTaskId = null;
       clearAgentInstance();
     }
+  }
+
+  private getCurrentRunMessages(messages: any[], task: string): any[] {
+    if (!Array.isArray(messages) || messages.length === 0) {
+      return [];
+    }
+
+    const normalizedTask = task.trim();
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const message = messages[i];
+      const type = message.type || message.constructor?.name || 'unknown';
+      const content = typeof message.content === 'string' ? message.content.trim() : '';
+      if ((type === 'human' || type === 'HumanMessage') && content === normalizedTask) {
+        return messages.slice(i);
+      }
+    }
+
+    return messages;
   }
 
   private extractSteps(messages: any[]): AgentStep[] {

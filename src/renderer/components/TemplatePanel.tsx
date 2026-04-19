@@ -3,6 +3,7 @@ import { TaskTemplate } from '../../core/task/types';
 import { useHistoryStore } from '../stores/historyStore';
 import { getTemplateInputFields, validateTemplateInput } from '../../core/task/templateUtils';
 import { useSchedulerStore } from '../stores/schedulerStore';
+import { useTranslation } from '../i18n/useTranslation';
 
 interface EditableTemplateField {
   key: string;
@@ -30,6 +31,7 @@ export function TemplatePanel({ isOpen, onClose }: TemplatePanelProps) {
   const [draftPrompt, setDraftPrompt] = useState('');
   const [draftFields, setDraftFields] = useState<EditableTemplateField[]>([]);
   const [isSaving, setIsSaving] = useState(false);
+  const { t } = useTranslation();
   const { runTemplate } = useHistoryStore();
   const { prepareDraftFromTemplate } = useSchedulerStore();
 
@@ -193,7 +195,7 @@ export function TemplatePanel({ isOpen, onClose }: TemplatePanelProps) {
       ...current,
       {
         key: `param_${current.length + 1}`,
-        label: `Parameter ${current.length + 1}`,
+          label: `${t('taskPanels.parameter')} ${current.length + 1}`,
         placeholder: '',
         required: true,
         defaultValue: '',
@@ -250,15 +252,15 @@ export function TemplatePanel({ isOpen, onClose }: TemplatePanelProps) {
       <div className="w-[520px] border-l border-border bg-surface flex flex-col">
         <div className="flex items-center justify-between border-b border-border px-4 py-4">
           <div>
-            <div className="text-lg font-semibold text-white">Templates</div>
-            <div className="text-sm text-text-muted">Reusable task definitions</div>
+            <div className="text-lg font-semibold text-white">{t('controlBar.templates')}</div>
+            <div className="text-sm text-text-muted">{t('taskPanels.reusableTaskDefinitions')}</div>
           </div>
           <div className="flex items-center gap-2">
             <button
               onClick={() => void loadTemplates()}
               className="rounded px-2 py-1 text-xs text-text-muted hover:bg-border hover:text-white"
             >
-              Refresh
+              {t('taskPanels.refresh')}
             </button>
             <button
               onClick={onClose}
@@ -274,7 +276,7 @@ export function TemplatePanel({ isOpen, onClose }: TemplatePanelProps) {
             type="text"
             value={searchKeyword}
             onChange={(e) => setSearchKeyword(e.target.value)}
-            placeholder="Search templates"
+            placeholder={t('taskPanels.searchTemplates')}
             className="w-56 rounded border border-border bg-background px-3 py-1 text-sm text-white"
           />
           <select
@@ -284,7 +286,7 @@ export function TemplatePanel({ isOpen, onClose }: TemplatePanelProps) {
             }
             className="rounded border border-border bg-background px-2 py-1 text-sm text-white"
           >
-            <option value="all">All profiles</option>
+            <option value="all">{t('taskPanels.allProfiles')}</option>
             <option value="browser-first">browser-first</option>
             <option value="mixed">mixed</option>
           </select>
@@ -293,10 +295,10 @@ export function TemplatePanel({ isOpen, onClose }: TemplatePanelProps) {
         <div className="flex flex-1 overflow-hidden">
           <div className="w-[280px] overflow-y-auto border-r border-border p-4">
             {isLoading ? (
-              <div className="text-sm text-text-muted">Loading templates...</div>
+              <div className="text-sm text-text-muted">{t('taskPanels.loadingTemplates')}</div>
             ) : filteredTemplates.length === 0 ? (
               <div className="text-sm text-text-muted">
-                No templates yet. Save a successful history item as a template first.
+                {t('taskPanels.noTemplates')}
               </div>
             ) : (
               <div className="space-y-3">
@@ -324,7 +326,7 @@ export function TemplatePanel({ isOpen, onClose }: TemplatePanelProps) {
             {selectedTemplate ? (
               <div className="space-y-4">
                 <div>
-                  <div className="text-xs uppercase tracking-wide text-text-muted mb-1">Name</div>
+                  <div className="text-xs uppercase tracking-wide text-text-muted mb-1">{t('taskPanels.name')}</div>
                   <input
                     type="text"
                     value={draftName}
@@ -332,7 +334,7 @@ export function TemplatePanel({ isOpen, onClose }: TemplatePanelProps) {
                     className="w-full rounded border border-border bg-background px-3 py-2 text-sm text-white"
                   />
                   <div className="text-xs uppercase tracking-wide text-text-muted mb-1 mt-3">
-                    Description
+                    {t('taskPanels.description')}
                   </div>
                   <textarea
                     value={draftDescription}
@@ -343,18 +345,18 @@ export function TemplatePanel({ isOpen, onClose }: TemplatePanelProps) {
 
                 <div className="grid grid-cols-1 gap-3 text-sm text-text-secondary">
                   <div className="rounded-lg border border-border bg-background px-3 py-2">
-                    <div className="text-xs text-text-muted">Execution Profile</div>
+                    <div className="text-xs text-text-muted">{t('taskPanels.executionProfile')}</div>
                     <div className="mt-1 text-white">{selectedTemplate.executionProfile}</div>
                   </div>
                   <div className="rounded-lg border border-border bg-background px-3 py-2">
-                    <div className="text-xs text-text-muted">Template ID</div>
+                    <div className="text-xs text-text-muted">{t('taskPanels.templateId')}</div>
                     <div className="mt-1 break-all text-white">{selectedTemplate.id}</div>
                   </div>
                 </div>
 
                 <div>
                   <div className="mb-2 text-xs uppercase tracking-wide text-text-muted">
-                    Default Prompt
+                    {t('taskPanels.defaultPrompt')}
                   </div>
                   <textarea
                     value={draftPrompt}
@@ -366,7 +368,7 @@ export function TemplatePanel({ isOpen, onClose }: TemplatePanelProps) {
                 {selectedTemplate && (
                   <div>
                     <div className="mb-2 text-xs uppercase tracking-wide text-text-muted">
-                      Parameters
+                      {t('taskPanels.parameters')}
                     </div>
                     <div className="space-y-3">
                       {draftFields.map((field, index) => (
@@ -376,28 +378,28 @@ export function TemplatePanel({ isOpen, onClose }: TemplatePanelProps) {
                               type="text"
                               value={field.key}
                               onChange={(e) => handleUpdateField(index, { key: e.target.value })}
-                              placeholder="key"
+                               placeholder={t('taskPanels.key')}
                               className="rounded border border-border bg-surface px-2 py-2 text-xs text-white"
                             />
                             <input
                               type="text"
                               value={field.label}
                               onChange={(e) => handleUpdateField(index, { label: e.target.value })}
-                              placeholder="label"
+                               placeholder={t('taskPanels.label')}
                               className="rounded border border-border bg-surface px-2 py-2 text-xs text-white"
                             />
                             <input
                               type="text"
                               value={field.defaultValue}
                               onChange={(e) => handleUpdateField(index, { defaultValue: e.target.value })}
-                              placeholder="default value"
+                               placeholder={t('taskPanels.defaultValue')}
                               className="rounded border border-border bg-surface px-2 py-2 text-xs text-white"
                             />
                             <input
                               type="text"
                               value={field.placeholder}
                               onChange={(e) => handleUpdateField(index, { placeholder: e.target.value })}
-                              placeholder="placeholder"
+                               placeholder={t('taskPanels.placeholder')}
                               className="rounded border border-border bg-surface px-2 py-2 text-xs text-white"
                             />
                           </div>
@@ -410,19 +412,19 @@ export function TemplatePanel({ isOpen, onClose }: TemplatePanelProps) {
                                   handleUpdateField(index, { required: e.target.checked })
                                 }
                               />
-                              Required
+                               {t('taskPanels.required')}
                             </label>
                             <button
                               onClick={() => handleRemoveField(index)}
                               className="rounded px-2 py-1 text-xs text-text-muted hover:bg-border hover:text-white"
                             >
-                              Remove
+                              {t('taskPanels.remove')}
                             </button>
                           </div>
                         </div>
                       ))}
                       <button onClick={handleAddField} className="btn btn-secondary text-sm">
-                        Add Parameter
+                        {t('taskPanels.addParameter')}
                       </button>
                     </div>
                   </div>
@@ -431,11 +433,11 @@ export function TemplatePanel({ isOpen, onClose }: TemplatePanelProps) {
                 {selectedTemplate && (
                   <div>
                     <div className="mb-2 text-xs uppercase tracking-wide text-text-muted">
-                      Run Parameters
+                      {t('taskPanels.runParameters')}
                     </div>
                     <div className="space-y-3 rounded-lg border border-border bg-background p-3">
                       <div>
-                        <div className="mb-1 text-xs text-text-muted">Prompt</div>
+                        <div className="mb-1 text-xs text-text-muted">{t('taskPanels.prompt')}</div>
                         <textarea
                           value={runPrompt}
                           onChange={(e) => setRunPrompt(e.target.value)}
@@ -465,7 +467,7 @@ export function TemplatePanel({ isOpen, onClose }: TemplatePanelProps) {
 
                       {!runValidation.valid && runValidation.missingFields.length > 0 && (
                         <div className="rounded border border-yellow-500/30 bg-yellow-500/10 px-3 py-2 text-xs text-yellow-200">
-                          Missing required inputs: {runValidation.missingFields.join(', ')}
+                          {t('taskPanels.missingRequiredInputs')}: {runValidation.missingFields.join(', ')}
                         </div>
                       )}
                     </div>
@@ -483,28 +485,28 @@ export function TemplatePanel({ isOpen, onClose }: TemplatePanelProps) {
                     className="btn btn-primary text-sm"
                     disabled={!runValidation.valid}
                   >
-                    Run Template
+                    {t('taskPanels.runTemplate')}
                   </button>
                   <button onClick={handleAddToScheduler} className="btn btn-secondary text-sm">
-                    Add to Scheduler
+                    {t('taskPanels.addToScheduler')}
                   </button>
                   <button
                     onClick={() => void handleSaveTemplate()}
                     className="btn btn-secondary text-sm"
                     disabled={isSaving || !draftName.trim()}
                   >
-                    {isSaving ? 'Saving...' : 'Save Changes'}
+                    {isSaving ? t('taskPanels.saving') : t('taskPanels.saveChanges')}
                   </button>
                   <button
                     onClick={() => void handleDeleteTemplate(selectedTemplate.id)}
                     className="btn btn-danger text-sm"
                   >
-                    Delete Template
+                    {t('taskPanels.deleteTemplate')}
                   </button>
                 </div>
               </div>
             ) : (
-              <div className="text-sm text-text-muted">Select a template to inspect details.</div>
+              <div className="text-sm text-text-muted">{t('taskPanels.selectTemplate')}</div>
             )}
           </div>
         </div>

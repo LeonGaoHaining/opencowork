@@ -351,12 +351,16 @@ export function ControlBar({ onSkillClick, onMCPClick, onTemplateClick, onRunsCl
           {t('controlBar.scheduler')}
         </button>
 
-        <button onClick={onTemplateClick} className="btn btn-secondary" title="Templates">
-          Templates
+        <button
+          onClick={onTemplateClick}
+          className="btn btn-secondary"
+          title={t('controlBar.templates')}
+        >
+          {t('controlBar.templates')}
         </button>
 
-        <button onClick={onRunsClick} className="btn btn-secondary" title="Task Runs">
-          Runs
+        <button onClick={onRunsClick} className="btn btn-secondary" title={t('controlBar.runs')}>
+          {t('controlBar.runs')}
         </button>
 
         <button onClick={onMCPClick} className="btn btn-secondary" title="MCP">

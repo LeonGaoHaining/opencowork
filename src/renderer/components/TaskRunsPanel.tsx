@@ -4,6 +4,7 @@ import { TaskHistoryRecord } from '../../history/taskHistory';
 import { useHistoryStore } from '../stores/historyStore';
 import { useSchedulerStore } from '../stores/schedulerStore';
 import { useTaskStore } from '../stores/taskStore';
+import { useTranslation } from '../i18n/useTranslation';
 import RelationBadge from './RelationBadge';
 import ArtifactViewer from './ArtifactViewer';
 
@@ -27,6 +28,7 @@ export function TaskRunsPanel({ isOpen, onClose }: TaskRunsPanelProps) {
   const [searchKeyword, setSearchKeyword] = useState('');
   const [sourceFilter, setSourceFilter] = useState<'all' | TaskRun['source']>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | TaskRun['status']>('all');
+  const { t } = useTranslation();
   const { runTemplate } = useHistoryStore();
   const { prepareDraftFromTemplate, prepareDraftFromPrompt } = useSchedulerStore();
   const { selectedRunsPanelRunId, setSelectedRunsPanelRunId } = useTaskStore();
@@ -170,16 +172,16 @@ export function TaskRunsPanel({ isOpen, onClose }: TaskRunsPanelProps) {
       <div className="flex-1 bg-black/50" onClick={onClose} />
       <div className="w-[880px] border-l border-border bg-surface flex flex-col">
         <div className="flex items-center justify-between border-b border-border px-4 py-4">
-          <div>
-            <div className="text-lg font-semibold text-white">Recent Task Runs</div>
-            <div className="text-sm text-text-muted">Persisted orchestration history</div>
+            <div>
+            <div className="text-lg font-semibold text-white">{t('taskPanels.recentTaskRuns')}</div>
+            <div className="text-sm text-text-muted">{t('taskPanels.persistedRunHistory')}</div>
           </div>
           <div className="flex items-center gap-2">
             <button
               onClick={() => void loadRuns()}
               className="rounded px-2 py-1 text-xs text-text-muted hover:bg-border hover:text-white"
             >
-              Refresh
+              {t('taskPanels.refresh')}
             </button>
             <button
               onClick={onClose}
@@ -195,7 +197,7 @@ export function TaskRunsPanel({ isOpen, onClose }: TaskRunsPanelProps) {
             type="text"
             value={searchKeyword}
             onChange={(e) => setSearchKeyword(e.target.value)}
-            placeholder="Search runs"
+            placeholder={t('taskPanels.searchRuns')}
             className="w-56 rounded border border-border bg-background px-3 py-1 text-sm text-white"
           />
           <select
@@ -203,7 +205,7 @@ export function TaskRunsPanel({ isOpen, onClose }: TaskRunsPanelProps) {
             onChange={(e) => setSourceFilter(e.target.value as 'all' | TaskRun['source'])}
             className="rounded border border-border bg-background px-2 py-1 text-sm text-white"
           >
-            <option value="all">All sources</option>
+            <option value="all">{t('taskPanels.allSources')}</option>
             <option value="chat">chat</option>
             <option value="scheduler">scheduler</option>
             <option value="im">im</option>
@@ -215,7 +217,7 @@ export function TaskRunsPanel({ isOpen, onClose }: TaskRunsPanelProps) {
             onChange={(e) => setStatusFilter(e.target.value as 'all' | TaskRun['status'])}
             className="rounded border border-border bg-background px-2 py-1 text-sm text-white"
           >
-            <option value="all">All status</option>
+            <option value="all">{t('taskPanels.allStatus')}</option>
             <option value="pending">pending</option>
             <option value="planning">planning</option>
             <option value="running">running</option>
@@ -230,9 +232,9 @@ export function TaskRunsPanel({ isOpen, onClose }: TaskRunsPanelProps) {
         <div className="flex flex-1 overflow-hidden">
           <div className="w-[320px] overflow-y-auto border-r border-border p-4">
             {isLoading ? (
-              <div className="text-sm text-text-muted">Loading runs...</div>
+              <div className="text-sm text-text-muted">{t('taskPanels.loadingRuns')}</div>
             ) : filteredRuns.length === 0 ? (
-              <div className="text-sm text-text-muted">No persisted task runs yet.</div>
+              <div className="text-sm text-text-muted">{t('taskPanels.noRuns')}</div>
             ) : (
               <div className="space-y-3">
                 {filteredRuns.map((run) => (
@@ -286,34 +288,34 @@ export function TaskRunsPanel({ isOpen, onClose }: TaskRunsPanelProps) {
 
                 <div className="grid grid-cols-2 gap-3 text-sm text-text-secondary">
                   <div className="rounded-lg border border-border bg-background px-3 py-2">
-                    <div className="text-xs text-text-muted">Source</div>
+                          <div className="text-xs text-text-muted">{t('taskPanels.source')}</div>
                     <div className="mt-1 text-white">{selectedDetails.run.source}</div>
                   </div>
                   <div className="rounded-lg border border-border bg-background px-3 py-2">
-                    <div className="text-xs text-text-muted">Status</div>
+                          <div className="text-xs text-text-muted">{t('taskPanels.status')}</div>
                     <div className="mt-1 text-white">{selectedDetails.run.status}</div>
                   </div>
                   <div className="rounded-lg border border-border bg-background px-3 py-2">
-                    <div className="text-xs text-text-muted">Started</div>
+                          <div className="text-xs text-text-muted">{t('taskPanels.started')}</div>
                     <div className="mt-1 text-white">
                       {new Date(selectedDetails.run.startedAt).toLocaleString()}
                     </div>
                   </div>
                   <div className="rounded-lg border border-border bg-background px-3 py-2">
-                    <div className="text-xs text-text-muted">Ended</div>
+                          <div className="text-xs text-text-muted">{t('taskPanels.ended')}</div>
                     <div className="mt-1 text-white">
                       {selectedDetails.run.endedAt
                         ? new Date(selectedDetails.run.endedAt).toLocaleString()
-                        : 'Running'}
+                        : t('taskPanels.running')}
                     </div>
                   </div>
                 </div>
 
                 <div className="rounded-lg border border-border bg-background px-3 py-3">
-                  <div className="text-xs uppercase tracking-wide text-text-muted mb-2">Input</div>
-                  <div className="text-sm text-white whitespace-pre-wrap break-words">
-                    {selectedDetails.run.input?.prompt || 'No prompt recorded'}
-                  </div>
+                    <div className="text-xs uppercase tracking-wide text-text-muted mb-2">{t('taskPanels.input')}</div>
+                    <div className="text-sm text-white whitespace-pre-wrap break-words">
+                      {selectedDetails.run.input?.prompt || t('taskPanels.noPromptRecorded')}
+                    </div>
                   {selectedDetails.run.input?.params && (
                     <pre className="mt-3 whitespace-pre-wrap break-all text-xs text-text-secondary">
                       {JSON.stringify(selectedDetails.run.input.params, null, 2)}
@@ -323,7 +325,7 @@ export function TaskRunsPanel({ isOpen, onClose }: TaskRunsPanelProps) {
 
                 <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                   <div className="rounded-lg border border-border bg-background px-3 py-3">
-                    <div className="text-xs uppercase tracking-wide text-text-muted mb-2">Template</div>
+                    <div className="text-xs uppercase tracking-wide text-text-muted mb-2">{t('taskPanels.template')}</div>
                     {selectedDetails.template ? (
                       <div>
                         <div className="text-sm font-medium text-white">{selectedDetails.template.name}</div>
@@ -335,12 +337,12 @@ export function TaskRunsPanel({ isOpen, onClose }: TaskRunsPanelProps) {
                         </div>
                       </div>
                     ) : (
-                      <div className="text-sm text-text-muted">Not linked to a template</div>
+                        <div className="text-sm text-text-muted">{t('taskPanels.notLinkedToTemplate')}</div>
                     )}
                   </div>
 
                   <div className="rounded-lg border border-border bg-background px-3 py-3">
-                    <div className="text-xs uppercase tracking-wide text-text-muted mb-2">History</div>
+                    <div className="text-xs uppercase tracking-wide text-text-muted mb-2">{t('historyPanel.title')}</div>
                     {selectedDetails.history ? (
                       <div>
                         <div className="text-sm font-medium text-white">{selectedDetails.history.task}</div>
@@ -354,18 +356,18 @@ export function TaskRunsPanel({ isOpen, onClose }: TaskRunsPanelProps) {
                         )}
                       </div>
                     ) : (
-                      <div className="text-sm text-text-muted">No history record linked yet</div>
+                        <div className="text-sm text-text-muted">{t('taskPanels.noHistoryLinked')}</div>
                     )}
                   </div>
                 </div>
 
                 {(selectedResult || historyResult) && (
                   <div className="rounded-lg border border-border bg-background px-3 py-3">
-                    <div className="text-xs uppercase tracking-wide text-text-muted mb-2">Result</div>
+                    <div className="text-xs uppercase tracking-wide text-text-muted mb-2">{t('historyPanel.result')}</div>
 
                     {resultSummary && (
                       <div className="mb-3">
-                        <div className="text-xs text-text-muted mb-1">Summary</div>
+                        <div className="text-xs text-text-muted mb-1">{t('taskPanels.summary')}</div>
                         <div className="text-sm text-white whitespace-pre-wrap">{resultSummary}</div>
                       </div>
                     )}
@@ -378,7 +380,7 @@ export function TaskRunsPanel({ isOpen, onClose }: TaskRunsPanelProps) {
 
                     {resultStructuredData !== undefined && (
                       <div className="mb-3">
-                        <div className="text-xs text-text-muted mb-1">Structured Data</div>
+                        <div className="text-xs text-text-muted mb-1">{t('taskPanels.structuredData')}</div>
                         <pre className="whitespace-pre-wrap break-all text-xs text-text-secondary">
                           {JSON.stringify(resultStructuredData, null, 2)}
                         </pre>
@@ -387,7 +389,7 @@ export function TaskRunsPanel({ isOpen, onClose }: TaskRunsPanelProps) {
 
                     {Array.isArray(resultArtifacts) && resultArtifacts.length > 0 && (
                       <div>
-                        <div className="text-xs text-text-muted mb-2">Artifacts</div>
+                        <div className="text-xs text-text-muted mb-2">{t('taskPanels.artifacts')}</div>
                         <div className="space-y-2">
                           {resultArtifacts.map((artifact) => (
                             <ArtifactViewer
@@ -405,7 +407,7 @@ export function TaskRunsPanel({ isOpen, onClose }: TaskRunsPanelProps) {
 
                 {selectedDetails.run.metadata && (
                   <div className="rounded-lg border border-border bg-background px-3 py-3">
-                    <div className="text-xs uppercase tracking-wide text-text-muted mb-2">Metadata</div>
+                    <div className="text-xs uppercase tracking-wide text-text-muted mb-2">{t('historyPanel.metadata')}</div>
                     <pre className="whitespace-pre-wrap break-all text-xs text-text-secondary">
                       {JSON.stringify(selectedDetails.run.metadata, null, 2)}
                     </pre>
@@ -414,15 +416,15 @@ export function TaskRunsPanel({ isOpen, onClose }: TaskRunsPanelProps) {
 
                 <div className="flex gap-2">
                   <button onClick={() => void handleRerun()} className="btn btn-primary text-sm">
-                    Rerun
+                    {t('taskPanels.rerun')}
                   </button>
                   <button onClick={handleAddToScheduler} className="btn btn-secondary text-sm">
-                    Add to Scheduler
+                    {t('taskPanels.addToScheduler')}
                   </button>
                 </div>
               </div>
             ) : (
-              <div className="text-sm text-text-muted">Select a task run to inspect details.</div>
+              <div className="text-sm text-text-muted">{t('taskPanels.selectRun')}</div>
             )}
           </div>
         </div>

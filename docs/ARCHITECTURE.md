@@ -4,7 +4,7 @@
 
 OpenCowork is an Electron-based desktop AI work system. The current implementation combines a renderer UI, a main-process orchestration layer, LangGraph-based agent execution, browser and CLI executors, a skill system, and MCP integration on both the client and server side.
 
-The architecture is currently in transition from an entry-point-driven agent shell to a more unified task-oriented system. The near-term goal is to make `TaskRun`, `TaskResult`, and unified orchestration first-class concepts so that chat, scheduler, IM, history, and future templates can share one task lifecycle.
+The architecture is currently in transition from an entry-point-driven agent shell to a more unified task-oriented system. The near-term goal is to make `TaskRun`, `TaskResult`, and unified orchestration first-class concepts so that chat, scheduler, IM, history, runs, and templates can share one task lifecycle.
 
 ## Architecture Layers
 
@@ -44,13 +44,16 @@ The renderer provides the operator-facing product experience:
 
 - chat input and task lifecycle UI,
 - result consumption and rerun entry points,
+- sidebar result delivery and run inspection,
 - live preview,
 - history panel,
+- template panel,
+- task runs panel,
 - skill panel,
 - MCP panel,
 - settings and control surfaces.
 
-Near-term renderer changes focus on moving result state out of chat messages alone and toward explicit task result state.
+Near-term renderer changes focus on moving result state out of chat messages alone and toward explicit task result state, consistent result sidebars, and reusable task surfaces.
 
 ## Main Process Layer
 
@@ -78,6 +81,8 @@ The next architecture milestone introduces a dedicated task orchestration layer 
 - coordinating post-run history and future template creation.
 
 This layer is the foundation for the `v0.11` result-delivery work and the `v0.12` template and multi-entry reuse work.
+
+The latest `v0.12.x` work also depends on keeping post-run analysis scoped to the current task run, so that task results, run detail views, and skill-generation heuristics are not polluted by previous turns in the same thread.
 
 ## Agent Layer
 
@@ -157,6 +162,14 @@ Near-term persistence work will introduce clearer separation between:
 - result artifacts,
 - historical execution metadata,
 - future template definitions.
+
+In practice, the current codebase already persists:
+
+- run records,
+- result records,
+- history-linked summaries,
+- template definitions built from successful runs,
+- UI-facing overview metrics composed from history, scheduler, and IM data.
 
 ## Design Priorities
 

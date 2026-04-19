@@ -6,28 +6,69 @@ All notable changes to OpenCowork are documented in this file.
 
 ### Focus
 
-This work stream is converging OpenCowork toward the v0.12 task-model and template layer, with a stronger emphasis on reusable task runs and result-centric product surfaces.
+This work stream continues converging OpenCowork toward a reusable, result-centric desktop AI workflow with stronger task scoping, better sidebar delivery, and clearer open-source positioning.
 
 ### Highlights
 
-- Added persistent `TaskResult` storage and wired task completion to save results automatically.
-- Unified task result exposure across the main run panel, history, scheduler, and IM surfaces.
-- Added template creation from successful runs and parameter validation for template execution.
-- Added parameterized template execution in the template center with separate run inputs.
-- Added result-oriented history filters for source, outcomes, runs, templates, and artifacts.
-- Added `View Run` entry points from IM recent tasks and history records.
-- Added tests for template input validation, result repository persistence, and template creation from runs.
+- Improved current-run scoping so result extraction and post-run logic are less likely to inherit prior thread actions.
+- Moved result delivery into the sidebar execution area instead of the chat stream alone.
+- Expanded i18n coverage for templates, runs, result actions, and related task surfaces.
+- Hardened overview metrics handling against partial payloads.
+
+## v0.12.2 - 2026-04-20
+
+### Release focus
+
+Stabilize the new task-result-template workflow after `v0.12.1`, improve result delivery UX, strengthen task-run scoping, and make the public docs and release messaging consistent for open-source adoption.
+
+### Highlights
+
+- Scoped post-run extraction to the current task run so result synthesis and action counting no longer inherit prior thread actions.
+- Moved result delivery into the sidebar execution area for clearer result review during and after task execution.
+- Expanded translation coverage for Templates, Runs, result actions, history actions, and IM task cards.
+- Hardened overview metrics handling with safe defaults to prevent renderer crashes from partial payloads.
+- Improved CLI handling for large PPT JSON payloads by preferring file-based command normalization.
+- Updated public docs, roadmap, architecture, and user guide messaging for the current open-source product direction.
+
+### Fixes
+
+- Fixed result extraction and skill-generation heuristics being polluted by older turns in the same thread.
+- Fixed `OverviewPanel` crashes caused by incomplete metrics payloads.
+- Reduced incorrect artifact generation for plain text results.
+- Fixed `Result Delivery` placement so results live in the sidebar instead of only in the chat stream.
+- Fixed missing i18n coverage for `Templates`, `Runs`, `View Run`, and related result workflow actions.
 
 ### Notes
 
-- v0.12 is still in progress; the core task/result/template loop is now in place, but final product polish and broader scenario coverage remain.
+- `v0.12.2` is now the recommended release tag for the current task-result-template workflow line.
 
 ## v0.12.1 - 2026-04-20
+
+### Release focus
+
+Make the new task-result-template workflow usable as a public open-source release by fixing the broken overview flow, strengthening result surfaces, and improving reusable workflow clarity.
+
+### Highlights
+
+- Unified `TaskRun`, `TaskResult`, and template-driven workflow surfaces across chat, history, scheduler, and IM.
+- Added persistent result handling and consistent run links so successful work can be reviewed and reused.
+- Added parameterized template execution and run-to-template conversion.
+- Added result-oriented history filters and stronger run inspection UX.
+- Added regression tests covering template validation, result persistence, run-to-template generation, IM run links, and result-first history rendering.
 
 ### Fixes
 
 - Added the missing `OverviewPanel` and `overviewStore` files required by the renderer overview flow.
+- Guarded overview metrics against partial payloads to prevent renderer crashes.
+- Moved result delivery into the sidebar execution area for a clearer operator workflow.
+- Expanded translation coverage for Templates, Runs, result actions, and related task panels.
+- Reduced incorrect artifact generation for plain text results.
 - Bumped the application version after the `v0.12.0` tag to keep the published tag history consistent.
+
+### Notes
+
+- `v0.12.0` introduced the task/result/template convergence work.
+- `v0.12.1` is the recommended stable tag from this line because it restores the missing overview files and includes the follow-up stabilization fixes.
 
 ## v0.10.10 - 2026-04-18
 
