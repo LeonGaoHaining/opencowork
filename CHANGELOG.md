@@ -6,14 +6,43 @@ All notable changes to OpenCowork are documented in this file.
 
 ### Focus
 
-This work stream continues converging OpenCowork toward a reusable, result-centric desktop AI workflow with stronger task scoping, better sidebar delivery, and clearer open-source positioning.
+The next work stream builds on `v0.12.3` with more result-driven desktop workflows, stronger IM delivery quality, and broader product hardening.
 
 ### Highlights
 
-- Improved current-run scoping so result extraction and post-run logic are less likely to inherit prior thread actions.
-- Moved result delivery into the sidebar execution area instead of the chat stream alone.
-- Expanded i18n coverage for templates, runs, result actions, and related task surfaces.
-- Hardened overview metrics handling against partial payloads.
+- Extended the IM workflow so Feishu can receive files from users and send generated result files back.
+- Added real image analysis and OCR execution instead of placeholder vision responses.
+- Clarified local-only configuration handling so sensitive IM config files stay out of Git history.
+
+## v0.12.3 - 2026-04-21
+
+### Release focus
+
+Turn the current IM workflow into a practical file-driven channel by enabling bidirectional Feishu file transfer, image understanding, and updated public documentation for the new release line.
+
+### Highlights
+
+- Added bidirectional Feishu file handling so IM users can send images and files into OpenCowork and receive generated result files back.
+- Added attachment-aware IM task creation, including default task generation for attachment-only messages.
+- Added real vision execution for local images through multimodal model calls, covering both OCR and general image analysis.
+- Added regression coverage for IM attachment task creation, IM artifact return, and the new `VisionExecutor`.
+- Updated release docs, architecture notes, roadmap messaging, and user guidance for the current IM and vision workflow.
+
+### Fixes
+
+- Fixed Feishu inbound message handling so `image` and `file` messages are no longer ignored.
+- Fixed IM result delivery so file and image artifacts can be sent back through Feishu instead of being reduced to summary text only.
+- Fixed the previous placeholder-only vision path that prevented the agent from analyzing images received through IM.
+- Fixed IM reply targeting so group replies use the correct message target while private chats continue using the conversation target.
+
+### Security and config notes
+
+- Runtime IM credentials remain local-only under `config/`, which is git-ignored and must not be published to GitHub.
+- Sample documentation continues to use placeholder API keys only.
+
+### Notes
+
+- `v0.12.3` is now the recommended release tag for the current result-centric, IM-enabled workflow line.
 
 ## v0.12.2 - 2026-04-20
 

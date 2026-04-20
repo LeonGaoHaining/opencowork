@@ -97,6 +97,8 @@ The main agent is built around LangGraph ReAct patterns and can combine:
 
 The agent can preserve thread continuity across follow-up turns while also protecting model context from oversized tool outputs.
 
+Recent `v0.12.3` work also adds a dedicated vision execution path for local images so IM-delivered attachments can be analyzed through multimodal model calls instead of placeholder tool output.
+
 Architecturally, the agent should increasingly act as the system's planning and reasoning brain rather than as the primary home of task lifecycle, result persistence, or cross-entry orchestration logic.
 
 ## Runtime Layer
@@ -126,6 +128,17 @@ Supports:
 ### CLI Executor
 
 Supports controlled command execution for local workflows and skill-backed scripts.
+
+### Vision Executor
+
+`v0.12.3` introduces a dedicated `VisionExecutor` for local image OCR and image analysis:
+
+- IM-delivered files are downloaded locally,
+- the agent passes the local path into the vision tool,
+- the vision executor converts supported images into data URLs,
+- multimodal model calls return OCR or analysis text back to the agent.
+
+This keeps image handling out of the generic text-only LLM abstraction while preserving a minimal integration surface for the main agent.
 
 ### Skill System
 
@@ -169,7 +182,8 @@ In practice, the current codebase already persists:
 - result records,
 - history-linked summaries,
 - template definitions built from successful runs,
-- UI-facing overview metrics composed from history, scheduler, and IM data.
+- UI-facing overview metrics composed from history, scheduler, and IM data,
+- IM-delivered attachment files stored locally for task execution and follow-up analysis.
 
 ## Design Priorities
 
@@ -190,6 +204,7 @@ The project currently prioritizes:
 - introduce a dedicated task orchestration layer,
 - make history and UI more result-oriented,
 - align scheduler and IM with shared task lifecycle semantics,
+- keep IM file delivery and image analysis on the shared run/result path,
 - improve text extraction quality for browser tasks,
 - reduce unnecessary screenshot usage,
 - improve desktop opener command handling,

@@ -33,14 +33,13 @@ The current work stream is converging around a result-centric task model:
 - templates can be created from successful runs and executed with parameters,
 - scheduler and IM surfaces now reuse the same task/result semantics.
 
-## What's New in v0.12.2
+## What's New in v0.12.3
 
-- Unified `TaskRun`, `TaskResult`, and template-driven workflows across chat, history, scheduler, and IM.
-- Result delivery now appears in the sidebar alongside execution details instead of living only in the chat flow.
-- Successful runs can be saved as templates and rerun with parameters.
-- History, scheduler, and IM now surface run links, result summaries, and artifacts more consistently.
-- Added overview metrics, stronger i18n coverage for task/template surfaces, and regression tests for the new task model.
-- Fixed a `v0.12.0` packaging gap by restoring the missing overview panel files and continuing stabilization in `v0.12.1` and `v0.12.2`.
+- Feishu now supports bidirectional file workflows: users can send files and images in, and OpenCowork can send generated result files and images back out.
+- Images received through IM can now be analyzed with real multimodal vision and OCR instead of placeholder responses.
+- Attachment-only IM messages can automatically create a task using the received file as local context.
+- Result artifacts continue to flow through the shared task-result model across chat, history, scheduler, and IM.
+- Added regression tests for IM attachment delivery and the new vision executor.
 
 ## Highlights in v0.10.10
 
@@ -63,6 +62,8 @@ The current work stream is converging around a result-centric task model:
 | MCP Server         | Expose OpenCowork capabilities to other MCP clients           |
 | Task History       | Persist task results, steps, and recovery state               |
 | Task Templates     | Save successful work as reusable, parameterized task flows    |
+| IM File Workflow   | Send tasks and files through Feishu and receive result files  |
+| Vision Analysis    | OCR and multimodal understanding for local images             |
 | Human-in-the-loop  | Pause, resume, interrupt, and take over tasks                 |
 | International UI   | English-first UI with Chinese support                         |
 
@@ -107,6 +108,14 @@ Create `config/llm.json`:
   "maxRetries": 3
 }
 ```
+
+For image analysis through IM, use a model deployment that supports image input on `chat/completions`.
+
+### Local config safety
+
+- Keep `config/` local to your machine.
+- `config/` is git-ignored and should never be committed.
+- Feishu credentials such as `config/feishu.json` must not be pushed to GitHub.
 
 ### Run the desktop app
 
@@ -174,11 +183,12 @@ OpenCowork is moving from an internal fast-iteration agent into a stronger open-
 
 ## Current Release Notes
 
-`v0.12.2` is the current recommended tag.
+`v0.12.3` is the current recommended tag.
 
 - `v0.12.0` introduced the task-result-template workflow convergence.
 - `v0.12.1` fixed the missing overview panel files from that release.
 - `v0.12.2` adds follow-up stabilization for result delivery, i18n, run scoping, overview safety, and reusable workflow UX.
+- `v0.12.3` adds bidirectional Feishu file workflows and real image analysis for IM-driven tasks.
 
 ## Community
 

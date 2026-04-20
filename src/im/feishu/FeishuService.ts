@@ -22,7 +22,7 @@ export class FeishuService {
     initializeBindingStore(config.userDataPath);
 
     this.config = config;
-    this.bot = createFeishuBot(config.feishu);
+    this.bot = createFeishuBot({ ...config.feishu, storagePath: config.userDataPath });
     await this.bot.initialize();
 
     this.dispatchService = createDispatchService(this.bot);
@@ -46,7 +46,7 @@ export class FeishuService {
 
     const config = loadFeishuConfig();
     if (config && config.enabled !== false && this.config) {
-      this.bot = createFeishuBot(config);
+      this.bot = createFeishuBot({ ...config, storagePath: this.config.userDataPath });
       await this.bot.initialize();
 
       this.dispatchService = createDispatchService(this.bot);

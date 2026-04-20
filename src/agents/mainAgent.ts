@@ -37,6 +37,7 @@ import { getMCPClient } from '../mcp';
 import { getSkillRecorder } from '../skills/skillRecorder';
 import { getSkillRunner } from '../skills/skillRunner';
 import { createTaskResultError, mapAgentResultToTaskResult } from '../core/task/resultMapper';
+import { VisionExecutor } from '../core/executor/VisionExecutor';
 
 function cleanHtmlText(text: string): string {
   return text
@@ -451,25 +452,26 @@ const cliTool = tool(
   }
 );
 
-// Vision Tool 定义 (TODO: 等待 VisionExecutor 实现)
+const visionExecutor = new VisionExecutor();
+
+// Vision Tool 定义
 const visionTool = tool(
   async (params: { action: string; target?: string }) => {
     const logger = getLogger();
     const startTime = Date.now();
     logger.logToolCall('vision', params, 'main-agent', params.action);
     console.log('[VisionTool] Executing:', params);
-    const result = {
-      success: true,
-      action: params.action,
-      result: 'Vision operation completed (placeholder)',
-    };
+    const result = await visionExecutor.execute({
+      action: params.action as 'ocr' | 'analyze' | 'screenshot',
+      target: params.target,
+    });
     const duration = Date.now() - startTime;
     logger.logToolResult('vision', result, duration, 'main-agent', params.action);
     return result;
   },
   {
     name: 'vision',
-    description: '视觉处理工具 (TODO: 等待 VisionExecutor 实现)',
+    description: '视觉处理工具，用于 OCR 和图片分析',
     schema: z.object({
       action: z.enum(['ocr', 'analyze', 'screenshot']),
       target: z.string().optional(),

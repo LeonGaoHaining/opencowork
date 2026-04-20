@@ -1,11 +1,14 @@
 import * as Lark from '@larksuiteoapi/node-sdk';
-import { IMBot, IMMessage, IMCard, IMNotification, IMBinding } from '../types';
+import * as fs from 'fs';
+import * as path from 'path';
+import { IMAttachment, IMBot, IMMessage, IMCard, IMNotification, IMBinding } from '../types';
 import { getConnectionStatusManager, IMPlatform } from '../../config/connectionStatusManager';
 
 export interface FeishuConfig {
   appId: string;
   appSecret: string;
   enabled?: boolean;
+  storagePath?: string;
 }
 
 interface FeishuIMMessage extends IMMessage {
@@ -23,9 +26,11 @@ export class FeishuBot implements IMBot {
   private processedEventIds = new Map<string, number>();
   private readonly EVENT_ID_TTL = 60000;
   private readonly MAX_EVENT_ID_CACHE = 10000;
+  private readonly storagePath: string;
 
   constructor(config: FeishuConfig) {
     this.config = config;
+    this.storagePath = config.storagePath || path.join(process.cwd(), 'data');
   }
 
   async initialize(): Promise<void> {
@@ -83,11 +88,20 @@ export class FeishuBot implements IMBot {
     const { message } = data;
 
     const { content, message_type, chat_type, chat_id, message_id } = message;
+    const parsedContent = this.parseMessageContent(content);
 
     let text = '';
+    let attachments: IMAttachment[] | undefined;
     try {
       if (message_type === 'text') {
-        text = JSON.parse(content).text;
+        text = typeof parsedContent.text === 'string' ? parsedContent.text : '';
+      } else if (message_type === 'file' || message_type === 'image') {
+        const attachment = await this.downloadMessageAttachment(message_id, message_type, parsedContent);
+        if (!attachment) {
+          console.warn('[FeishuBot] Failed to download attachment for message:', message_id);
+          return;
+        }
+        attachments = [attachment];
       } else {
         console.log('[FeishuBot] Unsupported message type:', message_type);
         return;
@@ -101,16 +115,131 @@ export class FeishuBot implements IMBot {
       const imMessage: FeishuIMMessage = {
         id: message_id,
         platform: 'feishu',
-        type: 'text',
+        type: message_type === 'image' ? 'image' : message_type === 'file' ? 'file' : 'text',
         content: text,
         userId: data.sender?.sender_id?.open_id || data.sender?.sender_id?.union_id || '',
         timestamp: Date.now(),
         conversationId: chat_id,
         chatType: chat_type,
         messageId: message_id,
+        attachments,
       };
       await this.messageHandler(imMessage);
     }
+  }
+
+  private parseMessageContent(content: string): Record<string, unknown> {
+    try {
+      const parsed = JSON.parse(content) as Record<string, unknown>;
+      return parsed && typeof parsed === 'object' ? parsed : {};
+    } catch (error) {
+      console.error('[FeishuBot] Failed to parse message content:', error);
+      return {};
+    }
+  }
+
+  private async downloadMessageAttachment(
+    messageId: string,
+    messageType: 'file' | 'image',
+    parsedContent: Record<string, unknown>
+  ): Promise<IMAttachment | null> {
+    if (!this.client) {
+      throw new Error('[FeishuBot] Client not initialized');
+    }
+
+    const fileKey =
+      typeof parsedContent.file_key === 'string'
+        ? parsedContent.file_key
+        : typeof parsedContent.image_key === 'string'
+          ? parsedContent.image_key
+          : undefined;
+
+    if (!fileKey) {
+      console.warn('[FeishuBot] Missing file key in message content:', parsedContent);
+      return null;
+    }
+
+    const resourceType = messageType === 'image' ? 'image' : 'file';
+    const resource = await this.client.im.v1.messageResource.get({
+      path: {
+        message_id: messageId,
+        file_key: fileKey,
+      },
+      params: {
+        type: resourceType,
+      },
+    });
+
+    const headers = resource.headers || {};
+    const mimeType = this.getHeaderValue(headers, 'content-type');
+    const originalName =
+      (typeof parsedContent.file_name === 'string' ? parsedContent.file_name : undefined) ||
+      this.getFilenameFromHeaders(headers) ||
+      `${fileKey}${this.getExtensionFromMimeType(mimeType)}`;
+    const safeName = this.sanitizeFileName(originalName);
+    const targetDir = path.join(this.storagePath, 'im', 'feishu', 'inbox');
+    await fs.promises.mkdir(targetDir, { recursive: true });
+
+    const localPath = path.join(targetDir, `${Date.now()}-${safeName}`);
+    await resource.writeFile(localPath);
+
+    const stats = await fs.promises.stat(localPath);
+    return {
+      type: messageType,
+      fileKey,
+      fileName: safeName,
+      mimeType,
+      size: stats.size,
+      localPath,
+      messageId,
+    };
+  }
+
+  private getHeaderValue(headers: Record<string, unknown>, key: string): string | undefined {
+    const entry = headers[key] ?? headers[key.toLowerCase()] ?? headers[key.toUpperCase()];
+    if (Array.isArray(entry)) {
+      return typeof entry[0] === 'string' ? entry[0] : undefined;
+    }
+    return typeof entry === 'string' ? entry : undefined;
+  }
+
+  private getFilenameFromHeaders(headers: Record<string, unknown>): string | undefined {
+    const disposition = this.getHeaderValue(headers, 'content-disposition');
+    if (!disposition) {
+      return undefined;
+    }
+
+    const utf8Match = disposition.match(/filename\*=UTF-8''([^;]+)/i);
+    if (utf8Match?.[1]) {
+      return decodeURIComponent(utf8Match[1]);
+    }
+
+    const match = disposition.match(/filename="?([^";]+)"?/i);
+    return match?.[1];
+  }
+
+  private getExtensionFromMimeType(mimeType?: string): string {
+    if (!mimeType) {
+      return '';
+    }
+
+    const normalized = mimeType.split(';')[0].trim().toLowerCase();
+    const extensionMap: Record<string, string> = {
+      'image/jpeg': '.jpg',
+      'image/png': '.png',
+      'image/webp': '.webp',
+      'image/gif': '.gif',
+      'application/pdf': '.pdf',
+      'text/plain': '.txt',
+      'application/json': '.json',
+      'application/zip': '.zip',
+    };
+    return extensionMap[normalized] || '';
+  }
+
+  private sanitizeFileName(fileName: string): string {
+    const normalized = path.basename(fileName).replace(/[^a-zA-Z0-9._-]/g, '_');
+    return normalized || 'attachment';
   }
 
   async sendMessage(
@@ -130,34 +259,140 @@ export class FeishuBot implements IMBot {
     const isPrivateChat = chatType === 'p2p';
 
     try {
-      if (isPrivateChat) {
-        // 私聊 (p2p): 使用 message.create 接口，传入 chat_id
-        await this.client.im.v1.message.create({
-          params: {
-            receive_id_type: 'chat_id',
-          },
-          data: {
-            receive_id: conversationId,
-            content: content,
-            msg_type: typeof message === 'string' ? 'text' : 'interactive',
-          },
-        });
-      } else {
-        // 群聊: 使用 message.reply 接口，传入 message_id (conversationId)
-        await this.client.im.v1.message.reply({
-          path: {
-            message_id: conversationId,
-          },
-          data: {
-            content: content,
-            msg_type: typeof message === 'string' ? 'text' : 'interactive',
-          },
-        });
-      }
+      await this.sendRawMessage(
+        conversationId,
+        typeof message === 'string' ? 'text' : 'interactive',
+        content,
+        isPrivateChat ? 'p2p' : chatType
+      );
     } catch (error) {
       console.error('[FeishuBot] Failed to send message:', error);
       throw error;
     }
+  }
+
+  async sendAttachment(
+    conversationId: string,
+    attachment: IMAttachment,
+    chatType?: string
+  ): Promise<void> {
+    if (!this.client) {
+      throw new Error('[FeishuBot] Client not initialized');
+    }
+    if (!attachment.localPath) {
+      throw new Error('[FeishuBot] Attachment localPath is required');
+    }
+
+    const stats = await fs.promises.stat(attachment.localPath);
+    if (!stats.isFile() || stats.size === 0) {
+      throw new Error(`[FeishuBot] Attachment is not a readable file: ${attachment.localPath}`);
+    }
+
+    const isImageAttachment = attachment.type === 'image';
+    if (isImageAttachment && stats.size > 10 * 1024 * 1024) {
+      throw new Error('[FeishuBot] Image exceeds Feishu 10MB limit');
+    }
+    if (!isImageAttachment && stats.size > 30 * 1024 * 1024) {
+      throw new Error('[FeishuBot] File exceeds Feishu 30MB limit');
+    }
+
+    if (isImageAttachment) {
+      const uploaded = await this.client.im.v1.image.create({
+        data: {
+          image_type: 'message',
+          image: fs.createReadStream(attachment.localPath),
+        },
+      });
+
+      if (!uploaded?.image_key) {
+        throw new Error('[FeishuBot] Feishu image upload returned no image_key');
+      }
+
+      await this.sendRawMessage(
+        conversationId,
+        'image',
+        JSON.stringify({ image_key: uploaded.image_key }),
+        chatType
+      );
+      return;
+    }
+
+    const uploaded = await this.client.im.v1.file.create({
+      data: {
+        file_type: this.getFeishuFileType(attachment.fileName),
+        file_name: attachment.fileName || path.basename(attachment.localPath),
+        file: fs.createReadStream(attachment.localPath),
+      },
+    });
+
+    if (!uploaded?.file_key) {
+      throw new Error('[FeishuBot] Feishu file upload returned no file_key');
+    }
+
+    await this.sendRawMessage(
+      conversationId,
+      'file',
+      JSON.stringify({ file_key: uploaded.file_key }),
+      chatType
+    );
+  }
+
+  private getFeishuFileType(fileName?: string): 'opus' | 'mp4' | 'pdf' | 'doc' | 'xls' | 'ppt' | 'stream' {
+    const extension = (fileName ? path.extname(fileName) : '').toLowerCase();
+    if (extension === '.opus') {
+      return 'opus';
+    }
+    if (extension === '.mp4') {
+      return 'mp4';
+    }
+    if (extension === '.pdf') {
+      return 'pdf';
+    }
+    if (extension === '.doc' || extension === '.docx') {
+      return 'doc';
+    }
+    if (extension === '.xls' || extension === '.xlsx' || extension === '.csv') {
+      return 'xls';
+    }
+    if (extension === '.ppt' || extension === '.pptx') {
+      return 'ppt';
+    }
+    return 'stream';
+  }
+
+  private async sendRawMessage(
+    conversationId: string,
+    msgType: string,
+    content: string,
+    chatType?: string
+  ): Promise<void> {
+    if (!this.client) {
+      throw new Error('[FeishuBot] Client not initialized');
+    }
+
+    if (chatType === 'p2p') {
+      await this.client.im.v1.message.create({
+        params: {
+          receive_id_type: 'chat_id',
+        },
+        data: {
+          receive_id: conversationId,
+          content,
+          msg_type: msgType,
+        },
+      });
+      return;
+    }
+
+    await this.client.im.v1.message.reply({
+      path: {
+        message_id: conversationId,
+      },
+      data: {
+        content,
+        msg_type: msgType,
+      },
+    });
   }
 
   private buildCardMessage(card: IMCard): object {

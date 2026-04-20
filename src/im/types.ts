@@ -1,5 +1,15 @@
 export type IMPlatform = 'feishu' | 'dingtalk' | 'wecom' | 'slack' | 'github';
 
+export interface IMAttachment {
+  type: 'image' | 'file';
+  fileKey?: string;
+  fileName?: string;
+  mimeType?: string;
+  size?: number;
+  localPath?: string;
+  messageId?: string;
+}
+
 export interface IMMessage {
   id: string;
   platform: IMPlatform;
@@ -8,6 +18,9 @@ export interface IMMessage {
   type: 'text' | 'image' | 'file';
   timestamp: number;
   conversationId: string;
+  messageId?: string;
+  chatType?: string;
+  attachments?: IMAttachment[];
 }
 
 export interface IMCard {
@@ -57,6 +70,8 @@ export interface IMBot {
 
   sendMessage(conversationId: string, message: string | IMCard, chatType?: string): Promise<void>;
 
+  sendAttachment(conversationId: string, attachment: IMAttachment, chatType?: string): Promise<void>;
+
   pushNotification(userId: string, notification: IMNotification): Promise<void>;
 
   bindUser(imUserId: string, desktopUserId: string): Promise<void>;
@@ -67,7 +82,7 @@ export interface IMBot {
 }
 
 export interface FeishuMessage extends IMMessage {
-  msgType: 'text' | 'image' | 'rich_text';
+  msgType: 'text' | 'image' | 'file' | 'rich_text';
   messageId: string;
   messageType: 'direct' | 'group';
 }
@@ -99,10 +114,13 @@ export interface DispatchTask {
   description: string;
   templateId?: string;
   templateInput?: Record<string, unknown>;
+  attachments?: IMAttachment[];
   source: 'feishu' | 'desktop';
   priority: 'low' | 'normal' | 'high';
   userId: string;
   conversationId: string;
+  chatType?: string;
+  replyTargetId?: string;
   createdAt: number;
 }
 

@@ -38,11 +38,12 @@ The current codebase is entering an architectural convergence phase:
 - template creation from successful runs and history records,
 - scheduler template execution with stored result metadata,
 - IM template commands, recent-task result summaries, and run links,
+- bidirectional IM file delivery and attachment-aware task creation,
 - first-stage task orchestration convergence across chat, scheduler, IM, and replay.
 - result delivery moved into the sidebar execution area,
 - overview metrics panel restored and guarded against partial payloads,
 - broader i18n coverage for template, runs, result, history, and IM task surfaces,
-- regression coverage for template validation, result persistence, run-to-template conversion, IM run links, and result-first history rendering.
+- regression coverage for template validation, result persistence, run-to-template conversion, IM run links, result-first history rendering, IM attachments, and vision execution.
 
 ## Near-Term Roadmap
 
@@ -72,6 +73,8 @@ The current codebase is entering an architectural convergence phase:
 - Shared task model across chat, scheduler, IM, replay, and MCP.
 - Result-centric history and template-centric reuse flows.
 - Result delivery in the sidebar and stronger run inspection UX.
+- Bidirectional IM file workflows with local attachment context.
+- Real image OCR and image analysis for IM-driven tasks.
 - More productized skills and clearer skill contracts.
 - Better docs and example configurations.
 - Improved tests for browser, task, history, and template flows.

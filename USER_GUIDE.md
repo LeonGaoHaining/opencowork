@@ -26,6 +26,14 @@ Common examples include:
 
 Create `config/llm.json` with your preferred provider and credentials.
 
+If you want image analysis and OCR through IM attachments, the configured model deployment must support image input.
+
+### Local config safety
+
+- Keep all files under `config/` local to your device.
+- `config/` is git-ignored and should not be committed or published.
+- In particular, `config/feishu.json` contains live IM credentials and must never be pushed to GitHub.
+
 ### 2. Launch the app
 
 ```bash
@@ -117,6 +125,22 @@ OpenCowork now exposes reusable task flows more explicitly:
 - successful runs can become templates,
 - and templates can be rerun with parameters or added to the scheduler.
 
+### IM and Feishu File Workflows
+
+OpenCowork now supports file-driven IM workflows through Feishu:
+
+- send a text task plus an attached file or image,
+- send only a file and let OpenCowork create a default task automatically,
+- receive generated result files and images back through Feishu,
+- ask follow-up questions about a just-uploaded image.
+
+Current behavior:
+
+- incoming Feishu attachments are downloaded to the local app data directory,
+- the agent receives the local file path as task context,
+- image attachments can use OCR or general image analysis through the `vision` tool,
+- result file artifacts are uploaded back to Feishu after task completion.
+
 ## MCP Client Guide
 
 Open the MCP panel and use the `Clients` tab to connect external MCP servers.
@@ -200,6 +224,12 @@ Use LangChain docs MCP and give me a minimal Python example.
 - Make sure the desktop app has writable access to the history database and config directory.
 - If there are simply no recent tasks, the overview panel may show zeroed metrics rather than charts.
 - `v0.12.1` adds safer fallback handling for partial metrics payloads.
+
+### An IM image task says the model cannot analyze the image
+
+- Check that your `config/llm.json` model deployment supports image input.
+- Confirm the uploaded file is a supported image type such as `.png`, `.jpg`, `.jpeg`, `.webp`, `.gif`, or `.bmp`.
+- Retry with a smaller or clearer image if the model response is incomplete.
 
 ### A browser task extracts noisy content
 
