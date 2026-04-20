@@ -33,7 +33,7 @@ The current work stream is converging around a result-centric task model:
 - templates can be created from successful runs and executed with parameters,
 - scheduler and IM surfaces now reuse the same task/result semantics.
 
-## What's New in v0.12.3
+## What's New in v0.12.4
 
 - Feishu now supports bidirectional file workflows: users can send files and images in, and OpenCowork can send generated result files and images back out.
 - Images received through IM can now be analyzed with real multimodal vision and OCR instead of placeholder responses.
