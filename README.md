@@ -183,12 +183,12 @@ OpenCowork is moving from an internal fast-iteration agent into a stronger open-
 
 ## Current Release Notes
 
-`v0.12.3` is the current recommended tag.
+`v0.12.4` is the current recommended tag.
 
 - `v0.12.0` introduced the task-result-template workflow convergence.
 - `v0.12.1` fixed the missing overview panel files from that release.
 - `v0.12.2` adds follow-up stabilization for result delivery, i18n, run scoping, overview safety, and reusable workflow UX.
-- `v0.12.3` adds bidirectional Feishu file workflows and real image analysis for IM-driven tasks.
+- `v0.12.4` adds bidirectional Feishu file workflows and real image analysis for IM-driven tasks.
 
 ## Community
 
