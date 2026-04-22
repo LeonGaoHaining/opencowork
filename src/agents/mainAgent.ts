@@ -38,6 +38,9 @@ import { getSkillRecorder } from '../skills/skillRecorder';
 import { getSkillRunner } from '../skills/skillRunner';
 import { createTaskResultError, mapAgentResultToTaskResult } from '../core/task/resultMapper';
 import { VisionExecutor } from '../core/executor/VisionExecutor';
+import { VisualAutomationService } from '../visual/VisualAutomationService';
+import { HybridToolRouter } from '../visual';
+import { executeVisualBrowserTask } from './visualBrowserHelper';
 
 function cleanHtmlText(text: string): string {
   return text
@@ -160,6 +163,76 @@ export function clearAgentInstance(): void {
   console.log('[MainAgent] Instance cleared');
 }
 
+function shouldAttemptVisualFallback(params: {
+  action: string;
+  selector?: string;
+  text?: string;
+}): boolean {
+  return ['click', 'input', 'wait'].includes(params.action);
+}
+
+function shouldUseVisualPrimary(params: {
+  action: string;
+  selector?: string;
+  text?: string;
+}): { useVisual: boolean; reason: string } {
+  const router = new HybridToolRouter();
+  const decision = router.decide({
+    task: [params.action, params.selector, params.text].filter(Boolean).join(' '),
+    action: params.action as 'click' | 'input' | 'wait' | 'extract' | 'goto' | 'screenshot',
+    selector: params.selector,
+    requiresStrictExtraction: params.action === 'extract',
+  });
+  return {
+    useVisual: decision.mode === 'cua',
+    reason: decision.reason,
+  };
+}
+
+async function tryVisualBrowserFallback(
+  params: {
+    action: string;
+    selector?: string;
+    text?: string;
+    timeout?: number;
+    pressEnter?: boolean;
+  },
+  priorResult: { success?: boolean; error?: { recoverable?: boolean; message?: string } }
+): Promise<any | null> {
+  if (!shouldAttemptVisualFallback(params)) {
+    return null;
+  }
+
+  if (priorResult.success || !priorResult.error?.recoverable) {
+    return null;
+  }
+
+  const action = params.action as 'click' | 'input' | 'wait';
+  const service = new VisualAutomationService(getBrowserExecutor());
+  const result = await service.runBrowserActionFallback({
+    action,
+    selector: params.selector,
+    text: params.text,
+    timeout: params.timeout,
+    pressEnter: params.pressEnter,
+    fallbackReason: priorResult.error?.message || 'DOM execution failed with a recoverable error',
+  });
+
+  if (!result.success) {
+    return null;
+  }
+
+  return {
+    success: true,
+    output: {
+      fallbackMode: 'visual',
+      finalMessage: result.finalMessage,
+      turns: result.turns,
+    },
+    duration: 0,
+  };
+}
+
 // Browser Tool 定义
 const browserTool = tool(
   async (params: {
@@ -212,6 +285,15 @@ const browserTool = tool(
             'main-agent',
             params.selector
           );
+          const clickRoute = shouldUseVisualPrimary(params);
+          if (clickRoute.useVisual) {
+            result = await new VisualAutomationService(executor).runBrowserActionFallback({
+              action: 'click',
+              selector: params.selector,
+              routeReason: clickRoute.reason,
+            });
+            break;
+          }
           result = await executor.execute({
             id: `browser-click-${Date.now()}`,
             type: ActionType.BROWSER_CLICK,
@@ -235,6 +317,17 @@ const browserTool = tool(
             'main-agent',
             params.selector
           );
+          const inputRoute = shouldUseVisualPrimary(params);
+          if (inputRoute.useVisual) {
+            result = await new VisualAutomationService(executor).runBrowserActionFallback({
+              action: 'input',
+              selector: params.selector,
+              text: params.text,
+              pressEnter: params.pressEnter,
+              routeReason: inputRoute.reason,
+            });
+            break;
+          }
           result = await executor.execute({
             id: generateId(),
             type: ActionType.BROWSER_INPUT,
@@ -260,6 +353,16 @@ const browserTool = tool(
             'main-agent',
             params.selector
           );
+          const waitRoute = shouldUseVisualPrimary(params);
+          if (waitRoute.useVisual) {
+            result = await new VisualAutomationService(executor).runBrowserActionFallback({
+              action: 'wait',
+              selector: params.selector,
+              timeout: params.timeout,
+              routeReason: waitRoute.reason,
+            });
+            break;
+          }
           result = await executor.execute({
             id: generateId(),
             type: ActionType.BROWSER_WAIT,
@@ -315,6 +418,13 @@ const browserTool = tool(
           };
       }
 
+      if (!result.success) {
+        const fallbackResult = await tryVisualBrowserFallback(params, result);
+        if (fallbackResult) {
+          result = fallbackResult;
+        }
+      }
+
       const duration = Date.now() - startTime;
       const modelSafeResult = sanitizeToolResultForModel(result);
       agent?.sendNodeComplete('browser', params.action, modelSafeResult, duration, params);
@@ -367,6 +477,74 @@ const browserTool = tool(
       timeout: z.number().optional(),
       index: z.number().optional(),
       pressEnter: z.boolean().optional(),
+    }),
+  }
+);
+
+const visualBrowserTool = tool(
+  async (params: {
+    task: string;
+    adapterMode?: 'chat-structured' | 'responses-computer';
+    maxTurns?: number;
+  }) => {
+    const logger = getLogger();
+    const startTime = Date.now();
+    const agent = getAgent();
+
+    agent?.sendNodeStart('visual_browser', 'run', {
+      task: params.task,
+      adapterMode: params.adapterMode,
+      maxTurns: params.maxTurns,
+    });
+    logger.logToolCall('visual_browser', params, 'main-agent', params.task);
+
+    try {
+      await agent?.waitIfPaused();
+      agent?.ensureNotCancelled();
+
+      const result = await executeVisualBrowserTask(params);
+      const duration = Date.now() - startTime;
+      const modelSafeResult = sanitizeToolResultForModel(result);
+
+      agent?.sendNodeComplete('visual_browser', 'run', modelSafeResult, duration, params);
+      recordSkillStepIfActive('visual_browser:run', params as Record<string, unknown>, modelSafeResult);
+      logger.logToolResult('visual_browser', result, duration, 'main-agent', params.task);
+
+      return modelSafeResult;
+    } catch (error: any) {
+      const duration = Date.now() - startTime;
+      console.error('[VisualBrowserTool] Error:', error);
+      agent?.sendNodeComplete(
+        'visual_browser',
+        'run',
+        { success: false, error: error.message },
+        duration,
+        params
+      );
+      recordSkillStepIfActive('visual_browser:run', params as Record<string, unknown>, {
+        success: false,
+        error: error.message,
+      });
+      logger.logToolResult(
+        'visual_browser',
+        { error: error.message },
+        duration,
+        'main-agent',
+        params.task,
+        error.message
+      );
+
+      return { success: false, error: { code: 'VISUAL_BROWSER_ERROR', message: error.message } };
+    }
+  },
+  {
+    name: 'visual_browser',
+    description:
+      '视觉浏览器工具。适用于复杂前端、模糊按钮、弹窗、菜单、canvas、低代码后台等 DOM/selector 不稳定场景。传入完整任务意图而不是单个 selector。',
+    schema: z.object({
+      task: z.string().describe('Describe the browser task in natural language for visual execution'),
+      adapterMode: z.enum(['chat-structured', 'responses-computer']).optional(),
+      maxTurns: z.number().optional(),
     }),
   }
 );
@@ -503,6 +681,7 @@ const plannerTool = tool(
 
 const baseTools = [
   browserTool,
+  visualBrowserTool,
   cliTool,
   visionTool,
   plannerTool,
@@ -738,31 +917,35 @@ const BASE_STATE_MODIFIER = `你是一个浏览器自动化助手，擅长理解
     - 重要：当需要获取页面文本内容时，优先使用 extract 工具而非 screenshot
     - screenshot 仅在需要分析视觉元素（如图标、图片、布局问题）时才使用
    - 如果用户要的是页面文字、搜索结果、公司介绍、文章内容，禁止优先使用 screenshot；先使用 extract
-   - 如果用户明确说“不要用 screenshot”，则禁止调用 screenshot
-    - 注意：browser 工具仅适用于网页内容，不适合打开本地文件
-2. cli - 用于执行系统命令
+    - 如果用户明确说“不要用 screenshot”，则禁止调用 screenshot
+     - 注意：browser 工具仅适用于网页内容，不适合打开本地文件
+2. visual_browser - 用于基于截图和视觉状态操作网页
+   - 适用场景：复杂前端、模糊按钮、下拉菜单、弹窗、canvas、低代码后台
+   - 传入完整任务意图，不要传单个 selector
+   - 如果普通 browser 工具很可能因 selector 不稳定而失败，应优先使用 visual_browser
+3. cli - 用于执行系统命令
    - 本地文件（.pptx, .pdf, .docx, .xlsx, .jpg, .png 等）应使用 cli 工具的 xdg-open/gio open/convert 等命令
    - 示例：使用 "xdg-open 文件路径.pptx" 或 "gio open 文件路径.pdf" 打开本地文件
-3. vision - 用于分析图片和屏幕内容
-4. planner - 用于分析和规划复杂任务
-5. webfetch - 用于获取指定URL的网页内容（支持text/markdown/html格式）
+4. vision - 用于分析图片和屏幕内容
+5. planner - 用于分析和规划复杂任务
+6. webfetch - 用于获取指定URL的网页内容（支持text/markdown/html格式）
    - 适用场景：数据采集、API调用、静态网页内容获取
    - 特点：比browser工具更轻量更快，但不执行JavaScript
-6. websearch - 用于实时网络搜索（Exa AI）
+7. websearch - 用于实时网络搜索（Exa AI）
    - 适用场景：查询最新信息、新闻、实时数据
-7. scheduler - 用于管理定时任务（Cron任务）
+8. scheduler - 用于管理定时任务（Cron任务）
    - 支持操作：list（列出所有任务）、create（创建任务）、update（更新任务）、delete（删除任务）、trigger（手动触发任务）
    - 适用场景：创建/管理定时执行的自动化任务
-8. list_skills - 用于列出所有已安装的 Skills
+9. list_skills - 用于列出所有已安装的 Skills
    - 适用场景：用户询问"有哪些skill"或列出所有技能时使用
-9. list_mcp_tools - 用于列出当前已连接的 MCP 服务及其工具
-   - 适用场景：用户询问"有哪些mcp"、"有哪些外部工具"、"docs mcp 能做什么"时优先使用
-   - MCP 与 Skills 不同，不能用 list_skills 代替 list_mcp_tools
-10. execute_skill - 用于执行指定名称的 Skill
-   - 先阅读 Skill Catalog，再选择合适的 skillName
-   - 如果某个 Skill 明显适合当前任务，应优先尝试 execute_skill，而不是直接重写同类 CLI/browser 流程
-11. start_skill_recording - 开始录制 Skill
-12. finish_skill_recording - 完成录制并生成 Skill 文件
+10. list_mcp_tools - 用于列出当前已连接的 MCP 服务及其工具
+    - 适用场景：用户询问"有哪些mcp"、"有哪些外部工具"、"docs mcp 能做什么"时优先使用
+    - MCP 与 Skills 不同，不能用 list_skills 代替 list_mcp_tools
+11. execute_skill - 用于执行指定名称的 Skill
+    - 先阅读 Skill Catalog，再选择合适的 skillName
+    - 如果某个 Skill 明显适合当前任务，应优先尝试 execute_skill，而不是直接重写同类 CLI/browser 流程
+12. start_skill_recording - 开始录制 Skill
+13. finish_skill_recording - 完成录制并生成 Skill 文件
 
 执行流程：
 1. 理解用户任务
@@ -775,6 +958,9 @@ const BASE_STATE_MODIFIER = `你是一个浏览器自动化助手，擅长理解
   1. 使用 extract 工具或 webfetch 工具提取页面内容
   2. 分析提取的内容，找到用户问题的答案
   3. 用简洁的语言回答用户的问题
+- 对复杂视觉交互任务：
+  1. 如果目标元素难以稳定用 selector 表达，优先使用 visual_browser
+  2. 如果是结构化文本提取，不要默认使用 visual_browser；优先 extract 或 webfetch
 - 当用户询问可用能力时，区分 Skill 和 MCP：
   - Skills 用 list_skills 查询
   - MCP / 外部 docs 工具 / 已连接服务能力 用 list_mcp_tools 查询
@@ -1198,6 +1384,7 @@ export class MainAgent {
       success: true,
       output: result?.result?.output,
       finalMessage,
+      steps: result?.result?.steps,
     });
     if (finalMessage) {
       this.conversationHistory.push({ role: 'assistant', content: finalMessage });
@@ -1374,6 +1561,7 @@ export class MainAgent {
             success: true,
             output: scopedResult,
             finalMessage,
+            steps,
           });
           await historyService.completeTask(this.currentHistoryTaskId, {
             success: true,

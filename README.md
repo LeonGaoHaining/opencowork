@@ -33,13 +33,14 @@ The current work stream is converging around a result-centric task model:
 - templates can be created from successful runs and executed with parameters,
 - scheduler and IM surfaces now reuse the same task/result semantics.
 
-## What's New in v0.12.4
+## What's New in v0.12.5
 
-- Feishu now supports bidirectional file workflows: users can send files and images in, and OpenCowork can send generated result files and images back out.
-- Images received through IM can now be analyzed with real multimodal vision and OCR instead of placeholder responses.
-- Attachment-only IM messages can automatically create a task using the received file as local context.
-- Result artifacts continue to flow through the shared task-result model across chat, history, scheduler, and IM.
-- Added regression tests for IM attachment delivery and the new vision executor.
+- Added a first working Hybrid CUA browser runtime with explicit visual execution support.
+- Added a dedicated `visual_browser` agent tool for complex UI tasks that are not stable with DOM selectors alone.
+- Added approval-aware visual execution with approve-and-continue and takeover flows.
+- Added a visual debug entry point in the desktop UI.
+- Added visual trace review in execution steps, result delivery, task run details, and history.
+- Added regression tests for visual routing, approval continuation, and visual trace rendering.
 
 ## Highlights in v0.10.10
 
@@ -183,12 +184,14 @@ OpenCowork is moving from an internal fast-iteration agent into a stronger open-
 
 ## Current Release Notes
 
-`v0.12.4` is the current recommended tag.
+`v0.12.5` is the current recommended tag.
 
 - `v0.12.0` introduced the task-result-template workflow convergence.
 - `v0.12.1` fixed the missing overview panel files from that release.
 - `v0.12.2` adds follow-up stabilization for result delivery, i18n, run scoping, overview safety, and reusable workflow UX.
-- `v0.12.4` adds bidirectional Feishu file workflows and real image analysis for IM-driven tasks.
+- `v0.12.3` adds bidirectional Feishu file workflows and real image analysis for IM-driven tasks.
+- `v0.12.4` fixes Feishu IM reply routing.
+- `v0.12.5` introduces the first working Hybrid CUA feature slice with explicit visual browser execution and persisted visual trace review.
 
 ## Community
 

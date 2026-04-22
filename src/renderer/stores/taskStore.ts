@@ -61,6 +61,20 @@ export interface AskUserRequest {
   timeout: number;
 }
 
+export interface VisualApprovalRequest {
+  reason: string;
+  actions: Array<{
+    type: string;
+    text?: string;
+    keys?: string[];
+    x?: number;
+    y?: number;
+  }>;
+  taskDescription?: string;
+  adapterMode?: 'chat-structured' | 'responses-computer';
+  maxTurns?: number;
+}
+
 interface TaskState {
   // Session
   sessionId: string | null;
@@ -95,6 +109,7 @@ interface TaskState {
   // Active Steps (for real-time step display)
   activeSteps: AgentStep[];
   addActiveStep: (step: AgentStep) => void;
+  setActiveSteps: (steps: AgentStep[]) => void;
   updateActiveStep: (id: string, updates: Partial<AgentStep>) => void;
   clearActiveSteps: () => void;
 
@@ -122,6 +137,10 @@ interface TaskState {
   askUserRequest: AskUserRequest | null;
   setAskUserRequest: (request: AskUserRequest | null) => void;
   respondToAskUser: (answer: string) => void;
+
+  // Visual Approval Dialog
+  visualApprovalRequest: VisualApprovalRequest | null;
+  setVisualApprovalRequest: (request: VisualApprovalRequest | null) => void;
 
   // Preview Mode
   previewMode: 'sidebar' | 'detached';
@@ -198,6 +217,10 @@ export const useTaskStore = create<TaskState>((set) => ({
     set((state) => ({
       activeSteps: [...state.activeSteps.slice(-(MAX_ACTIVE_STEPS - 1)), step],
     })),
+  setActiveSteps: (steps) =>
+    set({
+      activeSteps: steps.slice(-MAX_ACTIVE_STEPS),
+    }),
   updateActiveStep: (id, updates) =>
     set((state) => ({
       activeSteps: state.activeSteps.map((s) => (s.id === id ? { ...s, ...updates } : s)),
@@ -252,6 +275,9 @@ export const useTaskStore = create<TaskState>((set) => ({
     }
     set({ askUserRequest: null });
   },
+
+  visualApprovalRequest: null,
+  setVisualApprovalRequest: (request) => set({ visualApprovalRequest: request }),
 
   // Preview Mode
   previewMode: 'sidebar' as const,

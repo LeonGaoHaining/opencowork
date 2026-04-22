@@ -4,6 +4,7 @@ import { TaskHistoryRecord } from '../../history/taskHistory';
 import { useTranslation } from '../i18n/useTranslation';
 import { useTaskStore } from '../stores/taskStore';
 import RelationBadge from './RelationBadge';
+import { extractVisualTraceSummary } from '../utils/visualTrace';
 
 function getResultSummary(task: TaskHistoryRecord): string | undefined {
   return task.result?.summary || (typeof task.result?.output === 'string' ? task.result.output : undefined);
@@ -22,8 +23,12 @@ function getArtifactCount(task: TaskHistoryRecord): number {
   return typeof count === 'number' ? count : 0;
 }
 
+function hasVisualTrace(task: TaskHistoryRecord): boolean {
+  return extractVisualTraceSummary(task.result?.rawOutput).hasVisualTrace;
+}
+
 type FilterTab = 'all' | 'completed' | 'failed' | 'cancelled';
-type OutcomeFilter = 'all' | 'result' | 'artifacts' | 'run' | 'template';
+type OutcomeFilter = 'all' | 'result' | 'artifacts' | 'run' | 'template' | 'visual';
 
 export function HistoryPanel() {
   const { t } = useTranslation();
@@ -94,6 +99,7 @@ export function HistoryPanel() {
     const hasArtifacts = getArtifactCount(task) > 0;
     const hasRun = typeof task.metadata?.runId === 'string';
     const hasTemplate = typeof task.metadata?.templateId === 'string';
+    const hasVisual = hasVisualTrace(task);
 
     const matchesSource = sourceFilter === 'all' || source === sourceFilter;
     const matchesOutcome =
@@ -101,7 +107,8 @@ export function HistoryPanel() {
       (outcomeFilter === 'result' && hasResult) ||
       (outcomeFilter === 'artifacts' && hasArtifacts) ||
       (outcomeFilter === 'run' && hasRun) ||
-      (outcomeFilter === 'template' && hasTemplate);
+      (outcomeFilter === 'template' && hasTemplate) ||
+      (outcomeFilter === 'visual' && hasVisual);
 
     return matchesSource && matchesOutcome;
   });
@@ -222,6 +229,7 @@ export function HistoryPanel() {
               <option value="artifacts">has artifacts</option>
               <option value="run">has run</option>
               <option value="template">has template</option>
+              <option value="visual">has visual trace</option>
             </select>
             <input
               type="text"
@@ -341,6 +349,7 @@ export function HistoryPanel() {
                       <div className="text-xs text-text-muted mt-1 flex gap-3">
                         {getSourceLabel(task) && <span>source: {getSourceLabel(task)}</span>}
                         {getArtifactCount(task) > 0 && <span>artifacts: {getArtifactCount(task)}</span>}
+                        {hasVisualTrace(task) && <span>visual trace</span>}
                       </div>
                       {searchResult?.match && searchKeyword.trim() && (
                         <div className="text-xs text-text-muted mt-1 line-clamp-2">
@@ -503,6 +512,45 @@ export function HistoryPanel() {
                               ))}
                             </div>
                           )}
+                        {extractVisualTraceSummary(selectedTask.result.rawOutput).hasVisualTrace && (
+                          <div className="mt-3 rounded border border-border bg-background px-3 py-3 text-xs text-text-secondary space-y-2">
+                            <div className="text-text-muted">{t('taskPanels.visualTrace')}</div>
+                            {extractVisualTraceSummary(selectedTask.result.rawOutput).routeReasons.length > 0 && (
+                              <div>
+                                <span className="text-text-muted">{t('taskPanels.visualRouteReason')}:</span>{' '}
+                                <span className="text-white">
+                                  {extractVisualTraceSummary(selectedTask.result.rawOutput).routeReasons.join(' | ')}
+                                </span>
+                              </div>
+                            )}
+                            {extractVisualTraceSummary(selectedTask.result.rawOutput).fallbackReasons.length > 0 && (
+                              <div>
+                                <span className="text-text-muted">{t('taskPanels.visualFallbackReason')}:</span>{' '}
+                                <span className="text-white">
+                                  {extractVisualTraceSummary(selectedTask.result.rawOutput).fallbackReasons.join(' | ')}
+                                </span>
+                              </div>
+                            )}
+                            {extractVisualTraceSummary(selectedTask.result.rawOutput).approvedActions.length > 0 && (
+                              <div>
+                                <span className="text-text-muted">{t('taskPanels.visualApprovedActions')}:</span>{' '}
+                                <span className="text-white">
+                                  {extractVisualTraceSummary(selectedTask.result.rawOutput).approvedActions
+                                    .map((action) => action.type || 'unknown')
+                                    .join(', ')}
+                                </span>
+                              </div>
+                            )}
+                            {extractVisualTraceSummary(selectedTask.result.rawOutput).turns.length > 0 && (
+                              <div>
+                                <span className="text-text-muted">{t('taskPanels.visualTurns')}:</span>{' '}
+                                <span className="text-white">
+                                  {extractVisualTraceSummary(selectedTask.result.rawOutput).turns.length}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
                     )}
 

@@ -37,6 +37,16 @@ const historyTasks: TaskHistoryRecord[] = [
           uri: '/tmp/vendors.csv',
         },
       ],
+      rawOutput: {
+        visualTrace: [
+          {
+            source: 'step',
+            routeReason: 'browser-action-visual-route',
+            fallbackReason: 'Recoverable selector failure',
+            turns: [{ turnId: 'turn-1', proposedActions: [{ type: 'click' }] }],
+          },
+        ],
+      },
     },
     metadata: {
       source: 'scheduler',
@@ -135,6 +145,18 @@ describe('HistoryPanel', () => {
     });
 
     expect(screen.getAllByText('Collect vendor prices').length).toBeGreaterThan(0);
+    expect(screen.queryByText('Check company homepage')).not.toBeInTheDocument();
+  });
+
+  it('filters task list by visual trace outcome', () => {
+    render(<HistoryPanel />);
+
+    fireEvent.change(screen.getAllByRole('combobox')[1], {
+      target: { value: 'visual' },
+    });
+
+    expect(screen.getAllByText('Collect vendor prices').length).toBeGreaterThan(0);
+    expect(screen.getByText('visual trace')).toBeInTheDocument();
     expect(screen.queryByText('Check company homepage')).not.toBeInTheDocument();
   });
 });

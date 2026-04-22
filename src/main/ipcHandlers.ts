@@ -29,6 +29,8 @@ import { getTaskTemplateRepository } from '../core/task/TaskTemplateRepository';
 import { getTaskRunRepository } from '../core/task/TaskRunRepository';
 import { resolveTemplateInput } from '../core/task/templateUtils';
 import { getDispatchService } from '../im/DispatchService';
+import { VisualAutomationService } from '../visual/VisualAutomationService';
+import { HybridToolRouter } from '../visual';
 
 const taskEngine = new TaskEngine();
 const execFileAsync = promisify(execFile);
@@ -44,6 +46,7 @@ let detachedPreviewWindow: BrowserWindow | null = null;
 let mcpToolsChangedSubscribed = false;
 let mcpToolsReloadInFlight = false;
 const mcpToolSignatures = new Map<string, string>();
+let visualAutomationService: VisualAutomationService | null = null;
 
 function createMCPToolSignature(
   tools: Array<{ name: string; description?: string; inputSchema?: unknown }>
@@ -205,6 +208,33 @@ function getCLIExecutor(): CLIExecutor {
 }
 
 export { getBrowserExecutor, getCLIExecutor };
+
+function getVisualAutomationService(): VisualAutomationService {
+  if (!visualAutomationService) {
+    visualAutomationService = new VisualAutomationService(getBrowserExecutor());
+  }
+
+  return visualAutomationService;
+}
+
+function shouldUseVisualPrimaryForBrowserAction(params: {
+  action: string;
+  selector?: string;
+  text?: string;
+}): { useVisual: boolean; reason: string } {
+  const router = new HybridToolRouter();
+  const decision = router.decide({
+    task: [params.action, params.selector, params.text].filter(Boolean).join(' '),
+    action: params.action as 'click' | 'input' | 'wait' | 'extract' | 'goto' | 'screenshot',
+    selector: params.selector,
+    requiresStrictExtraction: params.action === 'extract',
+  });
+
+  return {
+    useVisual: decision.mode === 'cua',
+    reason: decision.reason,
+  };
+}
 
 // Set main window reference
 export function setTaskEngineMainWindow(window: BrowserWindow | null): void {
@@ -740,6 +770,33 @@ export const IPC_HANDLERS: Record<string, IpcHandler> = {
     return { success: true };
   },
 
+  'visual:run': async (mainWindow, previewWindow, payload) => {
+    const service = getVisualAutomationService();
+    const result = await service.runVisualTask({
+      task: payload?.task,
+      adapterMode: payload?.adapterMode,
+      model: payload?.model,
+      maxTurns: payload?.maxTurns,
+      launchIfNeeded: payload?.launchIfNeeded,
+      approvalEnabled: payload?.approvalEnabled,
+    });
+
+    return result;
+  },
+
+  'visual:approve': async (mainWindow, previewWindow, payload) => {
+    const service = getVisualAutomationService();
+    const result = await service.runApprovedVisualContinuation({
+      task: payload?.task,
+      actions: payload?.actions || [],
+      adapterMode: payload?.adapterMode,
+      model: payload?.model,
+      maxTurns: payload?.maxTurns,
+    });
+
+    return result;
+  },
+
   // 浏览器导航控制 (v2.0) - 使用 headed 浏览器
   'browser:navigate': async (mainWindow, previewWindow, { url }) => {
     const executor = getBrowserExecutor();
@@ -904,28 +961,80 @@ export const IPC_HANDLERS: Record<string, IpcHandler> = {
           });
           break;
         case 'click':
+          const clickRoute = shouldUseVisualPrimaryForBrowserAction(action);
+          if (clickRoute.useVisual) {
+            result = await getVisualAutomationService().runBrowserActionFallback({
+              action: 'click',
+              selector: action.selector,
+              routeReason: clickRoute.reason,
+            });
+            break;
+          }
           result = await executor.execute({
             id: `ipc-click-${Date.now()}`,
             type: ActionType.BROWSER_CLICK,
             description: 'IPC Click',
             params: { selector: action.selector, index: action.index },
           });
+          if (!result.success && result.error?.recoverable) {
+            result = await getVisualAutomationService().runBrowserActionFallback({
+              action: 'click',
+              selector: action.selector,
+              fallbackReason: result.error?.message,
+            });
+          }
           break;
         case 'input':
+          const inputRoute = shouldUseVisualPrimaryForBrowserAction(action);
+          if (inputRoute.useVisual) {
+            result = await getVisualAutomationService().runBrowserActionFallback({
+              action: 'input',
+              selector: action.selector,
+              text: action.text,
+              routeReason: inputRoute.reason,
+            });
+            break;
+          }
           result = await executor.execute({
             id: `ipc-input-${Date.now()}`,
             type: ActionType.BROWSER_INPUT,
             description: 'IPC Input',
             params: { selector: action.selector, text: action.text, clear: true },
           });
+          if (!result.success && result.error?.recoverable) {
+            result = await getVisualAutomationService().runBrowserActionFallback({
+              action: 'input',
+              selector: action.selector,
+              text: action.text,
+              fallbackReason: result.error?.message,
+            });
+          }
           break;
         case 'wait':
+          const waitRoute = shouldUseVisualPrimaryForBrowserAction(action);
+          if (waitRoute.useVisual) {
+            result = await getVisualAutomationService().runBrowserActionFallback({
+              action: 'wait',
+              selector: action.selector,
+              timeout: action.timeout,
+              routeReason: waitRoute.reason,
+            });
+            break;
+          }
           result = await executor.execute({
             id: `ipc-wait-${Date.now()}`,
             type: ActionType.BROWSER_WAIT,
             description: 'IPC Wait',
             params: { selector: action.selector, timeout: action.timeout || 10000 },
           });
+          if (!result.success && result.error?.recoverable) {
+            result = await getVisualAutomationService().runBrowserActionFallback({
+              action: 'wait',
+              selector: action.selector,
+              timeout: action.timeout,
+              fallbackReason: result.error?.message,
+            });
+          }
           break;
         case 'extract':
           result = await executor.execute({

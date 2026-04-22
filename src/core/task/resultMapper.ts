@@ -5,6 +5,22 @@ interface AgentLikeResult {
   output?: unknown;
   error?: string;
   finalMessage?: string;
+  steps?: Array<{
+    toolName?: string;
+    args?: Record<string, unknown>;
+    result?: unknown;
+    status?: string;
+  }>;
+}
+
+interface VisualTraceEntry {
+  source: 'output' | 'step';
+  toolName?: string;
+  action?: string;
+  routeReason?: string;
+  fallbackReason?: string;
+  approvedActions?: unknown[];
+  turns?: unknown[];
 }
 
 export function createTaskResultError(message: string, code: string = 'TASK_FAILED'): TaskResultError {
@@ -78,9 +94,102 @@ function buildStructuredArtifacts(summary: string, output: unknown): TaskArtifac
   return artifacts;
 }
 
+function normalizeVisualTraceEntry(
+  candidate: unknown,
+  source: VisualTraceEntry['source'],
+  toolName?: string,
+  action?: string
+): VisualTraceEntry | null {
+  if (!candidate || typeof candidate !== 'object') {
+    return null;
+  }
+
+  const record = candidate as Record<string, unknown>;
+  const directTurns = Array.isArray(record.turns) ? record.turns : undefined;
+  const nestedOutput =
+    record.output && typeof record.output === 'object'
+      ? (record.output as Record<string, unknown>)
+      : undefined;
+  const nestedTurns = Array.isArray(nestedOutput?.turns) ? nestedOutput?.turns : undefined;
+  const approvedActions = Array.isArray(record.approvedActions)
+    ? record.approvedActions
+    : Array.isArray(nestedOutput?.approvedActions)
+      ? nestedOutput?.approvedActions
+      : undefined;
+  const routeReason =
+    typeof record.routeReason === 'string'
+      ? record.routeReason
+      : typeof nestedOutput?.routeReason === 'string'
+        ? nestedOutput.routeReason
+        : undefined;
+  const fallbackReason =
+    typeof record.fallbackReason === 'string'
+      ? record.fallbackReason
+      : typeof nestedOutput?.fallbackReason === 'string'
+        ? nestedOutput.fallbackReason
+        : undefined;
+  const turns = directTurns || nestedTurns;
+
+  if (!turns && !approvedActions && !routeReason && !fallbackReason) {
+    return null;
+  }
+
+  return {
+    source,
+    toolName,
+    action,
+    routeReason,
+    fallbackReason,
+    approvedActions,
+    turns,
+  };
+}
+
+function collectVisualTrace(agentResult: AgentLikeResult): VisualTraceEntry[] {
+  const trace: VisualTraceEntry[] = [];
+
+  const outputTrace = normalizeVisualTraceEntry(agentResult.output, 'output');
+  if (outputTrace) {
+    trace.push(outputTrace);
+  }
+
+  for (const step of agentResult.steps || []) {
+    const stepTrace = normalizeVisualTraceEntry(
+      step.result,
+      'step',
+      step.toolName,
+      typeof step.args?.action === 'string' ? step.args.action : undefined
+    );
+    if (stepTrace) {
+      trace.push(stepTrace);
+    }
+  }
+
+  return trace;
+}
+
+function buildRawOutput(output: unknown, visualTrace: VisualTraceEntry[]): unknown {
+  if (visualTrace.length === 0) {
+    return output;
+  }
+
+  if (output && typeof output === 'object' && !Array.isArray(output)) {
+    return {
+      ...(output as Record<string, unknown>),
+      visualTrace,
+    };
+  }
+
+  return {
+    value: output,
+    visualTrace,
+  };
+}
+
 export function mapAgentResultToTaskResult(agentResult: AgentLikeResult): TaskResult {
   const completedAt = Date.now();
   const structuredData = deriveStructuredData(agentResult.output);
+  const visualTrace = collectVisualTrace(agentResult);
   const summary =
     agentResult.finalMessage ||
     (typeof agentResult.output === 'string' ? agentResult.output : '') ||
@@ -91,7 +200,7 @@ export function mapAgentResultToTaskResult(agentResult: AgentLikeResult): TaskRe
     summary,
     structuredData,
     artifacts: buildStructuredArtifacts(summary, agentResult.output),
-    rawOutput: agentResult.output,
+    rawOutput: buildRawOutput(agentResult.output, visualTrace),
     error: agentResult.success ? undefined : createTaskResultError(agentResult.error || '任务执行失败'),
     reusable: !!agentResult.success,
     completedAt,
