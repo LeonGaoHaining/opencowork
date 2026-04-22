@@ -6,6 +6,8 @@ OpenCowork is an Electron-based desktop AI work system. The current implementati
 
 The architecture is currently in transition from an entry-point-driven agent shell to a more unified task-oriented system. The near-term goal is to make `TaskRun`, `TaskResult`, and unified orchestration first-class concepts so that chat, scheduler, IM, history, runs, and templates can share one task lifecycle.
 
+The next major product direction also introduces a Hybrid CUA layer for browser-heavy work. In this direction, OpenCowork keeps `webfetch` and DOM-based browser execution as the default low-cost path, while adding a visual execution path that can inspect screenshots, propose UI actions, and act as a fallback for unstable or highly visual browser tasks. This direction is organized in the product docs as `P0-P3` planning rather than a single versioned browser rewrite.
+
 ## Architecture Layers
 
 ```text
@@ -125,6 +127,34 @@ Supports:
 - extraction,
 - screenshots.
 
+### Hybrid CUA Runtime
+
+The planned Hybrid CUA runtime sits above the existing browser execution stack rather than replacing it outright.
+
+Its intended role is:
+
+- keep DOM-first browser execution for standard, text-centric, and selector-stable tasks,
+- introduce a unified visual execution protocol compatible with both `Responses API` and `Chat Completions API`,
+- run screenshot-driven browser interaction loops when the task requires visual understanding,
+- provide `DOM -> CUA` fallback for selector failures and unstable frontends,
+- feed future approval, takeover, templateization, and multi-entry reuse workflows.
+
+Architecturally, this becomes a new runtime capability, not a separate product silo.
+
+The current implementation now includes a first working P0/P1 slice of this direction:
+
+- a `src/visual/` module with unified visual protocol types,
+- `Responses API` and `Chat Completions API` visual adapters,
+- a browser-backed `ComputerUseRuntime`,
+- a `VisualAutomationService` exposed through IPC,
+- DOM-first browser execution with visual-first routing for ambiguous selectors and visual fallback for recoverable browser failures,
+- an explicit `visual_browser` tool in the main agent so visual execution can be chosen intentionally for complex UI tasks,
+- approval interception for high-impact visual action batches,
+- renderer-side visual debug UI and approval UI,
+- visual turn summaries surfaced in the execution steps panel.
+
+This is still an incremental integration rather than a full system-wide migration. The main agent and browser execution path remain DOM-first, while the visual layer is being introduced as an additive runtime capability.
+
 ### CLI Executor
 
 Supports controlled command execution for local workflows and skill-backed scripts.
@@ -208,9 +238,17 @@ The project currently prioritizes:
 - improve text extraction quality for browser tasks,
 - reduce unnecessary screenshot usage,
 - improve desktop opener command handling,
-- continue hardening MCP tool selection and execution.
+- continue hardening MCP tool selection and execution,
+- introduce the P0 Hybrid CUA foundation with a unified visual protocol,
+- deepen Hybrid execution recovery, approval, and takeover flows,
+- productize successful browser runs into reusable templates and multi-entry workflows,
+- prepare provider-aware routing and platform-level capability abstraction.
 
 ## Related Specs
 
 - `docs/SPEC_v0.10.x_task-foundation.md`
+- `docs/SPEC_P0_hybrid-cua-foundation.md`
+- `docs/SPEC_P1_hybrid-recovery-and-approval.md`
+- `docs/SPEC_P2_templateization-and-multi-entry.md`
+- `docs/SPEC_P3_platformization-and-ecosystem.md`
 - `docs/PRD.md`

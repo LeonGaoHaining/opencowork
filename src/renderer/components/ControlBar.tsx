@@ -5,6 +5,7 @@ import { useSchedulerStore } from '../stores/schedulerStore';
 import { useIMStore, ConnectionStatus } from '../stores/imStore';
 import { useTranslation } from '../i18n/useTranslation';
 import { PersistedTaskStateSummary } from '../../core/runtime/taskState';
+import { VisualRunDialog } from './VisualRunDialog';
 
 interface ControlBarProps {
   onSkillClick: () => void;
@@ -18,6 +19,7 @@ interface ControlBarProps {
 export function ControlBar({ onSkillClick, onMCPClick, onTemplateClick, onRunsClick, onSettingsClick, onOverviewClick }: ControlBarProps) {
   const [savedStates, setSavedStates] = useState<PersistedTaskStateSummary[]>([]);
   const [isRestoreOpen, setRestoreOpen] = useState(false);
+  const [isVisualRunOpen, setVisualRunOpen] = useState(false);
   const {
     task,
     setTask,
@@ -270,6 +272,13 @@ export function ControlBar({ onSkillClick, onMCPClick, onTemplateClick, onRunsCl
         >
           {t('controlBar.restoreTask')}
         </button>
+        <button
+          onClick={() => setVisualRunOpen(true)}
+          className="btn btn-secondary"
+          title={t('controlBar.visualRunTitle')}
+        >
+          {t('controlBar.visualRun')}
+        </button>
       </div>
 
       {/* Center: Status */}
@@ -517,6 +526,8 @@ export function ControlBar({ onSkillClick, onMCPClick, onTemplateClick, onRunsCl
           </div>
         </div>
       )}
+
+      {isVisualRunOpen && <VisualRunDialog onClose={() => setVisualRunOpen(false)} />}
     </div>
   );
 }

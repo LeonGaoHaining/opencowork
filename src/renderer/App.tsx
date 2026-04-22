@@ -4,6 +4,7 @@ import { ControlBar } from './components/ControlBar';
 import { TaskStatus } from './components/TaskStatus';
 import { TakeoverModal } from './components/TakeoverModal';
 import { AskUserDialog } from './components/AskUserDialog';
+import { VisualApprovalDialog } from './components/VisualApprovalDialog';
 import { SkillGenerateDialog } from './components/SkillGenerateDialog';
 import { SessionPanel } from './components/SessionPanel';
 import { HistoryPanel } from './components/HistoryPanel';
@@ -78,6 +79,7 @@ function App() {
     setTaskError,
     addLog,
     setAskUserRequest,
+    setVisualApprovalRequest,
     previewMode,
     setPreviewMode,
     messages,
@@ -136,6 +138,21 @@ function App() {
   };
 
   const handleTaskFailure = (event: any): void => {
+    const approvalError = event?.error?.code === 'APPROVAL_REQUIRED';
+    if (approvalError) {
+      const pendingApproval = event?.pendingApproval || event?.data?.pendingApproval;
+      setVisualApprovalRequest({
+        reason: event?.error?.message || 'Approval required before executing visual actions',
+        actions: pendingApproval?.actions || [],
+        taskDescription: pendingApproval?.taskContext?.task,
+        adapterMode: event?.adapterMode,
+        maxTurns: event?.maxTurns,
+      });
+      updateTaskStatus('waiting_confirm');
+      addLog({ type: 'info', message: event?.error?.message || '等待视觉操作确认' });
+      return;
+    }
+
     const runId = event?.runId || event?.handleId || event?.data?.runId;
     if (runId && handledFailureRunIdsRef.current.has(runId)) {
       return;
@@ -414,6 +431,9 @@ function App() {
 
         {/* Ask User Dialog */}
         <AskUserDialog />
+
+        {/* Visual Approval Dialog */}
+        <VisualApprovalDialog />
 
         {/* Skill Generate Dialog */}
         {skillPrompt && (

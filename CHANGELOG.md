@@ -13,6 +13,35 @@ The next work stream builds on `v0.12.4` with more result-driven desktop workflo
 - Extended the IM workflow so Feishu can receive files from users and send generated result files back.
 - Added real image analysis and OCR execution instead of placeholder vision responses.
 - Clarified local-only configuration handling so sensitive IM config files stay out of Git history.
+- Reworked the product planning docs around a new `P0-P3` Hybrid CUA roadmap instead of the older `v0.11/v0.12` wording.
+- Added dedicated specs for Hybrid CUA foundation, recovery and approval depth, templateized multi-entry reuse, and platformization.
+- Updated architecture and roadmap documentation to reflect the new Browser-first Hybrid CUA direction.
+- Added a first working `src/visual/` runtime skeleton with unified protocol types, model adapters, browser execution adapters, and a minimal computer-use loop.
+- Added browser-side Hybrid routing so ambiguous browser actions can go visual-first and selector failures can fall back from DOM execution into the visual runtime.
+- Added approval interception for high-impact visual action batches, plus a renderer approval dialog with approve-and-continue, takeover, and cancel flows.
+- Added a renderer-side visual debug entry point and surfaced visual turns in the execution steps panel.
+- Added persisted visual trace summaries to the result panel, run details view, and history view so Hybrid CUA behavior can be reviewed after task completion.
+- Added an explicit `visual_browser` tool to the main agent so visual browser execution can be selected proactively for complex UI tasks, not only as a fallback path.
+- Added unit coverage for Hybrid routing, computer-use approval behavior, visual approve continuation, visual-turn-to-step mapping, history visual-trace filtering, result visual-trace rendering, and run-details visual-trace rendering.
+
+## v0.12.5 - 2026-04-23
+
+### Release focus
+
+Turn the new Hybrid CUA direction from a planning-only track into a working Browser-first feature slice with explicit visual execution, approval-aware continuation, and persisted visual trace review.
+
+### Highlights
+
+- Added a first working `src/visual/` runtime foundation with unified visual protocol types, model adapters, and a browser-backed computer-use loop.
+- Added DOM-first browser routing with visual-first handling for ambiguous selectors and visual fallback for recoverable browser failures.
+- Added a dedicated `visual_browser` tool to the main agent so it can proactively choose visual browser execution for complex UI tasks.
+- Added approval interception for high-impact visual actions, plus approve-and-continue and takeover flows in the renderer.
+- Added a visual debug entry point in the control bar and surfaced visual turns in execution steps, result delivery, run details, and history.
+- Added regression coverage for the visual runtime, visual approval continuation, visual trace rendering, and persisted visual trace filtering.
+
+### Notes
+
+- `v0.12.5` is now the recommended tag for the current Hybrid CUA feature slice.
 
 ## v0.12.4 - 2026-04-21
 

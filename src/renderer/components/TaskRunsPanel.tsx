@@ -7,6 +7,7 @@ import { useTaskStore } from '../stores/taskStore';
 import { useTranslation } from '../i18n/useTranslation';
 import RelationBadge from './RelationBadge';
 import ArtifactViewer from './ArtifactViewer';
+import { extractVisualTraceSummary } from '../utils/visualTrace';
 
 interface TaskRunDetails {
   run: TaskRun;
@@ -155,6 +156,8 @@ export function TaskRunsPanel({ isOpen, onClose }: TaskRunsPanelProps) {
   const resultError = selectedResult?.error?.message || historyResult?.taskError?.message || '';
   const resultStructuredData = selectedResult?.structuredData ?? historyResult?.structuredData;
   const resultArtifacts = selectedResult?.artifacts || historyResult?.artifacts || [];
+  const resultRawOutput = selectedResult?.rawOutput ?? historyResult?.rawOutput;
+  const visualTrace = extractVisualTraceSummary(resultRawOutput);
 
   const filteredRuns = runs.filter((run) => {
     const matchesKeyword =
@@ -400,6 +403,38 @@ export function TaskRunsPanel({ isOpen, onClose }: TaskRunsPanelProps) {
                             />
                           ))}
                         </div>
+                      </div>
+                    )}
+
+                    {visualTrace.hasVisualTrace && (
+                      <div className="mt-3 rounded border border-border px-3 py-3 text-xs text-text-secondary space-y-2">
+                        <div className="text-xs text-text-muted mb-1">{t('taskPanels.visualTrace')}</div>
+                        {visualTrace.routeReasons.length > 0 && (
+                          <div>
+                            <span className="text-text-muted">{t('taskPanels.visualRouteReason')}:</span>{' '}
+                            <span className="text-white">{visualTrace.routeReasons.join(' | ')}</span>
+                          </div>
+                        )}
+                        {visualTrace.fallbackReasons.length > 0 && (
+                          <div>
+                            <span className="text-text-muted">{t('taskPanels.visualFallbackReason')}:</span>{' '}
+                            <span className="text-white">{visualTrace.fallbackReasons.join(' | ')}</span>
+                          </div>
+                        )}
+                        {visualTrace.approvedActions.length > 0 && (
+                          <div>
+                            <span className="text-text-muted">{t('taskPanels.visualApprovedActions')}:</span>{' '}
+                            <span className="text-white">
+                              {visualTrace.approvedActions.map((action) => action.type || 'unknown').join(', ')}
+                            </span>
+                          </div>
+                        )}
+                        {visualTrace.turns.length > 0 && (
+                          <div>
+                            <span className="text-text-muted">{t('taskPanels.visualTurns')}:</span>{' '}
+                            <span className="text-white">{visualTrace.turns.length}</span>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>

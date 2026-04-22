@@ -47,39 +47,40 @@ The current codebase is entering an architectural convergence phase:
 
 ## Near-Term Roadmap
 
-### v0.10.x stabilization
+### P0: Hybrid CUA foundation
 
-- Introduce a unified task foundation (`TaskRun`, `TaskResult`, `TaskArtifact`).
-- Introduce a unified task orchestration entry for the main chat flow.
-- Start shifting history from step-oriented records to result-oriented records.
-- Align scheduler and IM with shared run/result semantics.
-- Extend orchestration semantics to pause/resume/cancel/status handling.
-- Reduce redundant screenshot usage in text-centric tasks.
-- Improve extraction quality for noisy pages.
-- Improve handling of desktop opener commands such as `xdg-open`.
-- Continue reducing MCP tool misfires on first attempt.
+- Establish a unified visual execution protocol centered on `VisualModelAdapter`.
+- Support both `Responses API` and `Chat Completions API` visual adapters.
+- Introduce browser-only `ComputerUseRuntime` on top of the existing Playwright / CDP stack.
+- Add the minimum viable Hybrid router: `DOM-first`, `CUA fallback`.
+- Add minimum approval handling for high-impact browser actions.
+- Add visual execution traces and baseline metrics.
 
-### v0.11.x workflow depth
+### P1: Hybrid execution depth
 
-- Stronger Browser-first task completion and recovery.
-- Result delivery as a first-class product surface.
-- Result-centric history and clearer rerun flows.
-- Better task restore and continuation flows.
-- Cleaner exposure control for MCP server tools.
+- Strengthen Browser-first task completion and visual recovery.
+- Add `Visual Recovery Mode` for selector failures and unstable frontends.
+- Unify preview, approval, and takeover into a single execution chain.
+- Add adapter-aware benchmark tasks and evaluation reporting.
+- Improve continuation and restore semantics for hybrid browser runs.
 
-### v0.12.x ecosystem readiness
+### P2: Productized reuse and multi-entry execution
 
-- Task templates and parameterized reruns.
-- Shared task model across chat, scheduler, IM, replay, and MCP.
-- Result-centric history and template-centric reuse flows.
-- Result delivery in the sidebar and stronger run inspection UX.
-- Bidirectional IM file workflows with local attachment context.
-- Real image OCR and image analysis for IM-driven tasks.
-- More productized skills and clearer skill contracts.
-- Better docs and example configurations.
-- Improved tests for browser, task, history, and template flows.
-- More polished release packaging.
-- Stronger open-source contributor ergonomics.
+- Turn successful hybrid runs into reusable templates.
+- Support parameterized reruns across chat, scheduler, IM, and MCP.
+- Strengthen result delivery as a first-class product surface.
+- Make history more result-centric and reuse-oriented.
+- Expand artifact delivery: files, links, screenshots, structured outputs.
+- Continue improving tests for browser, task, history, and template flows.
+
+### P3: Platformization and ecosystem expansion
+
+- Introduce provider-aware routing across visual backends.
+- Build a capability registry for model and visual-runtime abstraction.
+- Add industry workflow packs for browser-heavy work.
+- Extend from browser automation toward desktop-grade computer use.
+- Expand Templates, Skills, and MCP into a clearer open ecosystem.
+- Improve contributor ergonomics, documentation, and release quality.
 
 ## Strategic Themes
 
@@ -110,4 +111,8 @@ The project should feel reliable, well-documented, and easy to evaluate for buil
 ## Key Specs
 
 - `docs/SPEC_v0.10.x_task-foundation.md` — task foundation and architectural convergence
-- `docs/PRD.md` — product direction and v0.11 / v0.12 planning
+- `docs/SPEC_P0_hybrid-cua-foundation.md` — hybrid CUA foundation and unified visual protocol
+- `docs/SPEC_P1_hybrid-recovery-and-approval.md` — hybrid recovery, approval, and takeover depth
+- `docs/SPEC_P2_templateization-and-multi-entry.md` — templateization and multi-entry hybrid reuse
+- `docs/SPEC_P3_platformization-and-ecosystem.md` — platformization, provider abstraction, and ecosystem expansion
+- `docs/PRD.md` — product direction and P0-P3 planning
