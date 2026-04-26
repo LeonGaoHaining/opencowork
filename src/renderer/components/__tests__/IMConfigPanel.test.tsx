@@ -9,6 +9,7 @@ const testConnection = vi.fn();
 const setActiveTab = vi.fn();
 const setPanelOpen = vi.fn();
 const setMessage = vi.fn();
+const invoke = vi.fn();
 
 const imStoreState = {
   configs: {
@@ -71,22 +72,27 @@ describe('IMConfigPanel', () => {
     Object.defineProperty(window, 'electron', {
       configurable: true,
       value: {
-        invoke: vi.fn().mockImplementation((channel: string) => {
-          if (channel === 'im:recentTasks') {
-            return Promise.resolve([
-              {
-                id: 'im-task-1',
-                status: 'completed',
-                resultSummary: 'Found 3 vendors',
-                runId: 'run-123',
-                artifactsCount: 2,
-                updatedAt: 1710000000000,
-              },
-            ]);
-          }
-          return Promise.resolve({});
-        }),
+        invoke,
       },
+    });
+    invoke.mockImplementation((channel: string) => {
+      if (channel === 'im:recentTasks') {
+        return Promise.resolve([
+          {
+            id: 'im-task-1',
+            status: 'completed',
+            resultSummary: 'Found 3 vendors',
+            runId: 'run-123',
+            templateId: 'template-123',
+            artifactsCount: 2,
+            updatedAt: 1710000000000,
+          },
+        ]);
+      }
+      if (channel === 'template:run') {
+        return Promise.resolve({ success: true, data: { success: true } });
+      }
+      return Promise.resolve({});
     });
   });
 
@@ -99,8 +105,43 @@ describe('IMConfigPanel', () => {
       expect(screen.getByText('Found 3 vendors')).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByRole('button', { name: 'View Run' }));
+    fireEvent.click(screen.getByRole('button', { name: 'taskPanels.viewRun' }));
 
     expect(openRunsPanel).toHaveBeenCalledWith('run-123');
+  });
+
+  it('can rerun a recent IM template task', async () => {
+    render(<IMConfigPanel />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Found 3 vendors')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: '重新运行模板' }));
+
+    await waitFor(() => {
+      expect(invoke).toHaveBeenCalledWith('template:run', { templateId: 'template-123' });
+    });
+  });
+
+  it('opens the template panel from a recent IM task card', async () => {
+    render(<IMConfigPanel />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Found 3 vendors')).toBeInTheDocument();
+    });
+
+    const handler = vi.fn();
+    window.addEventListener('template:open', handler as EventListener);
+
+    fireEvent.click(screen.getByRole('button', { name: 'taskPanels.template' }));
+
+    expect(handler).toHaveBeenCalledTimes(1);
+    expect(handler.mock.calls[0][0]).toMatchObject({
+      type: 'template:open',
+      detail: { templateId: 'template-123' },
+    });
+
+    window.removeEventListener('template:open', handler as EventListener);
   });
 });

@@ -179,6 +179,14 @@ describe('VisualAutomationService', () => {
       success: true,
       finalMessage: 'Approved path completed',
       turns: [{ turnId: 'turn-1', duration: 100 }],
+      metrics: {
+        totalTurns: 1,
+        actionBatches: 0,
+        proposedActionCount: 0,
+        executedActionCount: 0,
+        approvalInterruptions: 0,
+        totalDurationMs: 100,
+      },
     });
     const service = new TestVisualAutomationService(
       browserExecutor,
@@ -198,5 +206,49 @@ describe('VisualAutomationService', () => {
     expect(result.routeReason).toBe('approved-visual-actions');
     expect(result.approvedActions).toHaveLength(1);
     expect(browserAdapter.executeActions).toHaveBeenCalledTimes(1);
+    expect(result.metrics?.totalTurns).toBe(1);
+  });
+
+  it('returns adapter and provider capability metadata for routed visual runs', async () => {
+    const browserExecutor = { getPage: () => ({}) } as BrowserExecutor;
+    const service = new TestVisualAutomationService(
+      browserExecutor,
+      new StubBrowserAdapter({ success: true, executed: [] }),
+      new StubRuntime({ success: true, finalMessage: 'done', turns: [] }),
+      new StubVisualAdapter({ status: 'completed', finalMessage: 'unused' })
+    );
+
+    const result = await service.runVisualTask({
+      task: 'Inspect the current page visually',
+      visualProvider: {
+        id: 'provider-1',
+        name: 'Provider 1',
+        score: 91,
+        reasons: ['selected provider'],
+        adapterMode: 'chat-structured',
+        capabilities: {
+          builtInComputerTool: false,
+          batchedActions: true,
+          nativeScreenshotRequest: false,
+          structuredOutput: true,
+          toolCalling: false,
+          supportsReasoningControl: false,
+        },
+        signals: {
+          completionRate: 0.91,
+          costScore: 0.12,
+          latencyScore: 14,
+        },
+      },
+    });
+
+    expect(result.visualProviderCapabilities).toMatchObject({
+      structuredOutput: true,
+      batchedActions: true,
+    });
+    expect(result.adapterCapabilities).toMatchObject({
+      structuredOutput: true,
+      batchedActions: true,
+    });
   });
 });

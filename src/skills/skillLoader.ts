@@ -398,6 +398,9 @@ export class SkillLoader {
     if (frontmatter.description) lines.push(`description: ${frontmatter.description}`);
     if (frontmatter.version) lines.push(`version: ${frontmatter.version}`);
     if (frontmatter.source) lines.push(`source: ${frontmatter.source}`);
+    if (frontmatter.argumentHint) lines.push(`argumentHint: ${frontmatter.argumentHint}`);
+    if (frontmatter.inputSpec) lines.push(`inputSpec: ${frontmatter.inputSpec}`);
+    if (frontmatter.outputSpec) lines.push(`outputSpec: ${frontmatter.outputSpec}`);
     if (typeof frontmatter.userInvocable === 'boolean') {
       lines.push(`userInvocable: ${frontmatter.userInvocable}`);
     }
@@ -405,6 +408,9 @@ export class SkillLoader {
     if (frontmatter.platforms?.length)
       lines.push(`platforms: [${frontmatter.platforms.join(', ')}]`);
     if (frontmatter.tags?.length) lines.push(`tags: [${frontmatter.tags.join(', ')}]`);
+    if (frontmatter.useCases?.length) lines.push(`useCases: [${frontmatter.useCases.join(', ')}]`);
+    if (frontmatter.failureHints?.length)
+      lines.push(`failureHints: [${frontmatter.failureHints.join(', ')}]`);
     if (typeof frontmatter.usageCount === 'number')
       lines.push(`usageCount: ${frontmatter.usageCount}`);
     lines.push('---', '', content);

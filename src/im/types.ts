@@ -114,6 +114,7 @@ export interface DispatchTask {
   description: string;
   templateId?: string;
   templateInput?: Record<string, unknown>;
+  executionMode?: 'dom' | 'visual' | 'hybrid';
   attachments?: IMAttachment[];
   source: 'feishu' | 'desktop';
   priority: 'low' | 'normal' | 'high';
@@ -131,6 +132,7 @@ export interface TaskStatus {
   message?: string;
   result?: any;
   runId?: string;
+  templateId?: string;
   resultSummary?: string;
   artifactsCount?: number;
   updatedAt: number;

@@ -4,6 +4,10 @@ export interface SkillFrontmatter {
   name?: string;
   description?: string;
   argumentHint?: string;
+  useCases?: string[];
+  inputSpec?: string;
+  outputSpec?: string;
+  failureHints?: string[];
   disableModelInvocation?: boolean;
   userInvocable?: boolean;
   allowedTools?: string[];
@@ -106,6 +110,8 @@ function normalizeFrontmatter(parsed: Record<string, unknown>): SkillFrontmatter
       case 'name':
       case 'description':
       case 'argumentHint':
+      case 'inputSpec':
+      case 'outputSpec':
       case 'version':
         frontmatter[key] = typeof value === 'string' ? value : String(value);
         break;
@@ -120,6 +126,8 @@ function normalizeFrontmatter(parsed: Record<string, unknown>): SkillFrontmatter
         break;
       case 'allowedTools':
       case 'platforms':
+      case 'useCases':
+      case 'failureHints':
         if (Array.isArray(value)) {
           frontmatter[key] = value.map((v) => String(v));
         }

@@ -1,5 +1,9 @@
 import { create } from 'zustand';
-import { TaskResult as UnifiedTaskResult, TaskSource } from '../../core/task/types';
+import {
+  TaskResult as UnifiedTaskResult,
+  TaskSource,
+  TaskVisualProviderSelection,
+} from '../../core/task/types';
 
 const MAX_MESSAGES = 500;
 const MAX_LOGS = 1000;
@@ -62,6 +66,7 @@ export interface AskUserRequest {
 }
 
 export interface VisualApprovalRequest {
+  runId?: string;
   reason: string;
   actions: Array<{
     type: string;
@@ -92,8 +97,14 @@ interface TaskState {
   currentSource: TaskSource | null;
   currentResult: UnifiedTaskResult | null;
   currentTemplateId: string | null;
+  currentVisualProvider: TaskVisualProviderSelection | null;
   setTask: (task: Task | null) => void;
-  setCurrentRun: (runId: string | null, source?: TaskSource | null, templateId?: string | null) => void;
+  setCurrentRun: (
+    runId: string | null,
+    source?: TaskSource | null,
+    templateId?: string | null,
+    visualProvider?: TaskVisualProviderSelection | null
+  ) => void;
   setCurrentResult: (result: UnifiedTaskResult | null) => void;
   updateTaskProgress: (current: number, total: number) => void;
   updateTaskStatus: (status: Task['status']) => void;
@@ -174,9 +185,10 @@ export const useTaskStore = create<TaskState>((set) => ({
   currentSource: null,
   currentResult: null,
   currentTemplateId: null,
+  currentVisualProvider: null,
   setTask: (task) => set({ task }),
-  setCurrentRun: (currentRunId, currentSource = null, currentTemplateId = null) =>
-    set({ currentRunId, currentSource, currentTemplateId }),
+  setCurrentRun: (currentRunId, currentSource = null, currentTemplateId = null, currentVisualProvider = null) =>
+    set({ currentRunId, currentSource, currentTemplateId, currentVisualProvider }),
   setCurrentResult: (currentResult) => set({ currentResult }),
   updateTaskProgress: (current, total) =>
     set((state) => ({

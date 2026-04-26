@@ -19,6 +19,27 @@ interface SkillPreview {
   description?: string;
 }
 
+function renderSkillDetailList(items?: string[]): React.ReactNode {
+  if (!items || items.length === 0) {
+    return <span className="text-text-muted">-</span>;
+  }
+
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      {items.map((item) => (
+        <span key={item} className="rounded bg-border px-2 py-0.5 text-[11px] text-text-secondary">
+          {item}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+function getRefreshMessage(t: ReturnType<typeof useTranslation>['t']): string {
+  const translated = t('skillPanel.refreshSuccess');
+  return translated === 'skillPanel.refreshSuccess' ? 'Skill library refreshed' : translated;
+}
+
 function getSkillDirectoryValidationMessage(
   code: string | undefined,
   fallback: string | undefined,
@@ -193,6 +214,20 @@ export function SkillPanel({ isOpen, onClose }: SkillPanelProps) {
     }
   }, [isOpen, loadSkills]);
 
+  useEffect(() => {
+    const handleSkillChanged = (): void => {
+      if (isOpen) {
+        void loadSkills();
+        setMessage({ type: 'success', text: getRefreshMessage(t) });
+      }
+    };
+
+    window.addEventListener('skill:changed', handleSkillChanged as EventListener);
+    return () => {
+      window.removeEventListener('skill:changed', handleSkillChanged as EventListener);
+    };
+  }, [isOpen, loadSkills, t]);
+
   const handleInstall = async (skillPath: string) => {
     if (!skillPath) return;
     setShowInstallModal(false);
@@ -362,9 +397,49 @@ export function SkillPanel({ isOpen, onClose }: SkillPanelProps) {
                         </svg>
                       </button>
                     </div>
+                    <div className="mt-2 flex flex-wrap gap-2 text-[11px] text-text-muted">
+                      <span className="rounded bg-border px-2 py-0.5">
+                        来源: {skill.source || 'unknown'}
+                      </span>
+                      <span className="rounded bg-border px-2 py-0.5">
+                        {skill.userInvocable ? '可用户调用' : '仅模型调用'}
+                      </span>
+                    </div>
                     <p className="text-sm text-text-muted mt-2 line-clamp-2">
                       {skill.description || '无描述'}
                     </p>
+                    <div className="mt-3 space-y-2 text-xs">
+                      <div>
+                        <div className="text-text-muted mb-1">用途</div>
+                        {renderSkillDetailList(skill.useCases)}
+                      </div>
+                      <div>
+                        <div className="text-text-muted mb-1">输入</div>
+                        <div className="text-text-secondary whitespace-pre-wrap break-words">
+                          {skill.inputSpec || skill.argumentHint || '-'}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-text-muted mb-1">输出</div>
+                        <div className="text-text-secondary whitespace-pre-wrap break-words">
+                          {skill.outputSpec || '-'}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-text-muted mb-1">失败提示</div>
+                        {renderSkillDetailList(skill.failureHints)}
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <div className="text-text-muted mb-1">标签</div>
+                          {renderSkillDetailList(skill.tags)}
+                        </div>
+                        <div>
+                          <div className="text-text-muted mb-1">允许工具</div>
+                          {renderSkillDetailList(skill.allowedTools)}
+                        </div>
+                      </div>
+                    </div>
                     <div className="flex items-center gap-2 mt-3">
                       <span className="text-xs text-text-muted truncate">{skill.path}</span>
                     </div>

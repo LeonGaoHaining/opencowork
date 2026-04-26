@@ -1,8 +1,45 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { TaskTemplate, TaskTemplateInputField, createTaskEntityId } from './types';
+import { TaskTemplate, TaskTemplateInputField, TaskWorkflowPack, createTaskEntityId } from './types';
 import { getTaskRunRepository } from './TaskRunRepository';
 import { getTaskResultRepository } from './TaskResultRepository';
+import { buildTemplatesFromWorkflowPack } from './workflowPacks';
+
+function inferExecutionProfileFromRun(run: { metadata?: Record<string, unknown> }): 'browser-first' | 'mixed' {
+  const metadata = run.metadata && typeof run.metadata === 'object' ? run.metadata : null;
+  const executionMode = metadata?.executionMode;
+  if (executionMode === 'visual' || executionMode === 'hybrid') {
+    return 'mixed';
+  }
+
+  const taskRouting = metadata?.taskRouting && typeof metadata.taskRouting === 'object'
+    ? (metadata.taskRouting as Record<string, unknown>)
+    : null;
+  const routedExecutionMode = taskRouting?.executionMode;
+  if (routedExecutionMode === 'visual' || routedExecutionMode === 'hybrid') {
+    return 'mixed';
+  }
+
+  return 'browser-first';
+}
+
+function inferExecutionModeFromRun(run: { metadata?: Record<string, unknown> }): 'dom' | 'visual' | 'hybrid' | undefined {
+  const metadata = run.metadata && typeof run.metadata === 'object' ? run.metadata : null;
+  const executionMode = metadata?.executionMode;
+  if (executionMode === 'dom' || executionMode === 'visual' || executionMode === 'hybrid') {
+    return executionMode;
+  }
+
+  const taskRouting = metadata?.taskRouting && typeof metadata.taskRouting === 'object'
+    ? (metadata.taskRouting as Record<string, unknown>)
+    : null;
+  const routedExecutionMode = taskRouting?.executionMode;
+  if (routedExecutionMode === 'dom' || routedExecutionMode === 'visual' || routedExecutionMode === 'hybrid') {
+    return routedExecutionMode;
+  }
+
+  return undefined;
+}
 
 export class TaskTemplateRepository {
   private filePath: string;
@@ -48,6 +85,31 @@ export class TaskTemplateRepository {
     this.saveAllSync(templates);
   }
 
+  async installWorkflowPack(pack: TaskWorkflowPack): Promise<TaskTemplate[]> {
+    const templates = this.loadAllSync();
+    const packTemplates = buildTemplatesFromWorkflowPack(pack);
+
+    for (const packTemplate of packTemplates) {
+      const existingIndex = templates.findIndex((item) => item.id === packTemplate.id);
+      if (existingIndex === -1) {
+        templates.push(packTemplate);
+        continue;
+      }
+
+      templates[existingIndex] = {
+        ...templates[existingIndex],
+        ...packTemplate,
+        createdAt: templates[existingIndex].createdAt,
+        updatedAt: Date.now(),
+      };
+    }
+
+    this.saveAllSync(templates);
+    return packTemplates.map((packTemplate) =>
+      templates.find((item) => item.id === packTemplate.id) || packTemplate
+    );
+  }
+
   async update(template: TaskTemplate): Promise<void> {
     const templates = this.loadAllSync();
     const index = templates.findIndex((item) => item.id === template.id);
@@ -70,6 +132,11 @@ export class TaskTemplateRepository {
     name: string;
     description: string;
     prompt: string;
+    origin?: {
+      runId?: string;
+      source?: 'chat' | 'scheduler' | 'im' | 'mcp' | 'replay';
+      executionMode?: 'dom' | 'visual' | 'hybrid';
+    };
     inputSchema?: Record<string, TaskTemplateInputField | string>;
     defaultInput?: Record<string, unknown>;
     executionProfile?: 'browser-first' | 'mixed';
@@ -80,6 +147,7 @@ export class TaskTemplateRepository {
       id: createTaskEntityId('template'),
       name: params.name,
       description: params.description,
+      origin: params.origin,
       inputSchema: params.inputSchema || {
         prompt: 'Prompt',
       },
@@ -123,12 +191,17 @@ export class TaskTemplateRepository {
       id: createTaskEntityId('template'),
       name: run.title || 'Reusable task',
       description,
+      origin: {
+        runId: run.id,
+        source: run.source,
+        executionMode: inferExecutionModeFromRun(run),
+      },
       inputSchema,
       defaultInput: {
         prompt: defaultPrompt,
         ...(run.input.params || {}),
       },
-      executionProfile: 'browser-first',
+      executionProfile: inferExecutionProfileFromRun(run),
       recommendedSkills: Array.isArray(run.metadata?.recommendedSkills)
         ? (run.metadata?.recommendedSkills as string[])
         : undefined,

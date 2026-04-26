@@ -1,0 +1,21 @@
+id: benchmark-approval-recovery
+name: Approval and Recovery Flow
+description: Exercise approval interruption and recovery paths in a single benchmark.
+category: approval-scenario
+prompt: Open the target app, trigger the approval step, then continue to completion after approval.
+expectedOutcome:
+  successKeywords:
+    - completed
+    - approved
+  minArtifacts: 1
+initialState:
+  initialUrl: https://example.com/app
+executionConfig:
+  executionMode: visual
+  maxTurns: 10
+tags:
+  - approval
+  - visual
+  - benchmark
+createdAt: 1710000000000
+updatedAt: 1710000000000

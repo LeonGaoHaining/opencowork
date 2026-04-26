@@ -19,6 +19,7 @@ vi.mock('../TaskResultRepository', () => ({
 }));
 
 import { TaskTemplateRepository } from '../TaskTemplateRepository';
+import { getOfficialWorkflowPack } from '../workflowPacks';
 
 describe('TaskTemplateRepository', () => {
   let tempDir: string | null = null;
@@ -38,6 +39,7 @@ describe('TaskTemplateRepository', () => {
 
     mockRun = {
       id: 'run-1',
+      source: 'chat',
       title: 'Find coffee vendors',
       input: {
         prompt: 'Search {{product}} vendors in {{city}}',
@@ -48,7 +50,11 @@ describe('TaskTemplateRepository', () => {
       },
       resultId: 'result-1',
       metadata: {
+        executionMode: 'visual',
         recommendedSkills: ['browser-search'],
+        taskRouting: {
+          executionMode: 'visual',
+        },
       },
     };
 
@@ -70,13 +76,36 @@ describe('TaskTemplateRepository', () => {
       product: 'coffee',
       city: 'shenzhen',
     });
+    expect(template.origin).toMatchObject({
+      runId: 'run-1',
+      source: 'chat',
+      executionMode: 'visual',
+    });
     expect(template.inputSchema).toMatchObject({
       prompt: 'Prompt',
       product: { label: 'product', required: false },
       city: { label: 'city', required: false },
     });
     expect(template.recommendedSkills).toEqual(['browser-search']);
+    expect(template.executionProfile).toBe('mixed');
     expect(Array.isArray(savedTemplates)).toBe(true);
     expect(savedTemplates[0].id).toBe(template.id);
+  });
+
+  it('installs workflow pack templates with stable ids', async () => {
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'opencowork-templates-'));
+    const repository = new TaskTemplateRepository(path.join(tempDir, 'task-templates.json'));
+    const pack = getOfficialWorkflowPack('ecommerce-ops');
+
+    expect(pack).not.toBeNull();
+
+    const installed = await repository.installWorkflowPack(pack!);
+    const reinstalled = await repository.installWorkflowPack(pack!);
+    const savedTemplates = JSON.parse(fs.readFileSync(path.join(tempDir, 'task-templates.json'), 'utf-8'));
+
+    expect(installed).toHaveLength(2);
+    expect(installed[0].id).toBe('workflow-pack-ecommerce-ops-catalog-audit');
+    expect(reinstalled[0].id).toBe(installed[0].id);
+    expect(savedTemplates.filter((template: { id: string }) => template.id === installed[0].id)).toHaveLength(1);
   });
 });

@@ -5,6 +5,12 @@ import { useTranslation } from '../i18n/useTranslation';
 import { useTaskStore } from '../stores/taskStore';
 import RelationBadge from './RelationBadge';
 import { extractVisualTraceSummary } from '../utils/visualTrace';
+import { SkillCandidateCard, SkillCandidateViewModel } from './SkillCandidateCard';
+import {
+  listVisualProviderCapabilities,
+  resolveVisualProviderLabel,
+  resolveVisualProviderSelection,
+} from '../../core/visual/visualProviderMetadata';
 
 function getResultSummary(task: TaskHistoryRecord): string | undefined {
   return task.result?.summary || (typeof task.result?.output === 'string' ? task.result.output : undefined);
@@ -29,6 +35,34 @@ function hasVisualTrace(task: TaskHistoryRecord): boolean {
 
 type FilterTab = 'all' | 'completed' | 'failed' | 'cancelled';
 type OutcomeFilter = 'all' | 'result' | 'artifacts' | 'run' | 'template' | 'visual';
+
+interface LifecycleDetails {
+  approval: null | {
+    pending?: boolean;
+    approved?: boolean;
+    requestedAt?: number;
+    approvedAt?: number;
+    reason?: string;
+  };
+  takeover: null | {
+    active?: boolean;
+    interrupted?: boolean;
+    interruptReason?: string;
+    interruptedAt?: number;
+    resumedAt?: number;
+    restoredAt?: number;
+  };
+}
+
+function parseLifecycleDetails(metadata: Record<string, unknown> | undefined): LifecycleDetails {
+  const approval = metadata?.approval;
+  const takeover = metadata?.takeover;
+
+  return {
+    approval: approval && typeof approval === 'object' ? (approval as LifecycleDetails['approval']) : null,
+    takeover: takeover && typeof takeover === 'object' ? (takeover as LifecycleDetails['takeover']) : null,
+  };
+}
 
 export function HistoryPanel() {
   const { t } = useTranslation();
@@ -70,6 +104,19 @@ export function HistoryPanel() {
   }, [isOpen]);
 
   useEffect(() => {
+    const handleTemplateChanged = (): void => {
+      if (isOpen) {
+        void loadTasks();
+      }
+    };
+
+    window.addEventListener('template:changed', handleTemplateChanged as EventListener);
+    return () => {
+      window.removeEventListener('template:changed', handleTemplateChanged as EventListener);
+    };
+  }, [isOpen, loadTasks]);
+
+  useEffect(() => {
     const newFilter: typeof filter = { ...filter };
     if (activeTab !== 'all') {
       newFilter.status = activeTab;
@@ -87,6 +134,10 @@ export function HistoryPanel() {
       return;
     }
     setFilter({ ...filter, keyword: undefined });
+  };
+
+  const openTemplateFromHistory = (templateId: string): void => {
+    window.dispatchEvent(new CustomEvent('template:open', { detail: { templateId } }));
   };
 
   const displayedTasks = searchKeyword.trim()
@@ -113,6 +164,25 @@ export function HistoryPanel() {
     return matchesSource && matchesOutcome;
   });
 
+  const selectedVisualTrace = selectedTask?.result
+    ? extractVisualTraceSummary(selectedTask.result.rawOutput)
+    : null;
+  const selectedSkillCandidate =
+    selectedTask?.result?.rawOutput &&
+    typeof selectedTask.result.rawOutput === 'object' &&
+    !Array.isArray(selectedTask.result.rawOutput)
+      ? ((selectedTask.result.rawOutput as Record<string, unknown>).skillCandidate as SkillCandidateViewModel | undefined)
+      : undefined;
+  const selectedLifecycle = parseLifecycleDetails(
+    (selectedTask?.metadata as Record<string, unknown> | undefined) || undefined
+  );
+  const selectedVisualProviderLabel = selectedTask ? resolveVisualProviderLabel(selectedTask.metadata) : null;
+  const selectedVisualProviderSelection = selectedTask
+    ? resolveVisualProviderSelection(selectedTask.metadata)
+    : null;
+  const selectedVisualProviderCapabilities = selectedTask
+    ? listVisualProviderCapabilities(selectedTask.metadata)
+    : [];
   const handleTabChange = (tab: FilterTab) => {
     setActiveTab(tab);
   };
@@ -319,12 +389,24 @@ export function HistoryPanel() {
                               />
                             )}
                             {typeof task.metadata?.templateId === 'string' && (
-                              <RelationBadge label="template" value={task.metadata.templateId} />
+                              <RelationBadge
+                                label="template"
+                                value={task.metadata.templateId}
+                                tone="primary"
+                                onClick={() => openTemplateFromHistory(task.metadata?.templateId as string)}
+                              />
                             )}
                             {getSourceLabel(task) && (
                               <RelationBadge
                                 label="source"
                                 value={getSourceLabel(task) as string}
+                                tone="muted"
+                              />
+                            )}
+                            {resolveVisualProviderLabel(task.metadata) && (
+                              <RelationBadge
+                                label="provider"
+                                value={resolveVisualProviderLabel(task.metadata) || 'provider'}
                                 tone="muted"
                               />
                             )}
@@ -390,7 +472,14 @@ export function HistoryPanel() {
                             />
                           )}
                           {typeof selectedTask.metadata?.templateId === 'string' && (
-                            <RelationBadge label="template" value={selectedTask.metadata.templateId} />
+                            <RelationBadge
+                              label="template"
+                              value={selectedTask.metadata.templateId}
+                              tone="primary"
+                              onClick={() =>
+                                openTemplateFromHistory(selectedTask.metadata?.templateId as string)
+                              }
+                            />
                           )}
                           {getSourceLabel(selectedTask) && (
                             <RelationBadge
@@ -399,7 +488,52 @@ export function HistoryPanel() {
                               tone="muted"
                             />
                           )}
+                          {selectedVisualProviderLabel && (
+                            <RelationBadge
+                              label="provider"
+                              value={selectedVisualProviderLabel}
+                              tone="muted"
+                            />
+                          )}
                         </div>
+                        {selectedVisualProviderSelection && (
+                          <div className="mt-3 rounded-md border border-border bg-background px-3 py-2 text-xs text-text-secondary">
+                            <div className="text-text-muted">
+                              {t('taskPanels.visualProvider', 'Visual provider')}
+                            </div>
+                            <div className="mt-1 text-white">{selectedVisualProviderSelection.name}</div>
+                            <div className="mt-2 text-text-muted">
+                              score:{' '}
+                              <span className="text-text-secondary">
+                                {Math.round(selectedVisualProviderSelection.score)}
+                              </span>
+                            </div>
+                            <div className="mt-2 text-text-muted">
+                              adapter:{' '}
+                              <span className="text-text-secondary">
+                                {selectedVisualProviderSelection.adapterMode}
+                              </span>
+                            </div>
+                            {selectedVisualProviderCapabilities.length > 0 && (
+                              <div className="mt-2 text-text-muted">
+                                capabilities:{' '}
+                                <span className="text-text-secondary">
+                                  {selectedVisualProviderCapabilities.join(', ')}
+                                </span>
+                              </div>
+                            )}
+                            {selectedVisualProviderSelection.reasons.length > 0 && (
+                              <div className="mt-2">
+                                <div className="mb-1 text-text-muted">reasons</div>
+                                <ul className="list-disc pl-4 text-text-secondary">
+                                  {selectedVisualProviderSelection.reasons.map((reason) => (
+                                    <li key={reason}>{reason}</li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
                     )}
 
@@ -477,12 +611,133 @@ export function HistoryPanel() {
                         />
                       )}
                       {typeof selectedTask.metadata?.templateId === 'string' && (
-                        <RelationBadge label="template" value={selectedTask.metadata.templateId} />
+                        <RelationBadge
+                          label="template"
+                          value={selectedTask.metadata.templateId}
+                          tone="primary"
+                          onClick={() => openTemplateFromHistory(selectedTask.metadata?.templateId as string)}
+                        />
                       )}
                       {getSourceLabel(selectedTask) && (
                         <RelationBadge label="source" value={getSourceLabel(selectedTask) as string} tone="muted" />
                       )}
+                      {selectedVisualProviderLabel && (
+                        <RelationBadge
+                          label="provider"
+                          value={selectedVisualProviderLabel}
+                          tone="muted"
+                        />
+                      )}
                     </div>
+
+                    {(selectedLifecycle.approval || selectedLifecycle.takeover) && (
+                      <div>
+                        <h3 className="text-sm font-medium text-text-muted mb-1">Lifecycle</h3>
+                        <div className="bg-background rounded p-3 text-sm text-text-secondary space-y-3">
+                          {selectedLifecycle.approval && (
+                            <div>
+                              <div className="text-white font-medium">{t('visualApproval.title')}</div>
+                              <div className="mt-1 space-y-1">
+                                {typeof selectedLifecycle.approval.pending === 'boolean' && (
+                                  <div>
+                                    <span className="text-text-muted">pending:</span>{' '}
+                                    <span className="text-white">
+                                      {selectedLifecycle.approval.pending ? 'yes' : 'no'}
+                                    </span>
+                                  </div>
+                                )}
+                                {typeof selectedLifecycle.approval.approved === 'boolean' && (
+                                  <div>
+                                    <span className="text-text-muted">approved:</span>{' '}
+                                    <span className="text-white">
+                                      {selectedLifecycle.approval.approved ? 'yes' : 'no'}
+                                    </span>
+                                  </div>
+                                )}
+                                {typeof selectedLifecycle.approval.requestedAt === 'number' && (
+                                  <div>
+                                    <span className="text-text-muted">requested:</span>{' '}
+                                    <span className="text-white">
+                                      {new Date(selectedLifecycle.approval.requestedAt).toLocaleString()}
+                                    </span>
+                                  </div>
+                                )}
+                                {typeof selectedLifecycle.approval.approvedAt === 'number' && (
+                                  <div>
+                                    <span className="text-text-muted">approved at:</span>{' '}
+                                    <span className="text-white">
+                                      {new Date(selectedLifecycle.approval.approvedAt).toLocaleString()}
+                                    </span>
+                                  </div>
+                                )}
+                                {selectedLifecycle.approval.reason && (
+                                  <div>
+                                    <span className="text-text-muted">reason:</span>{' '}
+                                    <span className="text-white whitespace-pre-wrap">
+                                      {selectedLifecycle.approval.reason}
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          )}
+
+                          {selectedLifecycle.takeover && (
+                            <div>
+                              <div className="text-white font-medium">{t('controlBar.takeover')}</div>
+                              <div className="mt-1 space-y-1">
+                                {typeof selectedLifecycle.takeover.active === 'boolean' && (
+                                  <div>
+                                    <span className="text-text-muted">active:</span>{' '}
+                                    <span className="text-white">
+                                      {selectedLifecycle.takeover.active ? 'yes' : 'no'}
+                                    </span>
+                                  </div>
+                                )}
+                                {typeof selectedLifecycle.takeover.interrupted === 'boolean' && (
+                                  <div>
+                                    <span className="text-text-muted">interrupted:</span>{' '}
+                                    <span className="text-white">
+                                      {selectedLifecycle.takeover.interrupted ? 'yes' : 'no'}
+                                    </span>
+                                  </div>
+                                )}
+                                {selectedLifecycle.takeover.interruptReason && (
+                                  <div>
+                                    <span className="text-text-muted">reason:</span>{' '}
+                                    <span className="text-white">{selectedLifecycle.takeover.interruptReason}</span>
+                                  </div>
+                                )}
+                                {typeof selectedLifecycle.takeover.interruptedAt === 'number' && (
+                                  <div>
+                                    <span className="text-text-muted">interrupted at:</span>{' '}
+                                    <span className="text-white">
+                                      {new Date(selectedLifecycle.takeover.interruptedAt).toLocaleString()}
+                                    </span>
+                                  </div>
+                                )}
+                                {typeof selectedLifecycle.takeover.resumedAt === 'number' && (
+                                  <div>
+                                    <span className="text-text-muted">resumed at:</span>{' '}
+                                    <span className="text-white">
+                                      {new Date(selectedLifecycle.takeover.resumedAt).toLocaleString()}
+                                    </span>
+                                  </div>
+                                )}
+                                {typeof selectedLifecycle.takeover.restoredAt === 'number' && (
+                                  <div>
+                                    <span className="text-text-muted">restored at:</span>{' '}
+                                    <span className="text-white">
+                                      {new Date(selectedLifecycle.takeover.restoredAt).toLocaleString()}
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
 
                     {selectedTask.result && (
                       <div>
@@ -512,45 +767,90 @@ export function HistoryPanel() {
                               ))}
                             </div>
                           )}
-                        {extractVisualTraceSummary(selectedTask.result.rawOutput).hasVisualTrace && (
+                        {selectedVisualTrace?.hasVisualTrace && (
                           <div className="mt-3 rounded border border-border bg-background px-3 py-3 text-xs text-text-secondary space-y-2">
                             <div className="text-text-muted">{t('taskPanels.visualTrace')}</div>
-                            {extractVisualTraceSummary(selectedTask.result.rawOutput).routeReasons.length > 0 && (
+                            {selectedVisualTrace.routeReasons.length > 0 && (
                               <div>
                                 <span className="text-text-muted">{t('taskPanels.visualRouteReason')}:</span>{' '}
                                 <span className="text-white">
-                                  {extractVisualTraceSummary(selectedTask.result.rawOutput).routeReasons.join(' | ')}
+                                  {selectedVisualTrace.routeReasons.join(' | ')}
                                 </span>
                               </div>
                             )}
-                            {extractVisualTraceSummary(selectedTask.result.rawOutput).fallbackReasons.length > 0 && (
+                            {selectedVisualTrace.fallbackReasons.length > 0 && (
                               <div>
                                 <span className="text-text-muted">{t('taskPanels.visualFallbackReason')}:</span>{' '}
                                 <span className="text-white">
-                                  {extractVisualTraceSummary(selectedTask.result.rawOutput).fallbackReasons.join(' | ')}
+                                  {selectedVisualTrace.fallbackReasons.join(' | ')}
                                 </span>
                               </div>
                             )}
-                            {extractVisualTraceSummary(selectedTask.result.rawOutput).approvedActions.length > 0 && (
+                            {selectedVisualTrace.approvedActions.length > 0 && (
                               <div>
                                 <span className="text-text-muted">{t('taskPanels.visualApprovedActions')}:</span>{' '}
                                 <span className="text-white">
-                                  {extractVisualTraceSummary(selectedTask.result.rawOutput).approvedActions
-                                    .map((action) => action.type || 'unknown')
-                                    .join(', ')}
+                                  {selectedVisualTrace.approvedActions.map((action) => action.type || 'unknown').join(', ')}
                                 </span>
                               </div>
                             )}
-                            {extractVisualTraceSummary(selectedTask.result.rawOutput).turns.length > 0 && (
+                            {(selectedVisualTrace.metrics.totalTurns !== undefined ||
+                              selectedVisualTrace.metrics.actionBatches !== undefined ||
+                              selectedVisualTrace.metrics.approvalInterruptions !== undefined ||
+                              selectedVisualTrace.metrics.recoveryAttempts !== undefined ||
+                              selectedVisualTrace.metrics.totalDurationMs !== undefined) && (
+                              <div className="space-y-1">
+                                <div className="text-text-muted">{t('taskPanels.visualMetrics')}</div>
+                                {selectedVisualTrace.metrics.totalTurns !== undefined && (
+                                  <div><span className="text-text-muted">{t('taskPanels.visualTurns')}:</span> <span className="text-white">{selectedVisualTrace.metrics.totalTurns}</span></div>
+                                )}
+                                {selectedVisualTrace.metrics.actionBatches !== undefined && (
+                                  <div><span className="text-text-muted">{t('taskPanels.visualActionBatches')}:</span> <span className="text-white">{selectedVisualTrace.metrics.actionBatches}</span></div>
+                                )}
+                                {selectedVisualTrace.metrics.approvalInterruptions !== undefined && (
+                                  <div><span className="text-text-muted">{t('taskPanels.visualApprovalInterruptions')}:</span> <span className="text-white">{selectedVisualTrace.metrics.approvalInterruptions}</span></div>
+                                )}
+                                {selectedVisualTrace.metrics.recoveryAttempts !== undefined && (
+                                  <div><span className="text-text-muted">{t('taskPanels.visualRecoveryAttempts')}:</span> <span className="text-white">{selectedVisualTrace.metrics.recoveryAttempts}</span></div>
+                                )}
+                                {selectedVisualTrace.metrics.verificationFailures !== undefined && (
+                                  <div><span className="text-text-muted">Verification failures:</span> <span className="text-white">{selectedVisualTrace.metrics.verificationFailures}</span></div>
+                                )}
+                                {selectedVisualTrace.metrics.recoveryStrategies && selectedVisualTrace.metrics.recoveryStrategies.length > 0 && (
+                                  <div><span className="text-text-muted">{t('taskPanels.visualRecoveryStrategies')}:</span> <span className="text-white">{selectedVisualTrace.metrics.recoveryStrategies.join(', ')}</span></div>
+                                )}
+                                {selectedVisualTrace.metrics.recoveryDetails && selectedVisualTrace.metrics.recoveryDetails.length > 0 && (
+                                  <div>
+                                    <div className="text-text-muted">Recovery details:</div>
+                                    <div className="space-y-1 mt-1">
+                                      {selectedVisualTrace.metrics.recoveryDetails.map((detail, index) => (
+                                        <div key={`${detail.strategy || 'recovery'}-${index}`} className="text-white">
+                                          #{detail.attempt || index + 1} {detail.strategy || 'unknown'}
+                                          {detail.category ? ` [${detail.category}]` : ''}
+                                          {detail.trigger ? ` <${detail.trigger}>` : ''}
+                                          {detail.failedActions && detail.failedActions.length > 0 ? ` - ${detail.failedActions.join(', ')}` : ''}
+                                          {detail.errorMessage ? ` - ${detail.errorMessage}` : ''}
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+                                {selectedVisualTrace.metrics.totalDurationMs !== undefined && (
+                                  <div><span className="text-text-muted">{t('taskPanels.visualTotalDuration')}:</span> <span className="text-white">{selectedVisualTrace.metrics.totalDurationMs}ms</span></div>
+                                )}
+                              </div>
+                            )}
+                            {selectedVisualTrace.turns.length > 0 && (
                               <div>
                                 <span className="text-text-muted">{t('taskPanels.visualTurns')}:</span>{' '}
                                 <span className="text-white">
-                                  {extractVisualTraceSummary(selectedTask.result.rawOutput).turns.length}
+                                  {selectedVisualTrace.turns.length}
                                 </span>
                               </div>
                             )}
                           </div>
                         )}
+                        {selectedSkillCandidate && <SkillCandidateCard candidate={selectedSkillCandidate} />}
                       </div>
                     )}
 

@@ -54,7 +54,16 @@ export function ChatInput() {
       const payload = result?.data || result;
       if (result?.success && payload?.accepted) {
         const handleId = payload?.run?.id || payload?.handle || taskId;
-        setCurrentRun(handleId, payload?.run?.source || 'chat', payload?.run?.templateId || null);
+        const visualProvider =
+          payload?.run?.metadata?.visualProvider ||
+          payload?.route?.visualProvider ||
+          null;
+        setCurrentRun(
+          handleId,
+          payload?.run?.source || 'chat',
+          payload?.run?.templateId || null,
+          visualProvider
+        );
         setTask({
           id: handleId,
           status: 'executing',

@@ -4,11 +4,14 @@ import { BrowserWindow } from 'electron';
 import { QueuedTask, TaskExecutionResult, ExecutorMode, ExecutorConfig } from './types';
 import { getHistoryService, HistoryService } from '../history/historyService';
 import { createMainAgent, AgentResult } from '../agents/mainAgent';
+import { executeVisualBrowserTask, resolveVisualAdapterMode } from '../agents/visualBrowserHelper';
 import { mapAgentResultToTaskResult } from '../core/task/resultMapper';
 import { getTaskTemplateRepository } from '../core/task/TaskTemplateRepository';
 import { resolveTemplateInput } from '../core/task/templateUtils';
 import { getTaskOrchestrator } from '../core/task/TaskOrchestrator';
 import { createTaskEntityId } from '../core/task/types';
+import { buildTaskExecutionMetadata } from '../core/task/taskModelMetadata';
+import { attachTaskRoutingToResult, resolveTaskExecutionRoute } from '../core/task/taskRouting';
 
 const DEFAULT_TASK_TIMEOUT = 300000; // 5 minutes
 
@@ -45,6 +48,11 @@ export class TaskExecutor {
     try {
       const runId = createTaskEntityId('scheduler-run');
       const taskOrchestrator = getTaskOrchestrator();
+      const routing = resolveTaskExecutionRoute({
+        task: scheduledTask.execution.taskDescription || scheduledTask.description,
+        source: 'scheduler',
+        executionMode: scheduledTask.execution.executionMode || undefined,
+      });
       taskOrchestrator.startRun({
         runId,
         source: 'scheduler',
@@ -52,9 +60,16 @@ export class TaskExecutor {
         prompt: scheduledTask.execution.taskDescription || scheduledTask.description,
         params: scheduledTask.execution.input,
         templateId: scheduledTask.execution.templateId,
-        metadata: {
-          scheduledTaskId: scheduledTask.id,
-        },
+        metadata: buildTaskExecutionMetadata({
+          source: 'scheduler',
+          executionMode: routing.executionMode,
+          templateId: scheduledTask.execution.templateId,
+          visualProvider: routing.visualProvider,
+          taskRouting: routing,
+          extra: {
+            scheduledTaskId: scheduledTask.id,
+          },
+        }),
       });
 
       const historyRecord = await this.historyService.createTask(
@@ -64,6 +79,8 @@ export class TaskExecutor {
           scheduledTaskId: scheduledTask.id,
           scheduledTaskName: scheduledTask.name,
           templateId: scheduledTask.execution.templateId,
+          executionMode: routing.executionMode,
+          visualProvider: routing.visualProvider,
           runId,
         }
       );
@@ -77,6 +94,8 @@ export class TaskExecutor {
           scheduledTask.execution.taskDescription,
           scheduledTask.execution.templateId,
           scheduledTask.execution.input,
+          routing.executionMode,
+          routing.visualProvider,
           scheduledTask.execution.timeout
         );
       } else {
@@ -88,9 +107,10 @@ export class TaskExecutor {
 
       const taskResult = await taskOrchestrator.executeRun(runId, async () => {
         const agentResult = await Promise.race([executionResult, timeoutPromise]);
-        return agentResult
+        const mappedResult = agentResult
           ? mapAgentResultToTaskResult(agentResult)
           : mapAgentResultToTaskResult({ success: true, output: 'Task completed successfully' });
+        return attachTaskRoutingToResult(mappedResult, routing);
       });
 
       await this.historyService.completeTask(historyRecord.id, {
@@ -156,6 +176,14 @@ export class TaskExecutor {
     description?: string,
     templateId?: string,
     input?: Record<string, unknown>,
+    executionMode?: 'dom' | 'visual' | 'hybrid',
+    visualProvider?: {
+      id: string;
+      name: string;
+      score: number;
+      reasons: string[];
+      adapterMode: 'chat-structured' | 'responses-computer';
+    } | null,
     timeout?: number
   ): Promise<AgentResult> {
     let resolvedDescription = description || '';
@@ -179,7 +207,15 @@ export class TaskExecutor {
     }
 
     const immediateTask = `请立即执行以下任务，不要创建定时任务：${resolvedDescription}`;
-    const result: AgentResult = await agent.run(immediateTask);
+    const result: AgentResult =
+      executionMode === 'visual' || executionMode === 'hybrid'
+        ? await executeVisualBrowserTask({
+            task: immediateTask,
+            adapterMode: resolveVisualAdapterMode(executionMode, visualProvider),
+            maxTurns: 8,
+            visualProvider,
+          })
+        : await agent.run(immediateTask);
 
     if (!result.success) {
       throw new Error(result.error || 'Agent execution failed');

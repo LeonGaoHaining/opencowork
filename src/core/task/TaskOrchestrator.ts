@@ -22,7 +22,7 @@ export interface TaskRunStatusSnapshot {
   status: TaskStatus | 'idle';
 }
 
-class TaskOrchestrator {
+export class TaskOrchestrator {
   private runs = new Map<string, TaskRun>();
   private repository: TaskRunRepository;
   private resultRepository: TaskResultRepository;
@@ -96,6 +96,20 @@ class TaskOrchestrator {
     return run;
   }
 
+  updateMetadata(runId: string, metadataPatch: Record<string, unknown>): TaskRun | null {
+    const run = this.runs.get(runId);
+    if (!run) {
+      return null;
+    }
+
+    run.metadata = {
+      ...(run.metadata || {}),
+      ...metadataPatch,
+    };
+    this.persistRun(run);
+    return run;
+  }
+
   failRun(runId: string, error: TaskResultError): TaskRun | null {
     const run = this.runs.get(runId);
     if (!run) {
@@ -163,6 +177,12 @@ class TaskOrchestrator {
         return result;
       })
       .catch((error: unknown) => {
+        const normalizedError = error as { code?: string; message?: string };
+        if (normalizedError?.code === 'APPROVAL_REQUIRED') {
+          this.updateStatus(runId, 'waiting_user');
+          throw error;
+        }
+
         const taskError: TaskResultError = {
           code: 'TASK_FAILED',
           message: error instanceof Error ? error.message : String(error),

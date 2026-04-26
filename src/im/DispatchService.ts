@@ -5,11 +5,14 @@ import { IMMessage, IMBot, DispatchTask, TaskStatus, IMAttachment } from './type
 import { CommandParser } from './CommandParser';
 import { getProgressEmitter } from './ProgressEmitter';
 import { getSharedMainAgent } from '../main/ipcHandlers';
+import { executeVisualBrowserTask, resolveVisualAdapterMode } from '../agents/visualBrowserHelper';
 import { mapAgentResultToTaskResult } from '../core/task/resultMapper';
 import { getTaskTemplateRepository } from '../core/task/TaskTemplateRepository';
 import { resolveTemplateInput } from '../core/task/templateUtils';
 import { getTaskOrchestrator } from '../core/task/TaskOrchestrator';
 import { TaskArtifact, TaskResult } from '../core/task/types';
+import { buildTaskExecutionMetadata } from '../core/task/taskModelMetadata';
+import { attachTaskRoutingToResult, resolveTaskExecutionRoute } from '../core/task/taskRouting';
 
 const PRIORITY_MAP: Record<string, number> = {
   low: 10,
@@ -120,6 +123,7 @@ export class DispatchService extends EventEmitter {
       id: task.id,
       status: 'pending',
       message: '任务已接收，等待执行',
+      templateId: task.templateId,
       updatedAt: Date.now(),
     });
 
@@ -209,6 +213,7 @@ export class DispatchService extends EventEmitter {
         description: resolved.prompt,
         templateId: template.id,
         templateInput,
+        executionMode: template.executionProfile === 'mixed' ? 'hybrid' : 'dom',
         source: 'feishu',
         priority: 'normal',
         userId: msg.userId,
@@ -265,6 +270,7 @@ export class DispatchService extends EventEmitter {
           status: 'failed',
           message: 'Agent not initialized',
           resultSummary: 'Agent 未初始化',
+          templateId: task.templateId,
         });
         await this.sendTaskResponse(task, '❌ 任务执行失败', 'Agent 未初始化');
         return;
@@ -273,6 +279,11 @@ export class DispatchService extends EventEmitter {
       console.log('[DispatchService] Forwarding task to sharedMainAgent:', task.description);
       const prompt = this.buildTaskPrompt(task.description, task.attachments);
       const taskOrchestrator = getTaskOrchestrator();
+      const routing = resolveTaskExecutionRoute({
+        task: prompt,
+        source: 'im',
+        executionMode: task.executionMode || undefined,
+      });
       taskOrchestrator.startRun({
         runId: task.id,
         source: 'im',
@@ -280,20 +291,41 @@ export class DispatchService extends EventEmitter {
         prompt,
         params: task.templateInput,
         templateId: task.templateId,
-        metadata: {
-          userId: task.userId,
-          conversationId: task.conversationId,
-          attachments: task.attachments,
-        },
+        metadata: buildTaskExecutionMetadata({
+          source: 'im',
+          templateId: task.templateId,
+          executionMode: routing.executionMode,
+          visualProvider: routing.visualProvider,
+          taskRouting: routing,
+          extra: {
+            userId: task.userId,
+            conversationId: task.conversationId,
+            attachments: task.attachments,
+          },
+        }),
       });
       this.updateTaskStatus(task.id, {
         status: 'executing',
-        message: task.templateId ? `AI 正在执行模板任务: ${task.templateId}` : 'AI 正在执行任务',
+        message:
+          task.templateId
+            ? `AI 正在执行模板任务: ${task.templateId}`
+            : routing.executionMode === 'visual' || routing.executionMode === 'hybrid'
+              ? 'AI 正在执行视觉任务'
+              : 'AI 正在执行任务',
         runId: task.id,
+        templateId: task.templateId,
       });
       const taskResult = await taskOrchestrator.executeRun(task.id, async () => {
-        const result = await agent.run(prompt);
-        return mapAgentResultToTaskResult(result);
+        const result =
+          routing.executionMode === 'visual' || routing.executionMode === 'hybrid'
+            ? await executeVisualBrowserTask({
+                task: prompt,
+                adapterMode: resolveVisualAdapterMode(routing.executionMode, routing.visualProvider),
+                maxTurns: 8,
+                visualProvider: routing.visualProvider,
+              })
+            : await agent.run(prompt);
+        return attachTaskRoutingToResult(mapAgentResultToTaskResult(result), routing);
       });
 
       if (!taskResult.error) {
@@ -304,6 +336,7 @@ export class DispatchService extends EventEmitter {
           resultSummary: taskResult.summary,
           artifactsCount: taskResult.artifacts.length,
           runId: task.id,
+          templateId: task.templateId,
         });
         await this.sendTaskResponse(
           task,
@@ -319,6 +352,7 @@ export class DispatchService extends EventEmitter {
           resultSummary: taskResult.summary,
           artifactsCount: taskResult.artifacts.length,
           runId: task.id,
+          templateId: task.templateId,
         });
         await this.sendTaskResponse(
           task,
@@ -334,6 +368,7 @@ export class DispatchService extends EventEmitter {
         resultSummary: String(error),
         artifactsCount: 0,
         runId: task.id,
+        templateId: task.templateId,
       });
       await this.sendTaskResponse(task, '❌ 任务执行失败', String(error));
     }
@@ -496,6 +531,7 @@ export class DispatchService extends EventEmitter {
             status: 'failed',
             message: '用户取消',
             resultSummary: '用户取消任务',
+            templateId: status.templateId,
           });
           await this.bot.sendMessage(
             targetId,

@@ -56,6 +56,32 @@ export interface TaskRun {
   metadata?: Record<string, unknown>;
 }
 
+export interface TaskVisualProviderSignals {
+  completionRate: number;
+  costScore: number;
+  latencyScore: number;
+}
+
+export interface TaskVisualCapabilitySnapshot {
+  builtInComputerTool: boolean;
+  batchedActions: boolean;
+  nativeScreenshotRequest: boolean;
+  structuredOutput: boolean;
+  toolCalling: boolean;
+  supportsReasoningControl: boolean;
+  maxImageInputBytes?: number;
+}
+
+export interface TaskVisualProviderSelection {
+  id: string;
+  name: string;
+  score: number;
+  reasons: string[];
+  adapterMode: 'chat-structured' | 'responses-computer';
+  capabilities?: TaskVisualCapabilitySnapshot;
+  signals?: TaskVisualProviderSignals;
+}
+
 export interface TaskTemplateInputField {
   type?: 'string';
   label?: string;
@@ -67,12 +93,39 @@ export interface TaskTemplate {
   id: string;
   name: string;
   description: string;
+  origin?: {
+    runId?: string;
+    source?: TaskSource;
+    executionMode?: 'dom' | 'visual' | 'hybrid';
+  };
   inputSchema?: Record<string, TaskTemplateInputField | string>;
   defaultInput?: Record<string, unknown>;
   executionProfile: 'browser-first' | 'mixed';
   recommendedSkills?: string[];
   createdAt: number;
   updatedAt: number;
+}
+
+export interface TaskWorkflowPackTemplate {
+  id: string;
+  name: string;
+  description: string;
+  prompt: string;
+  inputSchema?: Record<string, TaskTemplateInputField | string>;
+  defaultInput?: Record<string, unknown>;
+  executionProfile: 'browser-first' | 'mixed';
+  recommendedSkills?: string[];
+}
+
+export interface TaskWorkflowPack {
+  id: string;
+  name: string;
+  category: string;
+  description: string;
+  summary: string;
+  outcomes: string[];
+  recommendedSkills?: string[];
+  templates: TaskWorkflowPackTemplate[];
 }
 
 export interface TaskStatusEvent {

@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { TaskHistoryRecord } from '../../../history/taskHistory';
 
@@ -48,12 +48,19 @@ const historyTasks: TaskHistoryRecord[] = [
         ],
       },
     },
-    metadata: {
-      source: 'scheduler',
-      runId: 'run-1',
-      templateId: 'template-1',
-      artifactsCount: 1,
-    },
+      metadata: {
+        source: 'scheduler',
+        runId: 'run-1',
+        templateId: 'template-1',
+        visualProvider: {
+          id: 'responses-computer',
+          name: 'Responses Computer',
+          score: 92,
+          reasons: ['highest completion', 'supports computer tool'],
+          adapterMode: 'responses-computer',
+        },
+        artifactsCount: 1,
+      },
   },
   {
     id: 'hist-2',
@@ -105,6 +112,23 @@ vi.mock('../../stores/taskStore', () => ({
   }),
 }));
 
+vi.mock('../RelationBadge', () => ({
+  default: ({
+    label,
+    value,
+    onClick,
+  }: {
+    label: string;
+    value: string;
+    onClick?: () => void;
+  }) =>
+    onClick ? (
+      <button onClick={onClick}>{`${label}:${value}`}</button>
+    ) : (
+      <span>{`${label}:${value}`}</span>
+    ),
+}));
+
 vi.mock('../../i18n/useTranslation', () => ({
   useTranslation: () => ({
     t: (key: string, params?: Record<string, unknown>) => {
@@ -121,6 +145,13 @@ import { HistoryPanel } from '../HistoryPanel';
 describe('HistoryPanel', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.spyOn(window, 'dispatchEvent');
+    Object.defineProperty(window, 'electron', {
+      configurable: true,
+      value: {
+        invoke: vi.fn(),
+      },
+    });
   });
 
   it('renders result overview before execution details and opens run links', () => {
@@ -129,9 +160,19 @@ describe('HistoryPanel', () => {
     expect(loadTasks).toHaveBeenCalled();
     expect(screen.getByText('Result Overview')).toBeInTheDocument();
     expect(screen.getAllByText('Found 3 vendors and exported a csv.').length).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText((_, element) => element?.textContent?.includes('Responses Computer') ?? false).length
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText((_, element) => element?.textContent?.replace(/\s+/g, ' ').includes('score: 92') ?? false).length
+    ).toBeGreaterThan(0);
+    expect(screen.getAllByText('highest completion').length).toBeGreaterThan(0);
 
     fireEvent.click(screen.getAllByRole('button', { name: /run-1/i })[0]);
     expect(openRunsPanel).toHaveBeenCalledWith('run-1');
+
+    fireEvent.click(screen.getAllByRole('button', { name: 'template:template-1' })[0]);
+    expect(window.dispatchEvent).toHaveBeenCalledWith(expect.any(CustomEvent));
   });
 
   it('filters task list by outcome type', () => {
@@ -158,5 +199,19 @@ describe('HistoryPanel', () => {
     expect(screen.getAllByText('Collect vendor prices').length).toBeGreaterThan(0);
     expect(screen.getByText('visual trace')).toBeInTheDocument();
     expect(screen.queryByText('Check company homepage')).not.toBeInTheDocument();
+  });
+
+  it('refreshes history when a template changes', async () => {
+    render(<HistoryPanel />);
+
+    expect(loadTasks).toHaveBeenCalled();
+
+    act(() => {
+      window.dispatchEvent(new CustomEvent('template:changed', { detail: { templateId: 'template-1' } }));
+    });
+
+    await waitFor(() => {
+      expect(loadTasks).toHaveBeenCalledTimes(2);
+    });
   });
 });

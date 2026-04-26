@@ -38,6 +38,11 @@ export class ChatCompletionsVisualAdapter implements VisualModelAdapter {
   }
 
   async createSession(config: VisualAdapterSessionConfig): Promise<VisualSessionHandle> {
+    const visualProvider =
+      config.metadata && typeof config.metadata === 'object'
+        ? (config.metadata as Record<string, unknown>).visualProvider
+        : null;
+
     return {
       sessionId: generateId(),
       adapterMode: 'chat-structured',
@@ -47,6 +52,7 @@ export class ChatCompletionsVisualAdapter implements VisualModelAdapter {
         systemPrompt: config.systemPrompt,
         temperature: config.temperature ?? 0,
         timeoutMs: config.timeoutMs ?? 60000,
+        visualProvider,
       },
     };
   }

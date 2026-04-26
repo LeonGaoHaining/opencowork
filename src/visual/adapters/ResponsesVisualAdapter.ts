@@ -41,6 +41,11 @@ export class ResponsesVisualAdapter implements VisualModelAdapter {
   }
 
   async createSession(config: VisualAdapterSessionConfig): Promise<VisualSessionHandle> {
+    const visualProvider =
+      config.metadata && typeof config.metadata === 'object'
+        ? (config.metadata as Record<string, unknown>).visualProvider
+        : null;
+
     return {
       sessionId: generateId(),
       adapterMode: 'responses-computer',
@@ -49,6 +54,7 @@ export class ResponsesVisualAdapter implements VisualModelAdapter {
       providerState: {
         systemPrompt: config.systemPrompt,
         timeoutMs: config.timeoutMs ?? 60000,
+        visualProvider,
       },
     };
   }

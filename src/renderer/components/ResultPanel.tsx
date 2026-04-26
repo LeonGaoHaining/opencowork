@@ -4,10 +4,25 @@ import { useSchedulerStore } from '../stores/schedulerStore';
 import { useTranslation } from '../i18n/useTranslation';
 import RelationBadge from './RelationBadge';
 import ArtifactViewer from './ArtifactViewer';
+import { SkillCandidateCard, SkillCandidateViewModel } from './SkillCandidateCard';
 import { extractVisualTraceSummary } from '../utils/visualTrace';
+import {
+  listVisualProviderCapabilities,
+  resolveVisualProviderLabel,
+  resolveVisualProviderSelection,
+} from '../../core/visual/visualProviderMetadata';
 
 interface ResultPanelProps {
   embedded?: boolean;
+}
+
+interface TemplateChangeEventDetail {
+  templateId?: string;
+  source: 'run' | 'manual';
+}
+
+function emitTemplateChanged(detail: TemplateChangeEventDetail): void {
+  window.dispatchEvent(new CustomEvent<TemplateChangeEventDetail>('template:changed', { detail }));
 }
 
 export function ResultPanel({ embedded = false }: ResultPanelProps) {
@@ -15,6 +30,24 @@ export function ResultPanel({ embedded = false }: ResultPanelProps) {
     useTaskStore();
   const { prepareDraftFromTemplate, prepareDraftFromPrompt } = useSchedulerStore();
   const { t } = useTranslation();
+
+  const rawOutputRecord =
+    currentResult && currentResult.rawOutput && typeof currentResult.rawOutput === 'object' && !Array.isArray(currentResult.rawOutput)
+      ? (currentResult.rawOutput as Record<string, unknown>)
+      : null;
+  const visualProviderLabel = resolveVisualProviderLabel(rawOutputRecord);
+  const visualProviderSelection = resolveVisualProviderSelection(rawOutputRecord);
+  const visualProviderCapabilities = listVisualProviderCapabilities(rawOutputRecord);
+  const taskRouting = rawOutputRecord?.taskRouting as
+    | {
+        routeMode?: string;
+        executionMode?: string;
+        reason?: string;
+        explicit?: boolean;
+        source?: string;
+      }
+    | undefined;
+  const skillCandidate = rawOutputRecord?.skillCandidate as SkillCandidateViewModel | undefined;
 
   if (!currentResult) {
     return null;
@@ -42,17 +75,25 @@ export function ResultPanel({ embedded = false }: ResultPanelProps) {
   const handleSaveTemplate = async () => {
     try {
       if (currentRunId) {
-        await window.electron.invoke('template:createFromRun', { runId: currentRunId });
+        const result = await window.electron.invoke('template:createFromRun', { runId: currentRunId });
+        const payload = result?.data || result;
+        if (result?.success && payload?.success !== false) {
+          emitTemplateChanged({ templateId: payload?.id, source: 'run' });
+        }
         return;
       }
 
       const prompt = task?.description || result.summary;
-      await window.electron.invoke('template:create', {
+      const createResult = await window.electron.invoke('template:create', {
         name: task?.description?.slice(0, 60) || t('taskPanels.taskTemplate'),
         description: result.summary,
         prompt,
         executionProfile: 'browser-first',
       });
+      const payload = createResult?.data || createResult;
+      if (createResult?.success && payload?.success !== false) {
+        emitTemplateChanged({ templateId: payload?.id, source: 'manual' });
+      }
     } catch (error) {
       console.error('[ResultPanel] Failed to save template:', error);
     }
@@ -108,6 +149,51 @@ export function ResultPanel({ embedded = false }: ResultPanelProps) {
         )}
       </div>
 
+      {taskRouting && (
+        <div className="mb-3 rounded-lg border border-border bg-background px-3 py-2 text-sm text-text-secondary">
+          <div className="text-xs uppercase tracking-wide text-text-muted">
+            {t('taskPanels.executionMode')}
+          </div>
+          <div className="mt-1 text-white">
+            {taskRouting.executionMode || taskRouting.routeMode || 'dom'}
+            {taskRouting.explicit ? ' · explicit' : ''}
+          </div>
+          {taskRouting.reason && <div className="mt-1 text-text-muted">{taskRouting.reason}</div>}
+        </div>
+      )}
+
+      {visualProviderLabel && (
+        <div className="mb-3 rounded-lg border border-border bg-background px-3 py-2 text-sm text-text-secondary">
+          <div className="text-xs uppercase tracking-wide text-text-muted">{t('taskPanels.visualProvider', 'Visual provider')}</div>
+          <div className="mt-1 text-white">{visualProviderLabel}</div>
+          {visualProviderSelection && (
+            <div className="mt-2 space-y-1 text-xs text-text-muted">
+              <div className="text-white">
+                score: <span className="text-text-secondary">{Math.round(visualProviderSelection.score)}</span>
+              </div>
+              <div>
+                adapter: <span className="text-text-secondary">{visualProviderSelection.adapterMode}</span>
+              </div>
+              {visualProviderCapabilities.length > 0 && (
+                <div>
+                  capabilities: <span className="text-text-secondary">{visualProviderCapabilities.join(', ')}</span>
+                </div>
+              )}
+              {visualProviderSelection.reasons.length > 0 && (
+                <div>
+                  <div className="mb-1">reasons</div>
+                  <ul className="list-disc pl-4 text-text-secondary">
+                    {visualProviderSelection.reasons.map((reason) => (
+                      <li key={reason}>{reason}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
       <div className="mb-3 flex flex-wrap gap-2">
         {currentRunId && (
           <RelationBadge
@@ -117,7 +203,14 @@ export function ResultPanel({ embedded = false }: ResultPanelProps) {
             onClick={() => openRunsPanel(currentRunId)}
           />
         )}
-        {currentTemplateId && <RelationBadge label="template" value={currentTemplateId} />}
+        {currentTemplateId && (
+          <RelationBadge
+            label="template"
+            value={currentTemplateId}
+            tone="primary"
+            onClick={() => window.dispatchEvent(new CustomEvent('template:open', { detail: { templateId: currentTemplateId } }))}
+          />
+        )}
         {task?.description && <RelationBadge label="task" value={task.description} tone="muted" />}
       </div>
 
@@ -184,6 +277,44 @@ export function ResultPanel({ embedded = false }: ResultPanelProps) {
                 <div className="text-white">{visualTrace.approvedActions.map((action) => action.type || 'unknown').join(', ')}</div>
               </div>
             )}
+            {(visualTrace.metrics.totalTurns !== undefined ||
+              visualTrace.metrics.actionBatches !== undefined ||
+              visualTrace.metrics.approvalInterruptions !== undefined ||
+              visualTrace.metrics.recoveryAttempts !== undefined ||
+              visualTrace.metrics.totalDurationMs !== undefined) && (
+              <div>
+                <div className="text-text-muted mb-1">{t('taskPanels.visualMetrics')}</div>
+                <div className="grid grid-cols-2 gap-2 text-white">
+                  {visualTrace.metrics.totalTurns !== undefined && <div>{t('taskPanels.visualTurns')}: {visualTrace.metrics.totalTurns}</div>}
+                  {visualTrace.metrics.actionBatches !== undefined && <div>{t('taskPanels.visualActionBatches')}: {visualTrace.metrics.actionBatches}</div>}
+                  {visualTrace.metrics.approvalInterruptions !== undefined && <div>{t('taskPanels.visualApprovalInterruptions')}: {visualTrace.metrics.approvalInterruptions}</div>}
+                  {visualTrace.metrics.recoveryAttempts !== undefined && <div>{t('taskPanels.visualRecoveryAttempts')}: {visualTrace.metrics.recoveryAttempts}</div>}
+                  {visualTrace.metrics.verificationFailures !== undefined && <div>Verification failures: {visualTrace.metrics.verificationFailures}</div>}
+                  {visualTrace.metrics.recoveryStrategies && visualTrace.metrics.recoveryStrategies.length > 0 && (
+                    <div>{t('taskPanels.visualRecoveryStrategies')}: {visualTrace.metrics.recoveryStrategies.join(', ')}</div>
+                  )}
+                  {visualTrace.metrics.recoveryDetails && visualTrace.metrics.recoveryDetails.length > 0 && (
+                    <div className="col-span-2">
+                      <div className="text-text-muted mb-1">Recovery details</div>
+                      <div className="space-y-1 text-white">
+                        {visualTrace.metrics.recoveryDetails.map((detail, index) => (
+                          <div key={`${detail.strategy || 'recovery'}-${index}`}>
+                            #{detail.attempt || index + 1} {detail.strategy || 'unknown'}
+                            {detail.category ? ` [${detail.category}]` : ''}
+                            {detail.trigger ? ` <${detail.trigger}>` : ''}
+                            {detail.failedActions && detail.failedActions.length > 0
+                              ? ` - ${detail.failedActions.join(', ')}`
+                              : ''}
+                            {detail.errorMessage ? ` - ${detail.errorMessage}` : ''}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {visualTrace.metrics.totalDurationMs !== undefined && <div>{t('taskPanels.visualTotalDuration')}: {visualTrace.metrics.totalDurationMs}ms</div>}
+                </div>
+              </div>
+            )}
             {visualTrace.turns.length > 0 && (
               <div>
                 <div className="text-text-muted mb-2">{t('taskPanels.visualTurns')}</div>
@@ -233,6 +364,8 @@ export function ResultPanel({ embedded = false }: ResultPanelProps) {
           </div>
         </div>
       )}
+
+      {skillCandidate && <SkillCandidateCard candidate={skillCandidate} />}
 
       {result.artifacts.length > 0 && (
         <div className="mt-4">

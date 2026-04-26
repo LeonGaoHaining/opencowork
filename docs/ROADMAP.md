@@ -77,10 +77,18 @@ The current codebase is entering an architectural convergence phase:
 
 - Introduce provider-aware routing across visual backends.
 - Build a capability registry for model and visual-runtime abstraction.
-- Add industry workflow packs for browser-heavy work.
-- Extend from browser automation toward desktop-grade computer use.
+- Add official workflow packs for browser-heavy work and make them installable as reusable templates.
+- Validate desktop-grade computer use expansion from the existing browser-first runtime.
 - Expand Templates, Skills, and MCP into a clearer open ecosystem.
 - Improve contributor ergonomics, documentation, and release quality.
+
+### P4: Desktop computer use productization
+
+- Introduce a unified browser / desktop / hybrid execution abstraction.
+- Add at least one isolated desktop harness path for formal runtime support.
+- Productize desktop approval, recovery, and benchmark workflows.
+- Support browser-and-desktop mixed workflows as first-class automation targets.
+- Establish the desktop computer use contract for future industry packs and ecosystem extensions.
 
 ## Strategic Themes
 
@@ -115,4 +123,5 @@ The project should feel reliable, well-documented, and easy to evaluate for buil
 - `docs/SPEC_P1_hybrid-recovery-and-approval.md` — hybrid recovery, approval, and takeover depth
 - `docs/SPEC_P2_templateization-and-multi-entry.md` — templateization and multi-entry hybrid reuse
 - `docs/SPEC_P3_platformization-and-ecosystem.md` — platformization, provider abstraction, and ecosystem expansion
-- `docs/PRD.md` — product direction and P0-P3 planning
+- `docs/SPEC_P4_desktop-computer-use-productization.md` — desktop computer use productization
+- `docs/PRD.md` — product direction and P0-P4 / PRD 6.0 planning

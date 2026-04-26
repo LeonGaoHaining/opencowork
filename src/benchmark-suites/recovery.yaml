@@ -1,0 +1,10 @@
+id: suite-recovery
+name: Recovery Suite
+description: Benchmarks that stress recovery and approval flows.
+benchmarkIds:
+  - benchmark-approval-recovery
+tags:
+  - recovery
+  - approval
+createdAt: 1710000000000
+updatedAt: 1710000000000

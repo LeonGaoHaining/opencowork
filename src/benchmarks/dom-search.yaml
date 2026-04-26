@@ -1,0 +1,22 @@
+id: benchmark-dom-search
+name: DOM Search and Extract
+description: Search for a topic and extract key results using DOM-first automation.
+category: data-extraction
+prompt: Search for open source browser automation libraries and extract the top three names and URLs.
+expectedOutcome:
+  successKeywords:
+    - browser automation
+    - URL
+    - library
+  minArtifacts: 3
+initialState:
+  initialUrl: https://example.com
+executionConfig:
+  executionMode: dom
+  maxTurns: 8
+tags:
+  - dom
+  - extraction
+  - smoke
+createdAt: 1710000000000
+updatedAt: 1710000000000

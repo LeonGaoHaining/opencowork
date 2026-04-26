@@ -1,0 +1,10 @@
+id: suite-smoke
+name: Smoke Suite
+description: Fast sanity coverage for common benchmark paths.
+benchmarkIds:
+  - benchmark-dom-search
+  - benchmark-hybrid-form-fill
+tags:
+  - smoke
+createdAt: 1710000000000
+updatedAt: 1710000000000

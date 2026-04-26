@@ -49,21 +49,24 @@ export function VisualApprovalDialog() {
         actions: visualApprovalRequest.actions,
         adapterMode: visualApprovalRequest.adapterMode || 'chat-structured',
         maxTurns: visualApprovalRequest.maxTurns || 6,
+        runId: visualApprovalRequest.runId,
       });
       const payload = result?.data || result;
 
       if (payload?.success) {
         const summary = payload.finalMessage || t('visualRun.completed');
-        setCurrentResult({
-          id: createTaskEntityId('result'),
-          summary,
-          artifacts: [],
-          rawOutput: payload,
-          reusable: false,
-          completedAt: Date.now(),
-        });
         setActiveSteps(mapVisualTurnsToAgentSteps(payload.turns));
-        addMessage({ role: 'ai', content: `[Visual Approval] ${summary}` });
+        if (!visualApprovalRequest.runId) {
+          setCurrentResult({
+            id: createTaskEntityId('result'),
+            summary,
+            artifacts: [],
+            rawOutput: payload,
+            reusable: false,
+            completedAt: Date.now(),
+          });
+          addMessage({ role: 'ai', content: `[Visual Approval] ${summary}` });
+        }
         addLog({ type: 'success', message: t('visualApproval.approvedAndContinued') });
         updateTaskStatus('completed');
         setVisualApprovalRequest(null);
@@ -72,6 +75,7 @@ export function VisualApprovalDialog() {
 
       if (payload?.pendingApproval) {
         setVisualApprovalRequest({
+          runId: visualApprovalRequest.runId,
           reason: payload.error?.message || t('visualRun.approvalRequired'),
           actions: payload.pendingApproval.actions || [],
           taskDescription: payload.pendingApproval.taskContext?.task || visualApprovalRequest.taskDescription,

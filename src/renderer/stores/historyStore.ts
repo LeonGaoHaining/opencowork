@@ -25,7 +25,11 @@ interface HistoryState {
   deleteTask: (taskId: string) => Promise<void>;
   replayTask: (taskId: string) => Promise<void>;
   saveTaskAsTemplate: (taskId: string) => Promise<void>;
-  runTemplate: (templateId: string, input?: Record<string, unknown>) => Promise<void>;
+  runTemplate: (
+    templateId: string,
+    input?: Record<string, unknown>,
+    executionMode?: 'dom' | 'visual' | 'hybrid'
+  ) => Promise<void>;
   searchTasks: (query: string) => Promise<void>;
   summarizeSearch: (query: string) => Promise<void>;
   clearSelectedTask: () => void;
@@ -113,6 +117,10 @@ export const useHistoryStore = create<HistoryState>((set, get) => ({
         get().selectedTask?.id === taskId
           ? get().selectedTask
           : get().tasks.find((task) => task.id === taskId) || null;
+      const visualProvider =
+        payload?.run?.metadata?.visualProvider ||
+        payload?.route?.visualProvider ||
+        null;
 
       useTaskStore.getState().setTask({
         id: payload?.run?.id || payload?.handle || `task-${Date.now()}`,
@@ -125,7 +133,8 @@ export const useHistoryStore = create<HistoryState>((set, get) => ({
         .setCurrentRun(
           payload?.run?.id || payload?.handle || null,
           payload?.run?.source || 'replay',
-          payload?.run?.templateId || null
+          payload?.run?.templateId || null,
+          visualProvider
         );
       useTaskStore.getState().setCurrentResult(null);
     } catch (error) {
@@ -149,13 +158,17 @@ export const useHistoryStore = create<HistoryState>((set, get) => ({
     }
   },
 
-  runTemplate: async (templateId, input) => {
+  runTemplate: async (templateId, input, executionMode) => {
     try {
-      const result = await window.electron.invoke('template:run', { templateId, input });
+      const result = await window.electron.invoke('template:run', { templateId, input, executionMode });
       const payload = result?.data?.data || result?.data || result;
       if (!result?.success || payload?.success === false) {
         throw new Error(payload?.error || result?.error || '运行模板失败');
       }
+      const visualProvider =
+        payload?.run?.metadata?.visualProvider ||
+        payload?.route?.visualProvider ||
+        null;
 
       useTaskStore.getState().setTask({
         id: payload?.run?.id || payload?.handle || `task-${Date.now()}`,
@@ -168,7 +181,8 @@ export const useHistoryStore = create<HistoryState>((set, get) => ({
         .setCurrentRun(
           payload?.run?.id || payload?.handle || null,
           payload?.run?.source || 'chat',
-          payload?.run?.templateId || templateId
+          payload?.run?.templateId || templateId,
+          visualProvider
         );
       useTaskStore.getState().setCurrentResult(null);
     } catch (error) {

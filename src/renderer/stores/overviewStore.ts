@@ -20,6 +20,16 @@ export interface OverviewMetrics {
   summary: OverviewSummary;
   sourceStats: Record<string, number>;
   dailyStats: Record<string, DailyStats>;
+  visualStats: {
+    totalRuns: number;
+    completedRuns: number;
+    successRate: number;
+    recoveredRuns: number;
+    approvalInterruptions: number;
+    verificationFailures: number;
+    recoveryAttempts: number;
+    triggerDistribution: Record<string, number>;
+  };
   schedulerStats: {
     totalSchedules: number;
     activeSchedules: number;
@@ -44,6 +54,16 @@ const EMPTY_METRICS: OverviewMetrics = {
   },
   sourceStats: {},
   dailyStats: {},
+  visualStats: {
+    totalRuns: 0,
+    completedRuns: 0,
+    successRate: 0,
+    recoveredRuns: 0,
+    approvalInterruptions: 0,
+    verificationFailures: 0,
+    recoveryAttempts: 0,
+    triggerDistribution: {},
+  },
   schedulerStats: {
     totalSchedules: 0,
     activeSchedules: 0,
@@ -66,6 +86,14 @@ function normalizeOverviewMetrics(payload: any): OverviewMetrics {
       payload?.sourceStats && typeof payload.sourceStats === 'object' ? payload.sourceStats : {},
     dailyStats:
       payload?.dailyStats && typeof payload.dailyStats === 'object' ? payload.dailyStats : {},
+    visualStats: {
+      ...EMPTY_METRICS.visualStats,
+      ...(payload?.visualStats || {}),
+      triggerDistribution:
+        payload?.visualStats?.triggerDistribution && typeof payload.visualStats.triggerDistribution === 'object'
+          ? payload.visualStats.triggerDistribution
+          : {},
+    },
     schedulerStats: {
       ...EMPTY_METRICS.schedulerStats,
       ...(payload?.schedulerStats || {}),

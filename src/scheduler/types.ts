@@ -17,6 +17,7 @@ export interface ExecutionConfig {
   taskDescription?: string;
   templateId?: string;
   input?: Record<string, unknown>;
+  executionMode?: 'dom' | 'visual' | 'hybrid';
   timeout: number;
   maxRetries: number;
   retryDelayMs: number;

@@ -13,6 +13,97 @@ export interface SkillListing {
   installed: boolean;
   updateAvailable?: boolean;
   source?: SkillSource;
+  userInvocable?: boolean;
+  argumentHint?: string;
+  useCases?: string[];
+  inputSpec?: string;
+  outputSpec?: string;
+  failureHints?: string[];
+  allowedTools?: string[];
+  tags?: string[];
+}
+
+function normalizeSectionText(lines: string[]): string | undefined {
+  const text = lines.join('\n').trim();
+  return text.length > 0 ? text : undefined;
+}
+
+function extractMarkdownSection(content: string, headings: string[]): string | undefined {
+  const lines = content.split(/\r?\n/);
+  let collecting = false;
+  const collected: string[] = [];
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    const normalized = trimmed.replace(/^#+\s*/, '').toLowerCase();
+    if (/^#{1,6}\s+/.test(trimmed)) {
+      if (collecting) {
+        break;
+      }
+      if (headings.includes(normalized)) {
+        collecting = true;
+      }
+      continue;
+    }
+
+    if (collecting) {
+      collected.push(line);
+    }
+  }
+
+  return normalizeSectionText(collected);
+}
+
+function extractMarkdownBullets(content: string, headings: string[]): string[] | undefined {
+  const section = extractMarkdownSection(content, headings);
+  if (!section) {
+    return undefined;
+  }
+
+  const items = section
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => /^[-*]\s+/.test(line))
+    .map((line) => line.replace(/^[-*]\s+/, '').trim())
+    .filter((line) => line.length > 0);
+
+  return items.length > 0 ? items : undefined;
+}
+
+function buildSkillProductMetadata(skill: InstalledSkill): Pick<
+  SkillListing,
+  | 'argumentHint'
+  | 'useCases'
+  | 'inputSpec'
+  | 'outputSpec'
+  | 'failureHints'
+  | 'allowedTools'
+  | 'tags'
+  | 'userInvocable'
+> {
+  const frontmatter = skill.manifest.frontmatter;
+  return {
+    argumentHint: frontmatter.argumentHint,
+    useCases:
+      frontmatter.useCases ||
+      extractMarkdownBullets(skill.manifest.content, ['when to use', 'use cases']) ||
+      undefined,
+    inputSpec:
+      frontmatter.inputSpec ||
+      extractMarkdownSection(skill.manifest.content, ['input', 'inputs']) ||
+      undefined,
+    outputSpec:
+      frontmatter.outputSpec ||
+      extractMarkdownSection(skill.manifest.content, ['output', 'outputs', 'verification']) ||
+      undefined,
+    failureHints:
+      frontmatter.failureHints ||
+      extractMarkdownBullets(skill.manifest.content, ['pitfalls', 'failure hints', 'common failures']) ||
+      undefined,
+    allowedTools: frontmatter.allowedTools,
+    tags: frontmatter.tags,
+    userInvocable: frontmatter.userInvocable,
+  };
 }
 
 export class SkillMarket {
@@ -35,6 +126,7 @@ export class SkillMarket {
         path: s.path,
         installed: true,
         source: s.source,
+        ...buildSkillProductMetadata(s),
       }))
       .filter((skill) => !source || skill.source === source);
   }
@@ -126,6 +218,7 @@ export class SkillMarket {
       path: skill.path,
       installed: true,
       source: skill.source,
+      ...buildSkillProductMetadata(skill),
     };
   }
 

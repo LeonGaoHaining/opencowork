@@ -94,6 +94,7 @@ function App() {
   const [isSkillOpen, setSkillOpen] = useState(false);
   const [isMCPOpen, setMCPOpen] = useState(false);
   const [isTemplateOpen, setTemplateOpen] = useState(false);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
   const [skillPrompt, setSkillPrompt] = useState<{
     taskId: string;
     taskDescription: string;
@@ -142,6 +143,7 @@ function App() {
     if (approvalError) {
       const pendingApproval = event?.pendingApproval || event?.data?.pendingApproval;
       setVisualApprovalRequest({
+        runId: event?.runId || event?.handleId || event?.data?.runId,
         reason: event?.error?.message || 'Approval required before executing visual actions',
         actions: pendingApproval?.actions || [],
         taskDescription: pendingApproval?.taskContext?.task,
@@ -242,6 +244,7 @@ function App() {
           if (completedRunId) {
             handledFailureRunIdsRef.current.delete(completedRunId);
           }
+          useTaskStore.getState().setTaskInterrupted(false, undefined, null);
           updateTaskStatus('completed');
 
           const { activeSteps } = useTaskStore.getState();
@@ -313,16 +316,25 @@ function App() {
       window.electron.on('task:statusUpdate', (event: any) => {
         try {
           console.log('[Renderer] Received task:statusUpdate', event);
-          const { updateTaskStatus, addLog } = useTaskStore.getState();
+          const { updateTaskStatus, addLog, setTaskInterrupted } = useTaskStore.getState();
           if (event.status === 'replanning') {
             addLog({ type: 'info', message: event.message || '正在重新规划' });
+          } else if (event.status === 'waiting_confirm') {
+            updateTaskStatus('waiting_confirm');
+            addLog({
+              type: 'info',
+              message: event.message || '等待确认高风险视觉操作',
+            });
           } else if (event.status === 'paused') {
+            setTaskInterrupted(true, event.message || 'manual_pause');
             updateTaskStatus('paused');
-            addLog({ type: 'info', message: '任务已暂停' });
+            addLog({ type: 'info', message: event.message || '任务已暂停' });
           } else if (event.status === 'executing') {
+            setTaskInterrupted(false, undefined, null);
             updateTaskStatus('executing');
-            addLog({ type: 'info', message: '任务已恢复' });
+            addLog({ type: 'info', message: event.message || '任务已恢复' });
           } else if (event.status === 'cancelled') {
+            setTaskInterrupted(false, undefined, null);
             updateTaskStatus('cancelled');
             addLog({ type: 'info', message: '任务已取消' });
           }
@@ -343,6 +355,14 @@ function App() {
         }
       })
     );
+
+    const handleTemplateOpen = (event: Event): void => {
+      const detail = event instanceof CustomEvent ? event.detail : null;
+      setSelectedTemplateId(typeof detail?.templateId === 'string' ? detail.templateId : null);
+      setTemplateOpen(true);
+    };
+
+    window.addEventListener('template:open', handleTemplateOpen as EventListener);
 
     unsubscribers.push(
       window.electron.on('skill:prompt-generate', (event: any) => {
@@ -377,6 +397,7 @@ function App() {
     return () => {
       console.log('[Renderer] Cleaning up event listeners');
       unsubscribers.forEach((unsub) => unsub());
+      window.removeEventListener('template:open', handleTemplateOpen as EventListener);
     };
   }, [t]);
 
@@ -463,7 +484,11 @@ function App() {
         <MCPPanel isOpen={isMCPOpen} onClose={() => setMCPOpen(false)} />
 
         {/* Template Panel */}
-        <TemplatePanel isOpen={isTemplateOpen} onClose={() => setTemplateOpen(false)} />
+        <TemplatePanel
+          isOpen={isTemplateOpen}
+          onClose={() => setTemplateOpen(false)}
+          preferredTemplateId={selectedTemplateId}
+        />
 
         {/* Task Runs Panel */}
         <TaskRunsPanel isOpen={isRunsPanelOpen} onClose={() => closeRunsPanel()} />

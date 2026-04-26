@@ -1,0 +1,22 @@
+id: benchmark-hybrid-form-fill
+name: Hybrid Form Fill
+description: Fill out a multi-step form that may require visual fallback.
+category: form-filling
+prompt: Complete a sign-up form with the provided test details and submit it.
+expectedOutcome:
+  successKeywords:
+    - success
+    - completed
+  targetUrl: https://example.com/success
+initialState:
+  initialUrl: https://example.com/signup
+executionConfig:
+  executionMode: hybrid
+  maxTurns: 12
+  adapterMode: responses-computer
+tags:
+  - hybrid
+  - form
+  - recovery
+createdAt: 1710000000000
+updatedAt: 1710000000000

@@ -11,6 +11,7 @@ interface RecentIMTask {
   message?: string;
   resultSummary?: string;
   runId?: string;
+  templateId?: string;
   artifactsCount?: number;
   updatedAt: number;
 }
@@ -235,6 +236,24 @@ export function IMConfigPanel() {
     }
   };
 
+  const handleRunTemplate = async (templateId: string) => {
+    try {
+      const result = await window.electron.invoke('template:run', { templateId });
+      const payload = result?.data || result;
+      if (!result?.success || payload?.success === false) {
+        throw new Error(payload?.error || result?.error || '模板运行失败');
+      }
+      setMessage({ type: 'success', text: '模板已重新运行' });
+    } catch (error) {
+      console.error('[IMConfigPanel] Failed to run template:', error);
+      setMessage({ type: 'error', text: `模板重跑失败: ${error}` });
+    }
+  };
+
+  const handleOpenTemplate = (templateId: string): void => {
+    window.dispatchEvent(new CustomEvent('template:open', { detail: { templateId } }));
+  };
+
   const currentStatus = statuses[activeTab];
   const currentConfig = localConfigs[activeTab];
 
@@ -321,6 +340,15 @@ export function IMConfigPanel() {
                         </div>
                         <div className="mt-2 flex flex-wrap gap-2">
                           {task.runId && <RelationBadge label="run" value={task.runId} tone="primary" />}
+                          {task.templateId && (
+                            <button
+                              type="button"
+                              onClick={() => handleOpenTemplate(task.templateId as string)}
+                              className="rounded px-2 py-1 text-xs text-primary hover:bg-primary/10"
+                            >
+                              {t('taskPanels.template')}
+                            </button>
+                          )}
                         </div>
                         {task.message && (
                           <div className="mt-2 text-xs text-text-muted whitespace-pre-wrap">
@@ -345,6 +373,15 @@ export function IMConfigPanel() {
                               className="rounded px-2 py-1 text-xs text-primary hover:bg-primary/10"
                             >
                               {t('taskPanels.viewRun')}
+                            </button>
+                          )}
+                          {task.templateId && (
+                            <button
+                              type="button"
+                              onClick={() => void handleRunTemplate(task.templateId as string)}
+                              className="rounded px-2 py-1 text-xs text-white bg-primary/20 hover:bg-primary/30"
+                            >
+                              重新运行模板
                             </button>
                           )}
                         </div>

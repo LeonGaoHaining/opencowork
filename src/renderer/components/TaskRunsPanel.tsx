@@ -7,13 +7,47 @@ import { useTaskStore } from '../stores/taskStore';
 import { useTranslation } from '../i18n/useTranslation';
 import RelationBadge from './RelationBadge';
 import ArtifactViewer from './ArtifactViewer';
+import { SkillCandidateCard, SkillCandidateViewModel } from './SkillCandidateCard';
 import { extractVisualTraceSummary } from '../utils/visualTrace';
+import {
+  listVisualProviderCapabilities,
+  resolveVisualProviderLabel,
+  resolveVisualProviderSelection,
+} from '../../core/visual/visualProviderMetadata';
 
 interface TaskRunDetails {
   run: TaskRun;
   result: TaskResult | null;
   template: TaskTemplate | null;
   history: TaskHistoryRecord | null;
+}
+
+interface LifecycleDetails {
+  approval: null | {
+    pending?: boolean;
+    approved?: boolean;
+    requestedAt?: number;
+    approvedAt?: number;
+    reason?: string;
+  };
+  takeover: null | {
+    active?: boolean;
+    interrupted?: boolean;
+    interruptReason?: string;
+    interruptedAt?: number;
+    resumedAt?: number;
+    restoredAt?: number;
+  };
+}
+
+function parseLifecycleDetails(metadata: Record<string, unknown> | undefined): LifecycleDetails {
+  const approval = metadata?.approval;
+  const takeover = metadata?.takeover;
+
+  return {
+    approval: approval && typeof approval === 'object' ? (approval as LifecycleDetails['approval']) : null,
+    takeover: takeover && typeof takeover === 'object' ? (takeover as LifecycleDetails['takeover']) : null,
+  };
 }
 
 interface TaskRunsPanelProps {
@@ -101,6 +135,23 @@ export function TaskRunsPanel({ isOpen, onClose }: TaskRunsPanelProps) {
     void loadRunDetails(selectedRunId);
   }, [isOpen, selectedRunId, setSelectedRunsPanelRunId]);
 
+  useEffect(() => {
+    const handleTemplateChanged = (event: Event): void => {
+      if (!isOpen || !selectedRunId) {
+        return;
+      }
+
+      if (event instanceof CustomEvent) {
+        void loadRunDetails(selectedRunId);
+      }
+    };
+
+    window.addEventListener('template:changed', handleTemplateChanged as EventListener);
+    return () => {
+      window.removeEventListener('template:changed', handleTemplateChanged as EventListener);
+    };
+  }, [isOpen, selectedRunId, selectedDetails]);
+
   const handleRerun = async () => {
     if (!selectedDetails) {
       return;
@@ -146,18 +197,32 @@ export function TaskRunsPanel({ isOpen, onClose }: TaskRunsPanelProps) {
     });
   };
 
+  const openTemplateFromRun = (templateId: string): void => {
+    window.dispatchEvent(new CustomEvent('template:open', { detail: { templateId } }));
+  };
+
   if (!isOpen) {
     return null;
   }
 
   const selectedResult = selectedDetails?.result || null;
   const historyResult = selectedDetails?.history?.result || null;
+  const lifecycleDetails = parseLifecycleDetails(
+    (selectedDetails?.run.metadata as Record<string, unknown> | undefined) || undefined
+  );
   const resultSummary = selectedResult?.summary || historyResult?.summary || '';
   const resultError = selectedResult?.error?.message || historyResult?.taskError?.message || '';
   const resultStructuredData = selectedResult?.structuredData ?? historyResult?.structuredData;
   const resultArtifacts = selectedResult?.artifacts || historyResult?.artifacts || [];
   const resultRawOutput = selectedResult?.rawOutput ?? historyResult?.rawOutput;
   const visualTrace = extractVisualTraceSummary(resultRawOutput);
+  const selectedVisualProviderLabel = resolveVisualProviderLabel(selectedDetails?.run.metadata);
+  const selectedVisualProviderSelection = resolveVisualProviderSelection(selectedDetails?.run.metadata);
+  const selectedVisualProviderCapabilities = listVisualProviderCapabilities(selectedDetails?.run.metadata);
+  const skillCandidate =
+    resultRawOutput && typeof resultRawOutput === 'object' && !Array.isArray(resultRawOutput)
+      ? ((resultRawOutput as Record<string, unknown>).skillCandidate as SkillCandidateViewModel | undefined)
+      : undefined;
 
   const filteredRuns = runs.filter((run) => {
     const matchesKeyword =
@@ -255,6 +320,7 @@ export function TaskRunsPanel({ isOpen, onClose }: TaskRunsPanelProps) {
                     <div className="mt-2 flex flex-wrap gap-3 text-xs text-text-muted">
                       <span>source: {run.source}</span>
                       <span>status: {run.status}</span>
+                      {run.templateId && <span>template: {run.templateId}</span>}
                     </div>
                   </button>
                 ))}
@@ -272,24 +338,59 @@ export function TaskRunsPanel({ isOpen, onClose }: TaskRunsPanelProps) {
                   </div>
                 </div>
 
-                <div className="flex flex-wrap gap-2">
-                  <RelationBadge label="source" value={selectedDetails.run.source} tone="muted" />
-                  <RelationBadge label="status" value={selectedDetails.run.status} />
-                  {selectedDetails.run.templateId && (
-                    <RelationBadge label="template" value={selectedDetails.run.templateId} tone="primary" />
+                    <div className="flex flex-wrap gap-2">
+                      <RelationBadge label="source" value={selectedDetails.run.source} tone="muted" />
+                      <RelationBadge label="status" value={selectedDetails.run.status} />
+                      {selectedDetails.run.templateId && (
+                    <RelationBadge
+                      label="template"
+                      value={selectedDetails.run.templateId}
+                      tone="primary"
+                      onClick={() => openTemplateFromRun(selectedDetails.run.templateId as string)}
+                    />
                   )}
                   {selectedDetails.history?.id && (
                     <RelationBadge label="history" value={selectedDetails.history.id} />
                   )}
-                  {typeof selectedDetails.run.metadata?.scheduledTaskId === 'string' && (
-                    <RelationBadge
-                      label="scheduler"
-                      value={selectedDetails.run.metadata.scheduledTaskId}
-                    />
-                  )}
-                </div>
+                      {typeof selectedDetails.run.metadata?.scheduledTaskId === 'string' && (
+                        <RelationBadge
+                          label="scheduler"
+                          value={selectedDetails.run.metadata.scheduledTaskId}
+                        />
+                      )}
+                    {selectedVisualProviderLabel && (
+                      <RelationBadge label="provider" value={selectedVisualProviderLabel} tone="muted" />
+                    )}
+                  </div>
 
-                <div className="grid grid-cols-2 gap-3 text-sm text-text-secondary">
+                  {selectedVisualProviderSelection && (
+                    <div className="rounded-lg border border-border bg-background px-3 py-3 text-sm text-text-secondary">
+                      <div className="text-xs uppercase tracking-wide text-text-muted">
+                        {t('taskPanels.visualProvider', 'Visual provider')}
+                      </div>
+                      <div className="mt-1 text-white">{selectedVisualProviderSelection.name}</div>
+                      <div className="mt-2 text-xs text-text-muted">
+                        <div className="text-white">
+                          score:{' '}
+                          <span className="text-text-secondary">
+                            {Math.round(selectedVisualProviderSelection.score)}
+                          </span>
+                        </div>
+                        {selectedVisualProviderSelection.reasons.length > 0 && (
+                          <div className="mt-1">
+                            <div className="mb-1">reasons</div>
+                            <ul className="list-disc pl-4 text-text-secondary">
+                              {selectedVisualProviderSelection.reasons.map((reason) => (
+                                <li key={reason}>{reason}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-2 gap-3 text-sm text-text-secondary">
                   <div className="rounded-lg border border-border bg-background px-3 py-2">
                           <div className="text-xs text-text-muted">{t('taskPanels.source')}</div>
                     <div className="mt-1 text-white">{selectedDetails.run.source}</div>
@@ -298,6 +399,20 @@ export function TaskRunsPanel({ isOpen, onClose }: TaskRunsPanelProps) {
                           <div className="text-xs text-text-muted">{t('taskPanels.status')}</div>
                     <div className="mt-1 text-white">{selectedDetails.run.status}</div>
                   </div>
+                  {selectedVisualProviderLabel && (
+                    <div className="rounded-lg border border-border bg-background px-3 py-2">
+                      <div className="text-xs text-text-muted">{t('taskPanels.visualProvider', 'Visual provider')}</div>
+                      <div className="mt-1 text-white">{selectedVisualProviderLabel}</div>
+                      {selectedVisualProviderSelection && (
+                        <div className="mt-2 text-xs text-text-secondary">
+                          <div>adapter: {selectedVisualProviderSelection.adapterMode}</div>
+                          {selectedVisualProviderCapabilities.length > 0 && (
+                            <div>capabilities: {selectedVisualProviderCapabilities.join(', ')}</div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
                   <div className="rounded-lg border border-border bg-background px-3 py-2">
                           <div className="text-xs text-text-muted">{t('taskPanels.started')}</div>
                     <div className="mt-1 text-white">
@@ -364,6 +479,115 @@ export function TaskRunsPanel({ isOpen, onClose }: TaskRunsPanelProps) {
                   </div>
                 </div>
 
+                {(lifecycleDetails.approval || lifecycleDetails.takeover) && (
+                  <div className="rounded-lg border border-border bg-background px-3 py-3">
+                    <div className="text-xs uppercase tracking-wide text-text-muted mb-2">Lifecycle</div>
+                    <div className="space-y-3 text-sm text-text-secondary">
+                      {lifecycleDetails.approval && (
+                        <div>
+                          <div className="text-white font-medium">{t('visualApproval.title')}</div>
+                          <div className="mt-1 space-y-1">
+                            {typeof lifecycleDetails.approval.pending === 'boolean' && (
+                              <div>
+                                <span className="text-text-muted">pending:</span>{' '}
+                                <span className="text-white">
+                                  {lifecycleDetails.approval.pending ? 'yes' : 'no'}
+                                </span>
+                              </div>
+                            )}
+                            {typeof lifecycleDetails.approval.approved === 'boolean' && (
+                              <div>
+                                <span className="text-text-muted">approved:</span>{' '}
+                                <span className="text-white">
+                                  {lifecycleDetails.approval.approved ? 'yes' : 'no'}
+                                </span>
+                              </div>
+                            )}
+                            {typeof lifecycleDetails.approval.requestedAt === 'number' && (
+                              <div>
+                                <span className="text-text-muted">requested:</span>{' '}
+                                <span className="text-white">
+                                  {new Date(lifecycleDetails.approval.requestedAt).toLocaleString()}
+                                </span>
+                              </div>
+                            )}
+                            {typeof lifecycleDetails.approval.approvedAt === 'number' && (
+                              <div>
+                                <span className="text-text-muted">approved at:</span>{' '}
+                                <span className="text-white">
+                                  {new Date(lifecycleDetails.approval.approvedAt).toLocaleString()}
+                                </span>
+                              </div>
+                            )}
+                            {lifecycleDetails.approval.reason && (
+                              <div>
+                                <span className="text-text-muted">reason:</span>{' '}
+                                <span className="text-white whitespace-pre-wrap">
+                                  {lifecycleDetails.approval.reason}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {lifecycleDetails.takeover && (
+                        <div>
+                          <div className="text-white font-medium">{t('controlBar.takeover')}</div>
+                          <div className="mt-1 space-y-1">
+                            {typeof lifecycleDetails.takeover.active === 'boolean' && (
+                              <div>
+                                <span className="text-text-muted">active:</span>{' '}
+                                <span className="text-white">
+                                  {lifecycleDetails.takeover.active ? 'yes' : 'no'}
+                                </span>
+                              </div>
+                            )}
+                            {typeof lifecycleDetails.takeover.interrupted === 'boolean' && (
+                              <div>
+                                <span className="text-text-muted">interrupted:</span>{' '}
+                                <span className="text-white">
+                                  {lifecycleDetails.takeover.interrupted ? 'yes' : 'no'}
+                                </span>
+                              </div>
+                            )}
+                            {lifecycleDetails.takeover.interruptReason && (
+                              <div>
+                                <span className="text-text-muted">reason:</span>{' '}
+                                <span className="text-white">{lifecycleDetails.takeover.interruptReason}</span>
+                              </div>
+                            )}
+                            {typeof lifecycleDetails.takeover.interruptedAt === 'number' && (
+                              <div>
+                                <span className="text-text-muted">interrupted at:</span>{' '}
+                                <span className="text-white">
+                                  {new Date(lifecycleDetails.takeover.interruptedAt).toLocaleString()}
+                                </span>
+                              </div>
+                            )}
+                            {typeof lifecycleDetails.takeover.resumedAt === 'number' && (
+                              <div>
+                                <span className="text-text-muted">resumed at:</span>{' '}
+                                <span className="text-white">
+                                  {new Date(lifecycleDetails.takeover.resumedAt).toLocaleString()}
+                                </span>
+                              </div>
+                            )}
+                            {typeof lifecycleDetails.takeover.restoredAt === 'number' && (
+                              <div>
+                                <span className="text-text-muted">restored at:</span>{' '}
+                                <span className="text-white">
+                                  {new Date(lifecycleDetails.takeover.restoredAt).toLocaleString()}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
                 {(selectedResult || historyResult) && (
                   <div className="rounded-lg border border-border bg-background px-3 py-3">
                     <div className="text-xs uppercase tracking-wide text-text-muted mb-2">{t('historyPanel.result')}</div>
@@ -429,6 +653,38 @@ export function TaskRunsPanel({ isOpen, onClose }: TaskRunsPanelProps) {
                             </span>
                           </div>
                         )}
+                        {(visualTrace.metrics.totalTurns !== undefined ||
+                          visualTrace.metrics.actionBatches !== undefined ||
+                          visualTrace.metrics.approvalInterruptions !== undefined ||
+                          visualTrace.metrics.recoveryAttempts !== undefined ||
+                          visualTrace.metrics.totalDurationMs !== undefined) && (
+                          <div className="space-y-1">
+                            <div className="text-text-muted">{t('taskPanels.visualMetrics')}</div>
+                            {visualTrace.metrics.totalTurns !== undefined && <div><span className="text-text-muted">{t('taskPanels.visualTurns')}:</span> <span className="text-white">{visualTrace.metrics.totalTurns}</span></div>}
+                            {visualTrace.metrics.actionBatches !== undefined && <div><span className="text-text-muted">{t('taskPanels.visualActionBatches')}:</span> <span className="text-white">{visualTrace.metrics.actionBatches}</span></div>}
+                            {visualTrace.metrics.approvalInterruptions !== undefined && <div><span className="text-text-muted">{t('taskPanels.visualApprovalInterruptions')}:</span> <span className="text-white">{visualTrace.metrics.approvalInterruptions}</span></div>}
+                            {visualTrace.metrics.recoveryAttempts !== undefined && <div><span className="text-text-muted">{t('taskPanels.visualRecoveryAttempts')}:</span> <span className="text-white">{visualTrace.metrics.recoveryAttempts}</span></div>}
+                            {visualTrace.metrics.verificationFailures !== undefined && <div><span className="text-text-muted">Verification failures:</span> <span className="text-white">{visualTrace.metrics.verificationFailures}</span></div>}
+                            {visualTrace.metrics.recoveryStrategies && visualTrace.metrics.recoveryStrategies.length > 0 && <div><span className="text-text-muted">{t('taskPanels.visualRecoveryStrategies')}:</span> <span className="text-white">{visualTrace.metrics.recoveryStrategies.join(', ')}</span></div>}
+                            {visualTrace.metrics.recoveryDetails && visualTrace.metrics.recoveryDetails.length > 0 && (
+                              <div>
+                                <div className="text-text-muted">Recovery details:</div>
+                                <div className="space-y-1 mt-1">
+                                  {visualTrace.metrics.recoveryDetails.map((detail, index) => (
+                                    <div key={`${detail.strategy || 'recovery'}-${index}`} className="text-white">
+                                      #{detail.attempt || index + 1} {detail.strategy || 'unknown'}
+                                      {detail.category ? ` [${detail.category}]` : ''}
+                                      {detail.trigger ? ` <${detail.trigger}>` : ''}
+                                      {detail.failedActions && detail.failedActions.length > 0 ? ` - ${detail.failedActions.join(', ')}` : ''}
+                                      {detail.errorMessage ? ` - ${detail.errorMessage}` : ''}
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                            {visualTrace.metrics.totalDurationMs !== undefined && <div><span className="text-text-muted">{t('taskPanels.visualTotalDuration')}:</span> <span className="text-white">{visualTrace.metrics.totalDurationMs}ms</span></div>}
+                          </div>
+                        )}
                         {visualTrace.turns.length > 0 && (
                           <div>
                             <span className="text-text-muted">{t('taskPanels.visualTurns')}:</span>{' '}
@@ -437,6 +693,8 @@ export function TaskRunsPanel({ isOpen, onClose }: TaskRunsPanelProps) {
                         )}
                       </div>
                     )}
+
+                    {skillCandidate && <SkillCandidateCard candidate={skillCandidate} />}
                   </div>
                 )}
 

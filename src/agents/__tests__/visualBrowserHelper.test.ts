@@ -24,6 +24,13 @@ describe('visualBrowserHelper', () => {
         task: 'Open the menu and click the publish button',
         adapterMode: 'chat-structured',
         maxTurns: 5,
+        visualProvider: {
+          id: 'provider-1',
+          name: 'Provider 1',
+          score: 100,
+          reasons: [],
+          adapterMode: 'responses-computer',
+        },
       },
       () => ({ runVisualTask })
     );
@@ -31,6 +38,13 @@ describe('visualBrowserHelper', () => {
     expect(runVisualTask).toHaveBeenCalledWith({
       task: 'Open the menu and click the publish button',
       adapterMode: 'chat-structured',
+      visualProvider: {
+        id: 'provider-1',
+        name: 'Provider 1',
+        score: 100,
+        reasons: [],
+        adapterMode: 'responses-computer',
+      },
       maxTurns: 5,
     });
     expect(result.success).toBe(true);
@@ -65,9 +79,28 @@ describe('visualBrowserHelper', () => {
       {
         task: 'Click publish button',
         adapterMode: 'responses-computer',
+        visualProvider: {
+          id: 'provider-2',
+          name: 'Provider 2',
+          score: 95,
+          reasons: [],
+          adapterMode: 'responses-computer',
+        },
       },
       () => ({ runVisualTask })
     );
+
+    expect(runVisualTask).toHaveBeenCalledWith({
+      task: 'Click publish button',
+      adapterMode: 'responses-computer',
+      visualProvider: {
+        id: 'provider-2',
+        name: 'Provider 2',
+        score: 95,
+        reasons: [],
+        adapterMode: 'responses-computer',
+      },
+    });
 
     expect(result.success).toBe(false);
     expect(result.error?.code).toBe('APPROVAL_REQUIRED');

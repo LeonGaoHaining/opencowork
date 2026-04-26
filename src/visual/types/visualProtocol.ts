@@ -9,6 +9,13 @@ export interface PendingApproval {
   actions: UIAction[];
   reason: string;
   taskContext: VisualTaskContext;
+  audit?: ApprovalAuditSnapshot;
+}
+
+export interface ApprovalAuditSnapshot {
+  matchedIntentKeywords: string[];
+  actionRiskReasons: string[];
+  actionTypes: UIActionType[];
 }
 
 export interface VisualPageContext {
@@ -125,6 +132,21 @@ export interface VisualExecutionTurn {
   duration: number;
 }
 
+export interface RecoveryDetail {
+  strategy: string;
+  category: 'timing' | 'viewport' | 'strategy' | 'verification' | 'generic';
+  trigger?:
+    | 'verification-no-effect'
+    | 'interaction-execution-failed'
+    | 'input-execution-failed'
+    | 'viewport-execution-failed'
+    | 'generic-execution-failed';
+  errorCode?: string;
+  errorMessage?: string;
+  failedActions?: UIActionType[];
+  attempt: number;
+}
+
 export interface ComputerUseRunInput {
   runId: string;
   task: string;
@@ -140,4 +162,16 @@ export interface ComputerUseRunResult {
   turns: VisualExecutionTurn[];
   error?: VisualTurnError;
   pendingApproval?: PendingApproval;
+  metrics?: {
+    totalTurns: number;
+    actionBatches: number;
+    proposedActionCount: number;
+    executedActionCount: number;
+    approvalInterruptions: number;
+    recoveryAttempts: number;
+    verificationFailures?: number;
+    recoveryStrategies?: string[];
+    recoveryDetails?: RecoveryDetail[];
+    totalDurationMs: number;
+  };
 }

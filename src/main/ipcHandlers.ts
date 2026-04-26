@@ -9,6 +9,7 @@ import { BrowserExecutor } from '../core/executor/BrowserExecutor';
 import { CLIExecutor } from '../core/executor/CLIExecutor';
 import { ActionType } from '../core/action/ActionSchema';
 import { createMainAgent, MainAgent, AgentStep, AgentResult } from '../agents/mainAgent';
+import { executeVisualBrowserTask, resolveVisualAdapterMode } from '../agents/visualBrowserHelper';
 import { ScheduleType } from '../scheduler/types';
 import { getIMConfigStore } from '../config/imConfig';
 import { getSettingsManager } from '../config/settings';
@@ -24,15 +25,36 @@ import {
 } from '../mcp';
 import { getTaskOrchestrator } from '../core/task/TaskOrchestrator';
 import { createTaskResultError, mapAgentResultToTaskResult } from '../core/task/resultMapper';
+import { buildTaskExecutionMetadata } from '../core/task/taskModelMetadata';
+import { attachTaskRoutingToResult, resolveTaskExecutionRoute, TaskExecutionRoute } from '../core/task/taskRouting';
 import { getTaskResultRepository } from '../core/task/TaskResultRepository';
 import { getTaskTemplateRepository } from '../core/task/TaskTemplateRepository';
 import { getTaskRunRepository } from '../core/task/TaskRunRepository';
+import {
+  createEmptyWorkflowPackInstallResult,
+  createWorkflowPackInstallResult,
+  getOfficialWorkflowPack,
+  listOfficialWorkflowPacks,
+} from '../core/task/workflowPacks';
+import { getBenchmarkTaskRepository } from '../core/benchmark/BenchmarkTaskRepository';
+import { getBenchmarkRunRepository } from '../core/benchmark/BenchmarkRunRepository';
+import { BenchmarkRunService } from '../core/benchmark/BenchmarkRunService';
+import {
+  createBenchmarkReport,
+  serializeBenchmarkReportCsv,
+  serializeBenchmarkReportJson,
+} from '../core/benchmark/report';
+import { getBenchmarkSuiteRepository } from '../core/benchmark/BenchmarkSuiteRepository';
+import { getBenchmarkSuiteRunRepository } from '../core/benchmark/BenchmarkSuiteRunRepository';
+import { BenchmarkSuiteRunService } from '../core/benchmark/BenchmarkSuiteRunService';
 import { resolveTemplateInput } from '../core/task/templateUtils';
 import { getDispatchService } from '../im/DispatchService';
 import { VisualAutomationService } from '../visual/VisualAutomationService';
 import { HybridToolRouter } from '../visual';
 
 const taskEngine = new TaskEngine();
+const benchmarkRunService = new BenchmarkRunService();
+const benchmarkSuiteRunService = new BenchmarkSuiteRunService();
 const execFileAsync = promisify(execFile);
 
 let browserExecutor: BrowserExecutor | null = null;
@@ -47,6 +69,63 @@ let mcpToolsChangedSubscribed = false;
 let mcpToolsReloadInFlight = false;
 const mcpToolSignatures = new Map<string, string>();
 let visualAutomationService: VisualAutomationService | null = null;
+
+function extractVisualBenchmarkMetrics(rawOutput: unknown): {
+  hasVisualTrace: boolean;
+  approvalInterruptions: number;
+  verificationFailures: number;
+  recoveryAttempts: number;
+  triggerDistribution: Record<string, number>;
+} {
+  const record = rawOutput && typeof rawOutput === 'object' ? (rawOutput as Record<string, unknown>) : null;
+  const metricEntries = Array.isArray(record?.visualMetrics)
+    ? (record.visualMetrics as Array<Record<string, unknown>>)
+    : [];
+  const traceEntries = Array.isArray(record?.visualTrace) ? record.visualTrace : [];
+
+  const triggerDistribution: Record<string, number> = {};
+  let approvalInterruptions = 0;
+  let verificationFailures = 0;
+  let recoveryAttempts = 0;
+
+  for (const entry of metricEntries) {
+    approvalInterruptions = Math.max(
+      approvalInterruptions,
+      typeof entry.approvalInterruptions === 'number' ? entry.approvalInterruptions : 0
+    );
+    verificationFailures = Math.max(
+      verificationFailures,
+      typeof entry.verificationFailures === 'number' ? entry.verificationFailures : 0
+    );
+    recoveryAttempts = Math.max(
+      recoveryAttempts,
+      typeof entry.recoveryAttempts === 'number' ? entry.recoveryAttempts : 0
+    );
+
+    if (Array.isArray(entry.recoveryDetails)) {
+      for (const detail of entry.recoveryDetails) {
+        if (detail && typeof detail === 'object' && typeof (detail as Record<string, unknown>).trigger === 'string') {
+          const trigger = (detail as Record<string, unknown>).trigger as string;
+          triggerDistribution[trigger] = (triggerDistribution[trigger] || 0) + 1;
+        }
+      }
+    }
+  }
+
+  const hasVisualTrace =
+    metricEntries.length > 0 ||
+    traceEntries.length > 0 ||
+    typeof record?.routeReason === 'string' ||
+    typeof record?.fallbackReason === 'string';
+
+  return {
+    hasVisualTrace,
+    approvalInterruptions,
+    verificationFailures,
+    recoveryAttempts,
+    triggerDistribution,
+  };
+}
 
 function createMCPToolSignature(
   tools: Array<{ name: string; description?: string; inputSchema?: unknown }>
@@ -64,6 +143,24 @@ function createMCPToolSignature(
 
 function generateAgentThreadId(): string {
   return `main-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function buildTakeoverMetadataPatch(
+  handleId: string,
+  patch: Record<string, unknown>
+): Record<string, unknown> {
+  const existing = getTaskOrchestrator().getRun(handleId)?.metadata as Record<string, unknown> | undefined;
+  const existingTakeover =
+    existing?.takeover && typeof existing.takeover === 'object'
+      ? (existing.takeover as Record<string, unknown>)
+      : {};
+
+  return {
+    takeover: {
+      ...existingTakeover,
+      ...patch,
+    },
+  };
 }
 
 function ensureMCPToolsChangedSubscription(): void {
@@ -191,6 +288,27 @@ function mapAgentStepsToSkillActions(steps: AgentStep[] | undefined): Array<{
       success,
     };
   });
+}
+
+function attachSkillCandidateToResult(result: any, skillCandidate: unknown): any {
+  if (!skillCandidate) {
+    return result;
+  }
+
+  const rawOutput = result?.rawOutput;
+  return {
+    ...result,
+    rawOutput:
+      rawOutput && typeof rawOutput === 'object' && !Array.isArray(rawOutput)
+        ? {
+            ...(rawOutput as Record<string, unknown>),
+            skillCandidate,
+          }
+        : {
+            value: rawOutput,
+            skillCandidate,
+          },
+  };
 }
 
 function getBrowserExecutor(): BrowserExecutor {
@@ -327,8 +445,12 @@ type IpcHandler = (
 
 export const IPC_HANDLERS: Record<string, IpcHandler> = {
   // 任务相关 (v0.4 - 使用 MainAgent)
-  'task:start': async (mainWindow, previewWindow, { task, threadId, source = 'chat', templateId }) => {
-    console.log('[IPC] task:start:', task, 'threadId:', threadId, 'source:', source);
+  'task:start': async (
+    mainWindow,
+    previewWindow,
+    { task, threadId, source = 'chat', templateId, params, executionMode }
+  ) => {
+    console.log('[IPC] task:start:', task, 'threadId:', threadId, 'source:', source, 'executionMode:', executionMode);
 
     try {
       const agent = await ensureSharedAgent(mainWindow, previewWindow);
@@ -349,44 +471,130 @@ export const IPC_HANDLERS: Record<string, IpcHandler> = {
       }
 
       const handleId = agent.getThreadId();
+      const route = resolveTaskExecutionRoute({
+        task,
+        source,
+        executionMode,
+      });
       const taskOrchestrator = getTaskOrchestrator();
       const run = taskOrchestrator.startRun({
         runId: handleId,
         source,
         title: task,
         prompt: task,
+        params,
         templateId,
         sessionId: handleId,
-        metadata: {
+        metadata: buildTaskExecutionMetadata({
+          source,
+          executionMode: route.executionMode,
+          templateId,
+          sessionId: handleId,
           threadId: handleId,
-        },
+          visualProvider: route.visualProvider,
+          taskRouting: route,
+        }),
       });
 
       let latestAgentResult: AgentResult | null = null;
+      let pendingApprovalPayload: any = null;
 
       void taskOrchestrator
         .executeRun(handleId, async () => {
-          latestAgentResult = await agent.run(task);
+          if (route.executionMode === 'visual' || route.executionMode === 'hybrid') {
+            const visualResult = await executeVisualBrowserTask({
+              task,
+              adapterMode: resolveVisualAdapterMode(route.executionMode, route.visualProvider),
+              maxTurns: 8,
+              visualProvider: route.visualProvider,
+            });
+
+            if (visualResult?.pendingApproval) {
+              pendingApprovalPayload = visualResult;
+              const approvalError = createTaskResultError(
+                visualResult.error?.message || 'Approval required before executing visual actions',
+                'APPROVAL_REQUIRED'
+              );
+              throw Object.assign(new Error(approvalError.message), {
+                code: approvalError.code,
+                pendingApproval: visualResult.pendingApproval,
+                adapterMode: visualResult.adapterMode,
+                maxTurns: visualResult.maxTurns,
+              });
+            }
+
+            latestAgentResult = visualResult;
+          } else {
+            latestAgentResult = await agent.run(task);
+          }
+
+          if (!latestAgentResult) {
+            throw new Error('Agent execution returned no result');
+          }
           return mapAgentResultToTaskResult(latestAgentResult);
         })
         .then(async (result) => {
-          console.log('[IPC] MainAgent completed, result:', result.summary);
+          let routedResult = attachTaskRoutingToResult(result, route);
+          console.log('[IPC] MainAgent completed, result:', routedResult.summary);
 
           try {
             if (latestAgentResult) {
               const taskEngine = getTaskEngine();
-              await taskEngine.checkSkillGenerationAfterTask(latestAgentResult, {
+              const skillCandidate = await taskEngine.checkSkillGenerationAfterTask(latestAgentResult, {
                 taskDescription: task,
                 actions: mapAgentStepsToSkillActions(latestAgentResult.steps),
               });
+              routedResult = attachSkillCandidateToResult(routedResult, skillCandidate);
             }
           } catch (error) {
             console.warn('[IPC] checkSkillGeneration error:', error);
+          }
+
+          try {
+            taskOrchestrator.completeRun(handleId, routedResult);
+          } catch (error) {
+            console.warn('[IPC] Failed to persist routed result:', error);
           }
         })
         .catch((error: any) => {
           console.error('[IPC] Background task:start error:', error);
           const taskError = createTaskResultError(error?.message || String(error));
+          if (error?.code === 'APPROVAL_REQUIRED' || pendingApprovalPayload?.pendingApproval) {
+            const pendingApproval = pendingApprovalPayload?.pendingApproval || error?.pendingApproval;
+            taskOrchestrator.updateMetadata(handleId, {
+              approval: {
+                pending: true,
+                requestedAt: Date.now(),
+                reason: pendingApprovalPayload?.error?.message || error?.message || taskError.message,
+                matchedIntentKeywords: Array.isArray(pendingApproval?.audit?.matchedIntentKeywords)
+                  ? pendingApproval.audit.matchedIntentKeywords
+                  : [],
+                actionRiskReasons: Array.isArray(pendingApproval?.audit?.actionRiskReasons)
+                  ? pendingApproval.audit.actionRiskReasons
+                  : [],
+                actionTypes: Array.isArray(pendingApproval?.audit?.actionTypes)
+                  ? pendingApproval.audit.actionTypes
+                  : Array.isArray(pendingApproval?.actions)
+                    ? pendingApproval.actions.map((action: { type?: string }) => action.type || 'unknown')
+                    : [],
+              },
+            });
+            taskOrchestrator.pauseRun(handleId);
+            mainWindow?.webContents.send('task:statusUpdate', { handleId, status: 'waiting_confirm' });
+            mainWindow?.webContents.send('task:error', {
+              handleId,
+              runId: handleId,
+              status: 'waiting_confirm',
+              error: {
+                ...taskError,
+                code: 'APPROVAL_REQUIRED',
+              },
+              pendingApproval,
+              adapterMode: pendingApprovalPayload?.adapterMode || error?.adapterMode,
+              maxTurns: pendingApprovalPayload?.maxTurns || error?.maxTurns,
+            });
+            return;
+          }
           mainWindow?.webContents.send('task:error', {
             handleId,
             runId: handleId,
@@ -401,11 +609,12 @@ export const IPC_HANDLERS: Record<string, IpcHandler> = {
           });
         });
 
-      return {
-        accepted: true,
-        handle: handleId,
-        run,
-      };
+          return {
+            accepted: true,
+            handle: handleId,
+            run,
+            route,
+          };
     } catch (error: any) {
       console.error('[IPC] task:start error:', error);
       isAgentInitializing = false;
@@ -420,6 +629,15 @@ export const IPC_HANDLERS: Record<string, IpcHandler> = {
   'task:pause': async (mainWindow, previewWindow, { handleId }) => {
     const orchestrator = getTaskOrchestrator();
     orchestrator.pauseRun(handleId);
+    orchestrator.updateMetadata(
+      handleId,
+      buildTakeoverMetadataPatch(handleId, {
+        active: true,
+        interrupted: true,
+        interruptReason: 'manual_pause',
+        interruptedAt: Date.now(),
+      })
+    );
     if (sharedMainAgent && sharedMainAgent.getThreadId() === handleId) {
       sharedMainAgent.pause();
     } else {
@@ -432,27 +650,56 @@ export const IPC_HANDLERS: Record<string, IpcHandler> = {
   'task:resume': async (mainWindow, previewWindow, { handleId }) => {
     const orchestrator = getTaskOrchestrator();
     orchestrator.resumeRun(handleId);
+    orchestrator.updateMetadata(
+      handleId,
+      buildTakeoverMetadataPatch(handleId, {
+        active: false,
+        interrupted: false,
+        resumedAt: Date.now(),
+      })
+    );
     if (sharedMainAgent && sharedMainAgent.getThreadId() === handleId) {
       sharedMainAgent.resume();
     } else {
       await taskEngine.resume(handleId);
     }
-    mainWindow?.webContents.send('task:statusUpdate', { handleId, status: 'executing' });
+    mainWindow?.webContents.send('task:statusUpdate', {
+      handleId,
+      status: 'executing',
+      message: 'AI resumed after takeover',
+    });
     return { success: true };
   },
 
   'task:interrupt': async (mainWindow, previewWindow, { handleId, reason }) => {
     const orchestrator = getTaskOrchestrator();
     orchestrator.pauseRun(handleId);
+    orchestrator.updateMetadata(
+      handleId,
+      buildTakeoverMetadataPatch(handleId, {
+        active: true,
+        interrupted: true,
+        interruptReason: reason || 'manual_interrupt',
+        interruptedAt: Date.now(),
+      })
+    );
     if (sharedMainAgent && sharedMainAgent.getThreadId() === handleId) {
       const state = await sharedMainAgent.interrupt(reason);
-      mainWindow?.webContents.send('task:statusUpdate', { handleId, status: 'paused' });
-      return state;
+      mainWindow?.webContents.send('task:statusUpdate', {
+        handleId,
+        status: 'paused',
+        message: reason || 'Task interrupted for takeover',
+      });
+      return { success: true, data: state };
     }
 
     const state = await taskEngine.interrupt(handleId, reason);
-    mainWindow?.webContents.send('task:statusUpdate', { handleId, status: 'paused' });
-    return state;
+    mainWindow?.webContents.send('task:statusUpdate', {
+      handleId,
+      status: 'paused',
+      message: reason || 'Task interrupted for takeover',
+    });
+    return { success: true, data: state };
   },
 
   'task:saveState': async (mainWindow, previewWindow, { handleId }) => {
@@ -479,7 +726,16 @@ export const IPC_HANDLERS: Record<string, IpcHandler> = {
       sharedMainAgent.setPreviewWindow(previewWindow);
 
       const result = await sharedMainAgent.restoreFromState(persistedState);
+      getTaskOrchestrator().updateMetadata(
+        sharedMainAgent.getThreadId(),
+        buildTakeoverMetadataPatch(sharedMainAgent.getThreadId(), {
+          active: false,
+          interrupted: false,
+          restoredAt: Date.now(),
+        })
+      );
       return {
+        success: true,
         handle: sharedMainAgent.getThreadId(),
         status: sharedMainAgent.getStatus(),
         resumed: result.success,
@@ -487,7 +743,16 @@ export const IPC_HANDLERS: Record<string, IpcHandler> = {
     }
 
     const restoredHandle = await taskEngine.restoreState(state || handleId);
+    getTaskOrchestrator().updateMetadata(
+      restoredHandle.id,
+      buildTakeoverMetadataPatch(restoredHandle.id, {
+        active: false,
+        interrupted: false,
+        restoredAt: Date.now(),
+      })
+    );
     return {
+      success: true,
       handle: restoredHandle.id,
       status: restoredHandle.status,
     };
@@ -793,6 +1058,54 @@ export const IPC_HANDLERS: Record<string, IpcHandler> = {
       model: payload?.model,
       maxTurns: payload?.maxTurns,
     });
+    const approvalResult = result as {
+      success?: boolean;
+      finalMessage?: string;
+      turns?: unknown[];
+    };
+
+    const runId = payload?.runId;
+    if (runId && approvalResult?.success) {
+      try {
+        const taskOrchestrator = getTaskOrchestrator();
+        const run = taskOrchestrator.getRun(runId);
+        const existingApproval =
+          (run?.metadata as Record<string, unknown> | undefined)?.approval;
+        const existingRouting =
+          run?.metadata && typeof run.metadata === 'object'
+            ? ((run.metadata as Record<string, unknown>).taskRouting as TaskExecutionRoute | undefined)
+            : undefined;
+        taskOrchestrator.updateMetadata(runId, {
+          approval: {
+            ...(existingApproval && typeof existingApproval === 'object'
+              ? (existingApproval as Record<string, unknown>)
+              : {}),
+            pending: false,
+            approved: true,
+            approvedAt: Date.now(),
+          },
+        });
+        const routedResult = mapAgentResultToTaskResult({
+          success: true,
+          output: result,
+          finalMessage: approvalResult.finalMessage || 'Approved visual continuation completed',
+        });
+        taskOrchestrator.completeRun(
+          runId,
+          existingRouting ? attachTaskRoutingToResult(routedResult, existingRouting) : routedResult
+        );
+        mainWindow?.webContents.send('task:statusUpdate', { handleId: runId, status: 'completed' });
+        mainWindow?.webContents.send('task:completed', {
+          handleId: runId,
+          runId,
+          status: 'completed',
+          result: routedResult,
+          legacyResult: result,
+        });
+      } catch (error) {
+        console.warn('[IPC] Failed to complete approved visual run:', error);
+      }
+    }
 
     return result;
   },
@@ -1198,28 +1511,22 @@ export const IPC_HANDLERS: Record<string, IpcHandler> = {
     }
   },
 
-  'feishu:task': async (mainWindow, previewWindow, { task, userId }) => {
+  'feishu:task': async (mainWindow, previewWindow, { task, userId, templateId, params, executionMode }) => {
     try {
       if (!task) {
         return { success: false, error: 'Missing task' };
       }
 
-      const agent = sharedMainAgent;
-      if (!agent) {
-        return { success: false, error: 'Agent not initialized' };
-      }
+      const result = await IPC_HANDLERS['task:start'](mainWindow, previewWindow, {
+        task,
+        threadId: userId,
+        source: 'im',
+        templateId,
+        params,
+        executionMode,
+      });
 
-      console.log('[IPC] feishu:task - Running task with sharedMainAgent:', task);
-
-      const result = await agent.run(task);
-
-      console.log('[IPC] feishu:task - Completed:', result.success);
-
-      return {
-        success: result.success,
-        output: result.output,
-        error: result.error,
-      };
+      return result;
     } catch (error: any) {
       console.error('[IPC] feishu:task error:', error);
       return { success: false, error: error.message };
@@ -1429,6 +1736,263 @@ export const IPC_HANDLERS: Record<string, IpcHandler> = {
     }
   },
 
+  'benchmark:list': async () => {
+    try {
+      const repository = getBenchmarkTaskRepository();
+      return repository.list();
+    } catch (error: any) {
+      console.error('[IPC] benchmark:list error:', error);
+      return [];
+    }
+  },
+
+  'benchmark:get': async (mainWindow, previewWindow, { benchmarkId }: { benchmarkId: string }) => {
+    try {
+      const repository = getBenchmarkTaskRepository();
+      return repository.getById(benchmarkId);
+    } catch (error: any) {
+      console.error('[IPC] benchmark:get error:', error);
+      return null;
+    }
+  },
+
+  'benchmark:run': async (
+    mainWindow,
+    previewWindow,
+    {
+      benchmarkId,
+      timeoutMs,
+      pollIntervalMs,
+    }: { benchmarkId: string; timeoutMs?: number; pollIntervalMs?: number }
+  ) => {
+    try {
+      const repository = getBenchmarkTaskRepository();
+      const benchmark = repository.getById(benchmarkId);
+      if (!benchmark) {
+        return { success: false, error: `Benchmark not found: ${benchmarkId}` };
+      }
+
+      const outcome = await benchmarkRunService.run({
+        benchmark,
+        orchestrator: getTaskOrchestrator(),
+        resultRepository: getTaskResultRepository(),
+        timeoutMs,
+        pollIntervalMs,
+        startTask: async (request) => {
+          const result = await IPC_HANDLERS['task:start'](mainWindow, previewWindow, {
+            task: request.task,
+            threadId: request.threadId,
+            source: request.source,
+            templateId: request.templateId,
+            params: request.params,
+            executionMode: request.executionMode,
+          });
+
+          return {
+            accepted: Boolean(result?.accepted),
+            handle: typeof result?.handle === 'string' ? result.handle : undefined,
+            run: result?.run,
+            error: result?.error,
+          };
+        },
+      });
+
+      return {
+        success: true,
+        data: outcome,
+      };
+    } catch (error: any) {
+      console.error('[IPC] benchmark:run error:', error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  'benchmark:evaluate': async (
+    mainWindow,
+    previewWindow,
+    { benchmarkId, runId }: { benchmarkId: string; runId: string }
+  ) => {
+    try {
+      const repository = getBenchmarkTaskRepository();
+      const benchmark = repository.getById(benchmarkId);
+      if (!benchmark) {
+        return { success: false, error: `Benchmark not found: ${benchmarkId}` };
+      }
+
+      const orchestrator = getTaskOrchestrator();
+      const taskRun = orchestrator.getRun(runId);
+      if (!taskRun || !taskRun.resultId) {
+        return { success: false, error: `Benchmark run not found or not completed: ${runId}` };
+      }
+
+      const taskResult = getTaskResultRepository().getById(taskRun.resultId);
+      if (!taskResult) {
+        return { success: false, error: `Task result not found: ${taskRun.resultId}` };
+      }
+
+      return {
+        success: true,
+        data: benchmarkRunService.evaluateCompletedRun({
+          benchmark,
+          taskRun,
+          taskResult,
+        }),
+      };
+    } catch (error: any) {
+      console.error('[IPC] benchmark:evaluate error:', error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  'benchmark:run:list': async (_mainWindow, _previewWindow, { benchmarkId, limit = 20 }: { benchmarkId?: string; limit?: number } = {}) => {
+    try {
+      const repository = getBenchmarkRunRepository();
+      return benchmarkId ? repository.listByBenchmarkId(benchmarkId, limit) : repository.listRecent(limit);
+    } catch (error: any) {
+      console.error('[IPC] benchmark:run:list error:', error);
+      return [];
+    }
+  },
+
+  'benchmark:run:get': async (_mainWindow, _previewWindow, { runId }: { runId: string }) => {
+    try {
+      return getBenchmarkRunRepository().getById(runId);
+    } catch (error: any) {
+      console.error('[IPC] benchmark:run:get error:', error);
+      return null;
+    }
+  },
+
+  'benchmark:report': async (_mainWindow, _previewWindow, { benchmarkId }: { benchmarkId?: string } = {}) => {
+    try {
+      const repository = getBenchmarkRunRepository();
+      const records = benchmarkId ? repository.listByBenchmarkId(benchmarkId, 1000) : repository.list();
+      return {
+        success: true,
+        data: createBenchmarkReport(records),
+      };
+    } catch (error: any) {
+      console.error('[IPC] benchmark:report error:', error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  'benchmark:report:export': async (
+    _mainWindow,
+    _previewWindow,
+    { benchmarkId, format = 'json' }: { benchmarkId?: string; format?: 'json' | 'csv' } = {}
+  ) => {
+    try {
+      const repository = getBenchmarkRunRepository();
+      const records = benchmarkId ? repository.listByBenchmarkId(benchmarkId, 1000) : repository.list();
+      const report = createBenchmarkReport(records);
+      const configDir = process.env.OPENWORK_CONFIG_DIR || path.join(process.cwd(), 'config');
+      const exportDir = path.join(configDir, 'exports');
+      if (!fs.existsSync(exportDir)) {
+        fs.mkdirSync(exportDir, { recursive: true });
+      }
+
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      const safeBenchmarkId = benchmarkId ? benchmarkId.replace(/[^a-zA-Z0-9-_]/g, '_') : 'all';
+      const fileName = `benchmark-report-${safeBenchmarkId}-${timestamp}.${format}`;
+      const filePath = path.join(exportDir, fileName);
+      const content = format === 'csv' ? serializeBenchmarkReportCsv(report) : serializeBenchmarkReportJson(report);
+      fs.writeFileSync(filePath, content, 'utf-8');
+
+      return {
+        success: true,
+        data: {
+          path: filePath,
+          format,
+          fileName,
+        },
+      };
+    } catch (error: any) {
+      console.error('[IPC] benchmark:report:export error:', error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  'benchmark:suite:list': async () => {
+    try {
+      return getBenchmarkSuiteRepository().list();
+    } catch (error: any) {
+      console.error('[IPC] benchmark:suite:list error:', error);
+      return [];
+    }
+  },
+
+  'benchmark:suite:get': async (_mainWindow, _previewWindow, { suiteId }: { suiteId: string }) => {
+    try {
+      return getBenchmarkSuiteRepository().getById(suiteId);
+    } catch (error: any) {
+      console.error('[IPC] benchmark:suite:get error:', error);
+      return null;
+    }
+  },
+
+  'benchmark:suite:run': async (
+    mainWindow,
+    previewWindow,
+    { suiteId, timeoutMs, pollIntervalMs }: { suiteId: string; timeoutMs?: number; pollIntervalMs?: number }
+  ) => {
+    try {
+      const suiteRepository = getBenchmarkSuiteRepository();
+      const suite = suiteRepository.getById(suiteId);
+      if (!suite) {
+        return { success: false, error: `Benchmark suite not found: ${suiteId}` };
+      }
+
+      const outcome = await benchmarkSuiteRunService.run({
+        suite,
+        startTask: async (request) => {
+          const result = await IPC_HANDLERS['task:start'](mainWindow, previewWindow, {
+            task: request.task,
+            threadId: request.threadId,
+            source: request.source,
+            templateId: request.templateId,
+            params: request.params,
+            executionMode: request.executionMode,
+          });
+
+          return {
+            accepted: Boolean(result?.accepted),
+            handle: typeof result?.handle === 'string' ? result.handle : undefined,
+            run: result?.run,
+            error: result?.error,
+          };
+        },
+        orchestrator: getTaskOrchestrator(),
+        resultRepository: getTaskResultRepository(),
+        timeoutMs,
+        pollIntervalMs,
+      });
+
+      return { success: true, data: outcome };
+    } catch (error: any) {
+      console.error('[IPC] benchmark:suite:run error:', error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  'benchmark:suite-run:list': async (_mainWindow, _previewWindow, { limit = 20 }: { limit?: number } = {}) => {
+    try {
+      return getBenchmarkSuiteRunRepository().listRecent(limit);
+    } catch (error: any) {
+      console.error('[IPC] benchmark:suite-run:list error:', error);
+      return [];
+    }
+  },
+
+  'benchmark:suite-run:get': async (_mainWindow, _previewWindow, { runId }: { runId: string }) => {
+    try {
+      return getBenchmarkSuiteRunRepository().getById(runId);
+    } catch (error: any) {
+      console.error('[IPC] benchmark:suite-run:get error:', error);
+      return null;
+    }
+  },
+
   'template:get': async (mainWindow, previewWindow, { templateId }: { templateId: string }) => {
     try {
       const repository = getTaskTemplateRepository();
@@ -1436,6 +2000,42 @@ export const IPC_HANDLERS: Record<string, IpcHandler> = {
     } catch (error: any) {
       console.error('[IPC] template:get error:', error);
       return null;
+    }
+  },
+
+  'workflow-pack:list': async () => {
+    try {
+      return listOfficialWorkflowPacks();
+    } catch (error: any) {
+      console.error('[IPC] workflow-pack:list error:', error);
+      return [];
+    }
+  },
+
+  'workflow-pack:install': async (
+    mainWindow,
+    previewWindow,
+    { packId }: { packId: string }
+  ) => {
+    try {
+      const repository = getTaskTemplateRepository();
+      const pack = getOfficialWorkflowPack(packId);
+      if (!pack) {
+        return {
+          success: false,
+          error: `Workflow pack not found: ${packId}`,
+          data: createEmptyWorkflowPackInstallResult(packId),
+        };
+      }
+
+      const templates = await repository.installWorkflowPack(pack);
+      return {
+        success: true,
+        data: createWorkflowPackInstallResult(pack, templates),
+      };
+    } catch (error: any) {
+      console.error('[IPC] workflow-pack:install error:', error);
+      return { success: false, error: error.message };
     }
   },
 
@@ -1524,7 +2124,11 @@ export const IPC_HANDLERS: Record<string, IpcHandler> = {
   'template:run': async (
     mainWindow,
     previewWindow,
-    { templateId, input }: { templateId: string; input?: Record<string, unknown> }
+    {
+      templateId,
+      input,
+      executionMode,
+    }: { templateId: string; input?: Record<string, unknown>; executionMode?: 'dom' | 'visual' | 'hybrid' }
   ) => {
     try {
       const repository = getTaskTemplateRepository();
@@ -1539,6 +2143,8 @@ export const IPC_HANDLERS: Record<string, IpcHandler> = {
         task: resolved.prompt,
         source: 'chat',
         templateId,
+        params: resolved.params,
+        executionMode: executionMode || (template.executionProfile === 'mixed' ? 'hybrid' : 'dom'),
       });
 
       return { success: true, data: result };
@@ -1593,6 +2199,30 @@ export const IPC_HANDLERS: Record<string, IpcHandler> = {
         if (task.status === 'failed') dailyStats[date].failed++;
       });
 
+      const visualTaskSummaries = allTasks.map((task) => ({
+        task,
+        visual: extractVisualBenchmarkMetrics(task.result?.rawOutput),
+      }));
+      const visualRuns = visualTaskSummaries.filter((entry) => entry.visual.hasVisualTrace);
+      const completedVisualRuns = visualRuns.filter((entry) => entry.task.status === 'completed');
+      const recoveredRuns = visualRuns.filter((entry) => entry.visual.recoveryAttempts > 0);
+      const visualTriggerDistribution: Record<string, number> = {};
+      let visualApprovalInterruptions = 0;
+      let visualVerificationFailures = 0;
+      let visualRecoveryAttempts = 0;
+
+      for (const entry of visualRuns) {
+        visualApprovalInterruptions += entry.visual.approvalInterruptions;
+        visualVerificationFailures += entry.visual.verificationFailures;
+        visualRecoveryAttempts += entry.visual.recoveryAttempts;
+        for (const [trigger, count] of Object.entries(entry.visual.triggerDistribution)) {
+          visualTriggerDistribution[trigger] = (visualTriggerDistribution[trigger] || 0) + count;
+        }
+      }
+
+      const visualSuccessRate =
+        visualRuns.length > 0 ? (completedVisualRuns.length / visualRuns.length) * 100 : 0;
+
       const schedulerTasks = scheduler ? await scheduler.getAllTasks() : [];
       const activeSchedules = schedulerTasks.filter((t: any) => t.enabled).length;
 
@@ -1615,6 +2245,16 @@ export const IPC_HANDLERS: Record<string, IpcHandler> = {
             .sort(([a], [b]) => a.localeCompare(b))
             .slice(-14)
             .reduce((obj, [k, v]) => ({ ...obj, [k]: v }), {}),
+          visualStats: {
+            totalRuns: visualRuns.length,
+            completedRuns: completedVisualRuns.length,
+            successRate: Math.round(visualSuccessRate * 10) / 10,
+            recoveredRuns: recoveredRuns.length,
+            approvalInterruptions: visualApprovalInterruptions,
+            verificationFailures: visualVerificationFailures,
+            recoveryAttempts: visualRecoveryAttempts,
+            triggerDistribution: visualTriggerDistribution,
+          },
           schedulerStats: {
             totalSchedules: schedulerTasks.length,
             activeSchedules,

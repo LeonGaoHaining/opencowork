@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const runTemplate = vi.fn();
@@ -17,6 +17,7 @@ const invoke = vi.fn(async (channel: string) => {
           source: 'chat',
           status: 'completed',
           title: 'Visual fallback task',
+          templateId: 'template-1',
           input: { prompt: 'Search the page visually' },
           startedAt: 1710000000000,
           endedAt: 1710000005000,
@@ -28,19 +29,29 @@ const invoke = vi.fn(async (channel: string) => {
   if (channel === 'task:run:details') {
     return {
       success: true,
-      data: {
-        run: {
-          id: 'run-1',
-          source: 'chat',
-          status: 'completed',
+        data: {
+          run: {
+            id: 'run-1',
+            source: 'chat',
+            status: 'completed',
           title: 'Visual fallback task',
-          input: { prompt: 'Search the page visually' },
-          startedAt: 1710000000000,
-          endedAt: 1710000005000,
-        },
-        result: {
-          id: 'result-1',
-          summary: 'Visual fallback completed successfully',
+          templateId: 'template-1',
+            input: { prompt: 'Search the page visually' },
+            startedAt: 1710000000000,
+            endedAt: 1710000005000,
+            metadata: {
+              visualProvider: {
+                id: 'responses-computer',
+                name: 'Responses Computer',
+                score: 92,
+                reasons: ['highest completion', 'supports computer tool'],
+                adapterMode: 'responses-computer',
+              },
+            },
+          },
+          result: {
+            id: 'result-1',
+            summary: 'Visual fallback completed successfully',
           artifacts: [],
           reusable: true,
           completedAt: 1710000005000,
@@ -100,7 +111,20 @@ vi.mock('../../i18n/useTranslation', () => ({
 }));
 
 vi.mock('../RelationBadge', () => ({
-  default: ({ label, value }: { label: string; value: string }) => <span>{`${label}:${value}`}</span>,
+  default: ({
+    label,
+    value,
+    onClick,
+  }: {
+    label: string;
+    value: string;
+    onClick?: () => void;
+  }) =>
+    onClick ? (
+      <button onClick={onClick}>{`${label}:${value}`}</button>
+    ) : (
+      <span>{`${label}:${value}`}</span>
+    ),
 }));
 
 vi.mock('../ArtifactViewer', () => ({
@@ -109,6 +133,7 @@ vi.mock('../ArtifactViewer', () => ({
 
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.spyOn(window, 'dispatchEvent');
   (window as any).electron = {
     invoke,
   };
@@ -130,9 +155,36 @@ describe('TaskRunsPanel', () => {
       expect(screen.getByText('taskPanels.visualTrace')).toBeInTheDocument();
     });
 
+    expect(screen.getByText('template:template-1')).toBeInTheDocument();
     expect(screen.getByText('browser-action-visual-route')).toBeInTheDocument();
     expect(screen.getByText('Recoverable selector failure')).toBeInTheDocument();
     expect(screen.getByText('click')).toBeInTheDocument();
+    expect(
+      screen.getAllByText((_, element) => element?.textContent?.includes('Responses Computer') ?? false).length
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText((_, element) => element?.textContent?.replace(/\s+/g, ' ').includes('score: 92') ?? false).length
+    ).toBeGreaterThan(0);
+    expect(screen.getAllByText('highest completion').length).toBeGreaterThan(0);
     expect(screen.getByText('1')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'template:template-1' }));
+    expect(window.dispatchEvent).toHaveBeenCalledWith(expect.any(CustomEvent));
+  });
+
+  it('refreshes selected run details when a template changes', async () => {
+    render(<TaskRunsPanel isOpen onClose={vi.fn()} />);
+
+    await waitFor(() => {
+      expect(invoke).toHaveBeenCalledWith('task:run:list', { limit: 100 });
+    });
+
+    act(() => {
+      window.dispatchEvent(new CustomEvent('template:changed', { detail: { templateId: 'template-1' } }));
+    });
+
+    await waitFor(() => {
+      expect(invoke.mock.calls.filter(([channel]) => channel === 'task:run:details').length).toBeGreaterThanOrEqual(2);
+    });
   });
 });

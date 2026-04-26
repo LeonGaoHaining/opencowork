@@ -22,6 +22,7 @@ interface CreateTaskFormData {
   taskDescription: string;
   templateId: string;
   templateInputs: Record<string, string>;
+  executionMode: 'dom' | 'visual' | 'hybrid';
   timeout: number;
 }
 
@@ -59,6 +60,7 @@ function SchedulerPanel() {
     taskDescription: '',
     templateId: '',
     templateInputs: {},
+    executionMode: 'dom',
     timeout: 300000,
   });
 
@@ -66,6 +68,10 @@ function SchedulerPanel() {
   const selectedTemplateFields = selectedTemplate ? getTemplateInputFields(selectedTemplate) : [];
   const selectedTask = tasks.find((task) => task.id === selectedTaskId) || null;
   const { openRunsPanel } = useTaskStore();
+
+  const openTemplateFromScheduler = (templateId: string): void => {
+    window.dispatchEvent(new CustomEvent('template:open', { detail: { templateId } }));
+  };
 
   useEffect(() => {
     if (isOpen) {
@@ -88,6 +94,29 @@ function SchedulerPanel() {
   }, [isOpen, loadTasks]);
 
   useEffect(() => {
+    const handleTemplateChanged = (): void => {
+      if (!isOpen) {
+        return;
+      }
+
+      void (async () => {
+        try {
+          const result = await window.electron.invoke('template:list');
+          const payload = result?.data || result;
+          setTemplates(Array.isArray(payload) ? payload : []);
+        } catch (error) {
+          console.error('[SchedulerPanel] Failed to refresh templates:', error);
+        }
+      })();
+    };
+
+    window.addEventListener('template:changed', handleTemplateChanged as EventListener);
+    return () => {
+      window.removeEventListener('template:changed', handleTemplateChanged as EventListener);
+    };
+  }, [isOpen]);
+
+  useEffect(() => {
     if (!isOpen || !draftTaskInput) {
       return;
     }
@@ -105,6 +134,7 @@ function SchedulerPanel() {
       taskDescription: draftTaskInput.execution?.taskDescription || '',
       templateId: draftTaskInput.execution?.templateId || '',
       templateInputs: (draftTaskInput.execution?.input as Record<string, string>) || {},
+      executionMode: draftTaskInput.execution?.executionMode || 'dom',
       timeout: draftTaskInput.execution?.timeout || 300000,
     });
     clearDraft();
@@ -144,6 +174,7 @@ function SchedulerPanel() {
         taskDescription: formData.templateId ? '' : formData.taskDescription,
         templateId: formData.templateId || undefined,
         input: formData.templateId ? formData.templateInputs : undefined,
+        executionMode: formData.executionMode,
         timeout: formData.timeout,
         maxRetries: 3,
         retryDelayMs: 1000,
@@ -163,6 +194,7 @@ function SchedulerPanel() {
       taskDescription: '',
       templateId: '',
       templateInputs: {},
+      executionMode: 'dom',
       timeout: 300000,
     });
   };
@@ -298,7 +330,12 @@ function SchedulerPanel() {
                         <div className="mt-2 flex flex-wrap gap-2">
                           <RelationBadge label="task" value={task.id} tone="muted" />
                           {task.execution.templateId && (
-                            <RelationBadge label="template" value={task.execution.templateId} tone="primary" />
+                            <RelationBadge
+                              label="template"
+                              value={task.execution.templateId}
+                              tone="primary"
+                              onClick={() => openTemplateFromScheduler(task.execution.templateId as string)}
+                            />
                           )}
                           {task.lastStatus && <RelationBadge label="last" value={task.lastStatus} />}
                         </div>
@@ -397,7 +434,12 @@ function SchedulerPanel() {
                     <div className="flex flex-wrap gap-2">
                       <RelationBadge label="task" value={selectedTask.id} tone="muted" />
                       {selectedTask.execution.templateId && (
-                        <RelationBadge label="template" value={selectedTask.execution.templateId} tone="primary" />
+                        <RelationBadge
+                          label="template"
+                          value={selectedTask.execution.templateId}
+                          tone="primary"
+                          onClick={() => openTemplateFromScheduler(selectedTask.execution.templateId as string)}
+                        />
                       )}
                     </div>
                     <div className="rounded border border-border bg-surface px-3 py-2">
@@ -410,6 +452,9 @@ function SchedulerPanel() {
                         {selectedTask.execution.templateId
                           ? `template: ${selectedTask.execution.templateId}`
                           : selectedTask.execution.taskDescription || 'No task content'}
+                      </div>
+                      <div className="mt-2 text-xs text-text-muted">
+                        {t('taskPanels.executionMode')}: {selectedTask.execution.executionMode || 'dom'}
                       </div>
                       {selectedTask.execution.input && (
                         <pre className="mt-2 whitespace-pre-wrap break-all text-[11px] text-text-muted">
@@ -654,6 +699,24 @@ function SchedulerPanel() {
                   className="w-full px-3 py-2 bg-background border border-border rounded text-sm text-white mt-1"
                   placeholder="300000"
                 />
+              </div>
+
+              <div>
+                <label className="text-sm text-text-muted">{t('taskPanels.executionMode')}</label>
+                <select
+                  value={formData.executionMode}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      executionMode: e.target.value as 'dom' | 'visual' | 'hybrid',
+                    })
+                  }
+                  className="w-full px-3 py-2 bg-background border border-border rounded text-sm text-white mt-1"
+                >
+                  <option value="dom">dom</option>
+                  <option value="visual">visual</option>
+                  <option value="hybrid">hybrid</option>
+                </select>
               </div>
             </div>
 

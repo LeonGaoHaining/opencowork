@@ -27,6 +27,7 @@ interface SchedulerState {
     description: string;
     templateId: string;
     input?: Record<string, unknown>;
+    executionMode?: 'dom' | 'visual' | 'hybrid';
   }) => void;
   prepareDraftFromPrompt: (payload: { name: string; description: string; prompt: string }) => void;
   clearDraft: () => void;
@@ -123,7 +124,7 @@ export const useSchedulerStore = create<SchedulerState>((set, get) => ({
     }
   },
 
-  prepareDraftFromTemplate: ({ name, description, templateId, input }) => {
+  prepareDraftFromTemplate: ({ name, description, templateId, input, executionMode }) => {
     set({
       draftTaskInput: {
         name,
@@ -137,6 +138,7 @@ export const useSchedulerStore = create<SchedulerState>((set, get) => ({
           taskDescription: '',
           templateId,
           input,
+          executionMode: executionMode || 'dom',
           timeout: 300000,
           maxRetries: 3,
           retryDelayMs: 1000,
@@ -160,6 +162,7 @@ export const useSchedulerStore = create<SchedulerState>((set, get) => ({
           taskDescription: prompt,
           templateId: undefined,
           input: undefined,
+          executionMode: 'dom',
           timeout: 300000,
           maxRetries: 3,
           retryDelayMs: 1000,
@@ -184,6 +187,7 @@ export const defaultTaskInput: CreateScheduledTaskInput = {
     taskDescription: '',
     templateId: undefined,
     input: undefined,
+    executionMode: 'dom',
     timeout: 300000,
     maxRetries: 3,
     retryDelayMs: 1000,

@@ -21,6 +21,11 @@ export function SkillGenerateDialog({
   const handleConfirm = async () => {
     setIsLoading(true);
     try {
+      if (selectedOption === 'skip') {
+        onClose();
+        return;
+      }
+
       if (selectedOption === 'always') {
         await setAutoGenerateSkill(true);
       }
@@ -63,6 +68,9 @@ export function SkillGenerateDialog({
           </p>
           <p className="mt-1 text-xs text-[var(--color-text-muted)]">
             {actionCount} {t('skill.actions') || 'actions'}
+          </p>
+          <p className="mt-2 text-xs text-[var(--color-text-muted)]">
+            {t('skill.generateMetadata') || 'Generated skills are saved as agent-created and user-invocable.'}
           </p>
         </div>
 

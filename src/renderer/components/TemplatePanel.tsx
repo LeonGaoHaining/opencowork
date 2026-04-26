@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { TaskTemplate } from '../../core/task/types';
+import React, { useCallback, useEffect, useState } from 'react';
+import { TaskTemplate, TaskWorkflowPack } from '../../core/task/types';
 import { useHistoryStore } from '../stores/historyStore';
 import { getTemplateInputFields, validateTemplateInput } from '../../core/task/templateUtils';
 import { useSchedulerStore } from '../stores/schedulerStore';
@@ -13,19 +13,28 @@ interface EditableTemplateField {
   defaultValue: string;
 }
 
+interface TemplateChangeEventDetail {
+  templateId?: string;
+  source: 'run' | 'manual';
+}
+
 interface TemplatePanelProps {
   isOpen: boolean;
   onClose: () => void;
+  preferredTemplateId?: string | null;
 }
 
-export function TemplatePanel({ isOpen, onClose }: TemplatePanelProps) {
+export function TemplatePanel({ isOpen, onClose, preferredTemplateId = null }: TemplatePanelProps) {
   const [templates, setTemplates] = useState<TaskTemplate[]>([]);
+  const [workflowPacks, setWorkflowPacks] = useState<TaskWorkflowPack[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isInstallingPackId, setIsInstallingPackId] = useState<string | null>(null);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
   const [searchKeyword, setSearchKeyword] = useState('');
   const [profileFilter, setProfileFilter] = useState<'all' | TaskTemplate['executionProfile']>('all');
   const [runPrompt, setRunPrompt] = useState('');
   const [runInputValues, setRunInputValues] = useState<Record<string, string>>({});
+  const [runExecutionMode, setRunExecutionMode] = useState<'dom' | 'visual' | 'hybrid'>('dom');
   const [draftName, setDraftName] = useState('');
   const [draftDescription, setDraftDescription] = useState('');
   const [draftPrompt, setDraftPrompt] = useState('');
@@ -44,18 +53,20 @@ export function TemplatePanel({ isOpen, onClose }: TemplatePanelProps) {
       })
     : { valid: false, missingFields: [], params: {} };
 
-  const loadTemplates = async () => {
+  const loadTemplates = useCallback(async (preferredTemplateId?: string) => {
     setIsLoading(true);
     try {
       const response = await window.electron.invoke('template:list');
       const payload = response?.data || response;
       const nextTemplates = Array.isArray(payload) ? payload : [];
       setTemplates(nextTemplates);
-      if (!selectedTemplateId && nextTemplates.length > 0) {
+      const nextSelectedId = preferredTemplateId || selectedTemplateId;
+      if (nextSelectedId && nextTemplates.some((item) => item.id === nextSelectedId)) {
+        setSelectedTemplateId(nextSelectedId);
+      } else if (nextTemplates.length > 0) {
         setSelectedTemplateId(nextTemplates[0].id);
-      }
-      if (selectedTemplateId && !nextTemplates.some((item) => item.id === selectedTemplateId)) {
-        setSelectedTemplateId(nextTemplates[0]?.id || null);
+      } else {
+        setSelectedTemplateId(null);
       }
     } catch (error) {
       console.error('[TemplatePanel] Failed to load templates:', error);
@@ -64,7 +75,18 @@ export function TemplatePanel({ isOpen, onClose }: TemplatePanelProps) {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [selectedTemplateId]);
+
+  const loadWorkflowPacks = useCallback(async () => {
+    try {
+      const response = await window.electron.invoke('workflow-pack:list');
+      const payload = response?.data || response;
+      setWorkflowPacks(Array.isArray(payload) ? payload : []);
+    } catch (error) {
+      console.error('[TemplatePanel] Failed to load workflow packs:', error);
+      setWorkflowPacks([]);
+    }
+  }, []);
 
   const handleDeleteTemplate = async (templateId: string) => {
     try {
@@ -78,6 +100,32 @@ export function TemplatePanel({ isOpen, onClose }: TemplatePanelProps) {
     }
   };
 
+  const handleInstallWorkflowPack = async (packId: string) => {
+    try {
+      setIsInstallingPackId(packId);
+      const result = await window.electron.invoke('workflow-pack:install', { packId });
+      if (!result?.success) {
+        throw new Error(result?.error || 'Failed to install workflow pack');
+      }
+
+      const payload = result?.data || result;
+      await loadTemplates(payload?.selectedTemplateId || undefined);
+      await loadWorkflowPacks();
+    } catch (error) {
+      console.error('[TemplatePanel] Failed to install workflow pack:', error);
+    } finally {
+      setIsInstallingPackId(null);
+    }
+  };
+
+  const handleCopyTemplateId = async (templateId: string): Promise<void> => {
+    try {
+      await navigator.clipboard.writeText(templateId);
+    } catch (error) {
+      console.error('[TemplatePanel] Failed to copy template id:', error);
+    }
+  };
+
   useEffect(() => {
     if (!isOpen) {
       return;
@@ -86,13 +134,28 @@ export function TemplatePanel({ isOpen, onClose }: TemplatePanelProps) {
     let cancelled = false;
     void (async () => {
       if (!cancelled) {
-        await loadTemplates();
+        await loadTemplates(preferredTemplateId || undefined);
+        await loadWorkflowPacks();
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [isOpen]);
+  }, [isOpen, preferredTemplateId, loadTemplates, loadWorkflowPacks]);
+
+  useEffect(() => {
+    const handleTemplateChanged = (event: Event): void => {
+      const detail = (event as CustomEvent<TemplateChangeEventDetail>).detail;
+      if (isOpen) {
+        void loadTemplates(detail?.templateId);
+      }
+    };
+
+    window.addEventListener('template:changed', handleTemplateChanged as EventListener);
+    return () => {
+      window.removeEventListener('template:changed', handleTemplateChanged as EventListener);
+    };
+  }, [isOpen, loadTemplates]);
 
   useEffect(() => {
     if (!selectedTemplate) {
@@ -102,6 +165,7 @@ export function TemplatePanel({ isOpen, onClose }: TemplatePanelProps) {
       setDraftDescription('');
       setDraftPrompt('');
       setDraftFields([]);
+      setRunExecutionMode('dom');
       return;
     }
 
@@ -133,6 +197,7 @@ export function TemplatePanel({ isOpen, onClose }: TemplatePanelProps) {
         defaultValue: field.defaultValue,
       }))
     );
+    setRunExecutionMode(selectedTemplate.executionProfile === 'mixed' ? 'hybrid' : 'dom');
   }, [selectedTemplateId, templates]);
 
   const handleRunInputChange = (key: string, value: string) => {
@@ -229,6 +294,7 @@ export function TemplatePanel({ isOpen, onClose }: TemplatePanelProps) {
         prompt: runPrompt,
         ...runInputValues,
       },
+      executionMode: runExecutionMode,
     });
   };
 
@@ -294,6 +360,44 @@ export function TemplatePanel({ isOpen, onClose }: TemplatePanelProps) {
 
         <div className="flex flex-1 overflow-hidden">
           <div className="w-[280px] overflow-y-auto border-r border-border p-4">
+            {workflowPacks.length > 0 && (
+              <div className="mb-4 space-y-3">
+                <div>
+                  <div className="text-xs uppercase tracking-wide text-text-muted">
+                    {t('taskPanels.officialWorkflowPacks')}
+                  </div>
+                  <div className="mt-1 text-xs text-text-secondary">
+                    {t('taskPanels.workflowPackCatalog')}
+                  </div>
+                </div>
+                {workflowPacks.map((pack) => (
+                  <div key={pack.id} className="rounded-xl border border-border bg-background p-3">
+                    <div className="text-sm font-semibold text-white">{pack.name}</div>
+                    <div className="mt-1 text-[11px] text-text-muted">{pack.category}</div>
+                    <div className="mt-2 text-xs text-text-secondary">{pack.summary}</div>
+                    <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-text-muted">
+                      <span className="rounded-full border border-border bg-surface px-2 py-0.5">
+                        {pack.templates.length} {t('taskPanels.packTemplates')}
+                      </span>
+                      <span className="rounded-full border border-border bg-surface px-2 py-0.5">
+                        {pack.recommendedSkills?.length || 0} {t('taskPanels.skills')}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => void handleInstallWorkflowPack(pack.id)}
+                      className="mt-3 btn btn-secondary text-sm"
+                      disabled={isInstallingPackId === pack.id}
+                    >
+                      {isInstallingPackId === pack.id
+                        ? t('taskPanels.installingPack')
+                        : t('taskPanels.installPack')}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
             {isLoading ? (
               <div className="text-sm text-text-muted">{t('taskPanels.loadingTemplates')}</div>
             ) : filteredTemplates.length === 0 ? (
@@ -311,14 +415,25 @@ export function TemplatePanel({ isOpen, onClose }: TemplatePanelProps) {
                         ? 'border-primary bg-primary/10'
                         : 'border-border bg-background hover:bg-border/40'
                     }`}
-                  >
-                    <div className="text-sm font-semibold text-white">{template.name}</div>
-                    <div className="mt-1 line-clamp-2 text-xs text-text-secondary">
-                      {template.description}
-                    </div>
-                  </button>
-                ))}
-              </div>
+                    >
+                      <div className="text-sm font-semibold text-white">{template.name}</div>
+                      <div className="mt-1 line-clamp-2 text-xs text-text-secondary">
+                        {template.description}
+                      </div>
+                      <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-text-muted">
+                        <span className="rounded-full border border-border bg-surface px-2 py-0.5">
+                          {template.executionProfile}
+                        </span>
+                        <span className="rounded-full border border-border bg-surface px-2 py-0.5">
+                          {template.recommendedSkills?.length || 0} {t('taskPanels.skills')}
+                        </span>
+                        <span className="rounded-full border border-border bg-surface px-2 py-0.5">
+                          {new Date(template.updatedAt).toLocaleDateString()}
+                        </span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
             )}
           </div>
 
@@ -348,9 +463,58 @@ export function TemplatePanel({ isOpen, onClose }: TemplatePanelProps) {
                     <div className="text-xs text-text-muted">{t('taskPanels.executionProfile')}</div>
                     <div className="mt-1 text-white">{selectedTemplate.executionProfile}</div>
                   </div>
+                  {selectedTemplate.origin && (
+                    <div className="rounded-lg border border-border bg-background px-3 py-2">
+                      <div className="text-xs text-text-muted">Template origin</div>
+                      <div className="mt-1 text-white break-all">{selectedTemplate.origin.runId || 'manual'}</div>
+                      <div className="mt-1 text-xs text-text-muted">
+                        source:{' '}
+                        <span className="text-text-secondary">{selectedTemplate.origin.source || 'n/a'}</span>
+                        {selectedTemplate.origin.executionMode && (
+                          <>
+                            {' '}
+                            · mode:{' '}
+                            <span className="text-text-secondary">{selectedTemplate.origin.executionMode}</span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  )}
                   <div className="rounded-lg border border-border bg-background px-3 py-2">
-                    <div className="text-xs text-text-muted">{t('taskPanels.templateId')}</div>
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="text-xs text-text-muted">{t('taskPanels.templateId')}</div>
+                      <button
+                        type="button"
+                        onClick={() => void handleCopyTemplateId(selectedTemplate.id)}
+                        className="rounded px-2 py-1 text-[11px] text-primary hover:bg-primary/10"
+                      >
+                        {t('taskPanels.copyId')}
+                      </button>
+                    </div>
                     <div className="mt-1 break-all text-white">{selectedTemplate.id}</div>
+                  </div>
+                  <div className="rounded-lg border border-border bg-background px-3 py-2">
+                    <div className="text-xs text-text-muted">{t('taskPanels.updatedAt')}</div>
+                    <div className="mt-1 text-white">
+                      {new Date(selectedTemplate.updatedAt).toLocaleString()}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 gap-3 text-sm text-text-secondary md:grid-cols-2">
+                  <div className="rounded-lg border border-border bg-background px-3 py-2">
+                    <div className="text-xs text-text-muted">{t('taskPanels.createdAt')}</div>
+                    <div className="mt-1 text-white">
+                      {new Date(selectedTemplate.createdAt).toLocaleString()}
+                    </div>
+                  </div>
+                  <div className="rounded-lg border border-border bg-background px-3 py-2">
+                    <div className="text-xs text-text-muted">{t('taskPanels.recommendedSkills')}</div>
+                    <div className="mt-1 text-white">
+                      {selectedTemplate.recommendedSkills && selectedTemplate.recommendedSkills.length > 0
+                        ? selectedTemplate.recommendedSkills.join(', ')
+                        : t('taskPanels.notLinked')}
+                    </div>
                   </div>
                 </div>
 
@@ -470,9 +634,45 @@ export function TemplatePanel({ isOpen, onClose }: TemplatePanelProps) {
                           {t('taskPanels.missingRequiredInputs')}: {runValidation.missingFields.join(', ')}
                         </div>
                       )}
+
+                      <div>
+                        <div className="mb-1 text-xs text-text-muted">{t('taskPanels.executionMode')}</div>
+                        <select
+                          value={runExecutionMode}
+                          onChange={(e) =>
+                            setRunExecutionMode(e.target.value as 'dom' | 'visual' | 'hybrid')
+                          }
+                          className="w-full rounded border border-border bg-surface px-3 py-2 text-xs text-white"
+                        >
+                          <option value="dom">dom</option>
+                          <option value="visual">visual</option>
+                          <option value="hybrid">hybrid</option>
+                        </select>
+                      </div>
                     </div>
                   </div>
                 )}
+
+                <div className="rounded-lg border border-border bg-background px-3 py-3 text-xs text-text-secondary">
+                  <div className="text-xs uppercase tracking-wide text-text-muted">
+                    {t('taskPanels.parameterPreview')}
+                  </div>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {selectedFields.length > 0 ? (
+                      selectedFields.map((field) => (
+                        <span
+                          key={field.key}
+                          className="rounded-full border border-border bg-surface px-2 py-1 text-[11px] text-text-secondary"
+                        >
+                          {field.label || field.key}
+                          {field.required ? ' *' : ''}
+                        </span>
+                      ))
+                    ) : (
+                      <span className="text-text-muted">{t('taskPanels.noParameters')}</span>
+                    )}
+                  </div>
+                </div>
 
                 <div className="flex gap-2">
                   <button
@@ -480,7 +680,7 @@ export function TemplatePanel({ isOpen, onClose }: TemplatePanelProps) {
                       runTemplate(selectedTemplate.id, {
                         prompt: runPrompt,
                         ...runInputValues,
-                      })
+                      }, runExecutionMode)
                     }
                     className="btn btn-primary text-sm"
                     disabled={!runValidation.valid}

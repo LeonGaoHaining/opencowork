@@ -1,4 +1,5 @@
 import { BrowserExecutor } from '../core/executor/BrowserExecutor';
+import { TaskVisualProviderSelection } from '../core/task/types';
 import { loadLLMConfig } from '../llm/config';
 import {
   ChatCompletionsVisualAdapter,
@@ -18,6 +19,7 @@ export interface RunVisualTaskParams {
   maxTurns?: number;
   launchIfNeeded?: boolean;
   approvalEnabled?: boolean;
+  visualProvider?: TaskVisualProviderSelection | null;
 }
 
 export interface RunVisualBrowserFallbackParams {
@@ -56,12 +58,16 @@ export class VisualAutomationService {
     }
 
     const adapter = this.createAdapter(adapterMode);
+    const adapterCapabilities = adapter.getCapabilities();
     const session = await adapter.createSession({
       model,
       systemPrompt:
         'Use the current browser state to complete the task safely. Prefer short action batches. Request more visual context when needed.',
       timeoutMs: config.timeout || 60000,
       maxTurns,
+      metadata: {
+        visualProvider: params.visualProvider || null,
+      },
     });
 
     const browser = this.createBrowserAdapter();
@@ -85,6 +91,9 @@ export class VisualAutomationService {
         model,
         routeReason: 'visual-runtime',
         maxTurns,
+        visualProvider: params.visualProvider || null,
+        visualProviderCapabilities: params.visualProvider?.capabilities || null,
+        adapterCapabilities,
         ...result,
       };
     } finally {
