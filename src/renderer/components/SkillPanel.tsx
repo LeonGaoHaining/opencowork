@@ -428,14 +428,14 @@ export function SkillPanel({ isOpen, onClose }: SkillPanelProps) {
           </div>
 
           {/* Toolbar */}
-          <div className="flex items-center gap-2 px-4 py-2 border-b border-border">
+          <div className="flex flex-wrap items-center gap-2 px-4 py-2 border-b border-border">
             <input
               type="text"
               value={searchKeyword}
               onChange={(e) => setSearchKeyword(e.target.value)}
               placeholder={searchSkillsLabel}
               aria-label={searchSkillsLabel}
-              className="w-56 rounded border border-border bg-background px-3 py-1 text-sm text-white"
+              className="w-56 min-w-0 rounded border border-border bg-background px-3 py-1 text-sm text-white"
             />
             <select
               value={sourceFilter}
