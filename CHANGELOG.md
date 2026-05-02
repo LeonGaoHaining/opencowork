@@ -2,6 +2,26 @@
 
 All notable changes to OpenCowork are documented in this file.
 
+## v0.12.10 - 2026-05-02
+
+### Release focus
+
+Refresh the public open-source surface for the current desktop AI work system direction and align the release line with Agent Runtime platformization planning.
+
+### Highlights
+
+- Repositioned the README around desktop AI work, browser automation, MCP-native tooling, reusable task runs, Hybrid CUA, and runtime platformization.
+- Added PRD 7.0 planning for a shared Agent Runtime inspired by OpenAI Codex engineering patterns.
+- Added `docs/SPEC_P5_agent-runtime-platformization.md` covering shared protocol, runtime API, unified approval, structured outputs, Plan Mode, workspace rules, trace/diff, config, and `TaskEngine` decomposition.
+- Updated `docs/ROADMAP.md` with P5 Agent Runtime platformization and a new runtime platformization strategic theme.
+- Refreshed the user guide, contributing guide, security policy, issue templates, and pull request template for a more polished open-source contributor experience.
+- Bumped package metadata to `0.12.10` after the existing `v0.12.9` release tag.
+
+### Notes
+
+- This release is documentation and release-surface focused. It does not introduce a runtime migration yet.
+- `gh` authentication is required to publish the GitHub release from the local workspace.
+
 ## v0.12.7 - 2026-04-30
 
 ### Release focus

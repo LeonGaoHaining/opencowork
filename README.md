@@ -1,6 +1,6 @@
 <h1 align="center">OpenCowork</h1>
 
-<p align="center"><strong>An open-source desktop AI work system for browser automation, reusable task runs, templates, MCP-native tooling, and real local execution.</strong></p>
+<p align="center"><strong>Open-source desktop AI work system for browser automation, desktop workflows, MCP-native tools, reusable task runs, and result-first agent execution.</strong></p>
 
 <p align="center">
   <a href="https://github.com/LeonGaoHaining/opencowork/stargazers"><img src="https://img.shields.io/github/stars/LeonGaoHaining/opencowork?style=social" alt="stars"></a>
@@ -12,71 +12,83 @@
 
 ## Why OpenCowork
 
-OpenCowork is built for people who want an agent that does more than chat. It can open websites, operate a headed browser, call CLI tools, run reusable skills, persist task history, and now connect to or expose standard MCP servers.
+OpenCowork is for builders who want an AI agent that can do real work on a local desktop, not only answer chat messages. It combines a headed browser, local execution, reusable skills, MCP integrations, task history, templates, and human-in-the-loop approval into one desktop-native agent system.
 
-It is designed for fast iteration on real desktop workflows: research, operations, internal tools, demos, browser automation, and repeatable task execution.
+The product direction is result-first:
 
-Compared with many "chat-first" agent demos, OpenCowork is moving toward a result-first workflow:
+- finish useful tasks, not just stream reasoning,
+- preserve task runs as inspectable records,
+- turn successful runs into reusable templates,
+- connect local desktop execution with IM, Scheduler, Skills, and MCP,
+- make browser and desktop automation observable, recoverable, and repeatable.
 
-- every serious task should produce a reusable run record,
-- successful work should be reviewable as a result,
-- useful work should become a template,
-- repeated work should be schedulable or triggerable from IM.
+## What You Can Build
 
-## Current Product Direction
+OpenCowork is a practical foundation for:
 
-The current work stream is converging around a result-centric task model:
+- research and browser automation agents,
+- internal operations copilots,
+- result-centric task history and reusable automation,
+- MCP-native local agent workflows,
+- Feishu-driven task intake and file delivery,
+- desktop computer-use experiments with approval and benchmark loops,
+- open-source agent runtime research around protocol, trace, and multi-client reuse.
 
-- task runs are recorded as reusable `TaskRun` records,
-- completed work persists into `TaskResult`,
-- history is shifting toward outcomes, artifacts, and rerun links,
-- templates can be created from successful runs and executed with parameters,
-- scheduler and IM surfaces now reuse the same task/result semantics.
+## Current Release: v0.12.10
 
-## What's New in v0.12.5
+`v0.12.10` refreshes the public open-source surface and aligns the documentation with the current runtime direction.
 
-- Added a first working Hybrid CUA browser runtime with explicit visual execution support.
-- Added a dedicated `visual_browser` agent tool for complex UI tasks that are not stable with DOM selectors alone.
-- Added approval-aware visual execution with approve-and-continue and takeover flows.
-- Added a visual debug entry point in the desktop UI.
-- Added visual trace review in execution steps, result delivery, task run details, and history.
-- Added regression tests for visual routing, approval continuation, and visual trace rendering.
+Highlights:
 
-## Highlights in v0.10.10
+- updated open-source positioning around desktop AI work, MCP, reusable runs, and runtime platformization,
+- documented the P5 Agent Runtime platformization plan inspired by OpenAI Codex engineering patterns,
+- refreshed roadmap, user guide, contributor guidance, security policy, and GitHub issue/PR templates,
+- aligned package metadata with the new release line after the existing `v0.12.9` tag.
 
-- Standard MCP client support for remote `streamable-http` endpoints such as LangChain Docs MCP.
-- Standard MCP server mode with a `/mcp` endpoint, while keeping legacy `/tools` compatibility.
-- A clearer MCP UI split into `Clients` and `Server Mode`.
-- Better follow-up continuity across agent turns using thread reuse.
-- Safer long-running conversations by preventing screenshot payloads from blowing up model context.
-- Improved browser search flows with `pressEnter` support for input actions.
-- Stronger memory, task history, and restore foundations for real multi-step work.
+Recent product milestones:
+
+- `v0.12.9`: skill panel toolbar wrapping and release polish.
+- `v0.12.8`: Feishu delivery and GPT-5 fixes.
+- `v0.12.7`: desktop smoke and approval updates.
+- `v0.12.6`: P3 platformization and workflow packs.
+- `v0.12.5`: first working Hybrid CUA browser runtime with visual execution and persisted visual trace review.
 
 ## Core Capabilities
 
-| Capability         | What it enables                                               |
-| ------------------ | ------------------------------------------------------------- |
-| Desktop Agent      | Multi-step task execution through a ReAct-style agent         |
+| Capability | What it enables |
+| --- | --- |
+| Desktop Agent | Multi-step local task execution through an agent runtime |
 | Browser Automation | Navigate, click, type, extract, wait, and capture screenshots |
-| Skills             | Install and run reusable capabilities like `ppt-creator`      |
-| MCP Client         | Connect external MCP tools and use them inside the agent      |
-| MCP Server         | Expose OpenCowork capabilities to other MCP clients           |
-| Task History       | Persist task results, steps, and recovery state               |
-| Task Templates     | Save successful work as reusable, parameterized task flows    |
-| IM File Workflow   | Send tasks and files through Feishu and receive result files  |
-| Vision Analysis    | OCR and multimodal understanding for local images             |
-| Human-in-the-loop  | Pause, resume, interrupt, and take over tasks                 |
-| International UI   | English-first UI with Chinese support                         |
+| Hybrid CUA | DOM-first browser automation with visual execution fallback and approval flows |
+| Desktop Workflows | Early browser / desktop / hybrid computer-use productization path |
+| Task Runs | Persist task execution state, results, artifacts, and reusable run context |
+| Templates | Save successful work as parameterized, repeatable workflows |
+| Scheduler | Run reusable tasks on a schedule |
+| Feishu / IM | Submit tasks and files remotely, receive progress and result files |
+| Skills | Install and run reusable capability modules |
+| MCP Client | Connect external MCP tools and use them inside the agent |
+| MCP Server | Expose OpenCowork capabilities to external MCP clients |
+| Human Oversight | Pause, resume, interrupt, approve, cancel, and take over tasks |
+| i18n | English-first UI with Chinese support |
 
-## Who This Is For
+## Architecture Direction
 
-OpenCowork is a good fit if you are:
+OpenCowork is moving from a single Electron app with many entry points toward a reusable local Agent Runtime.
 
-- building a desktop AI copilot with real browser and local execution,
-- evaluating MCP-native agent UX beyond CLI-only demos,
-- automating recurring research, operations, or reporting workflows,
-- experimenting with reusable agent templates and result-centric history,
-- contributing to an open-source desktop agent stack that is still moving fast.
+```text
+Electron UI / Scheduler / IM / MCP / Future CLI
+  -> Agent Runtime API
+  -> Shared Protocol Layer
+  -> Runtime Services: lifecycle, approval, trace, config, rules, state
+  -> Execution Adapters: browser, desktop, visual, CLI, MCP, skill
+  -> Result, history, template, benchmark, and artifact surfaces
+```
+
+This direction is documented in:
+
+- `docs/PRD.md` section `21. PRD 7.0`,
+- `docs/SPEC_P5_agent-runtime-platformization.md`,
+- `docs/ROADMAP.md` under `P5: Agent runtime platformization`.
 
 ## Quick Start
 
@@ -95,7 +107,7 @@ cd opencowork
 npm install
 ```
 
-### Configure your model
+### Configure Your Model
 
 Create `config/llm.json`:
 
@@ -110,93 +122,70 @@ Create `config/llm.json`:
 }
 ```
 
-For image analysis through IM, use a model deployment that supports image input on `chat/completions`.
+Keep `config/` local. It is git-ignored and must not be committed.
 
-### Local config safety
-
-- Keep `config/` local to your machine.
-- `config/` is git-ignored and should never be committed.
-- Feishu credentials such as `config/feishu.json` must not be pushed to GitHub.
-
-### Run the desktop app
+### Run the Desktop App
 
 ```bash
 npm run electron:dev
+```
+
+### Build and Test
+
+```bash
+npm run build
+npm run test:run
+npm run lint
 ```
 
 ## Example Prompts
 
 ```text
-Open Baidu, search for a company, and summarize what it does.
-Create a company overview PPT from the information on the page.
-Connect an MCP tool and use it to fetch LangChain docs examples.
-Open the generated PPT file.
-Turn the successful task into a reusable template and schedule it weekly.
+Open a company website, summarize what it does, and save a reusable research summary.
+Search for competitor pricing changes and turn the result into a structured report.
+Use a connected MCP server to fetch documentation examples and explain them.
+Analyze this Feishu-uploaded image and send the result file back to the chat.
+Turn the successful workflow into a template and schedule it weekly.
 ```
 
 ## MCP Support
 
-OpenCowork now supports both sides of MCP:
+OpenCowork supports both sides of MCP:
 
-- As an MCP client, it can connect to standard remote MCP servers.
-- As an MCP server, it can expose tools through a standard `/mcp` endpoint.
+- as an MCP client, it connects to local `stdio` servers and remote `streamable-http` endpoints,
+- as an MCP server, it exposes selected OpenCowork capabilities through a standard `/mcp` endpoint.
 
-Examples:
-
-- Connect to `https://docs.langchain.com/mcp` from the MCP client panel.
-- Enable server mode and expose selected OpenCowork tools to external clients.
+Try connecting a remote MCP endpoint from the MCP panel, then ask the agent what tools are available.
 
 ## Documentation
 
-- `CHANGELOG.md` — release history
-- `USER_GUIDE.md` — product usage guide
+- `USER_GUIDE.md` — practical usage guide
 - `docs/ARCHITECTURE.md` — architecture overview
-- `docs/ROADMAP.md` — product direction
+- `docs/ROADMAP.md` — near-term and strategic roadmap
+- `docs/PRD.md` — product requirements and version planning
+- `docs/SPEC_P5_agent-runtime-platformization.md` — next runtime platformization spec
+- `CHANGELOG.md` — release history
 - `CONTRIBUTING.md` — contribution workflow
-- `SECURITY.md` — security reporting policy
-
-## Development
-
-```bash
-# Main desktop development flow
-npm run electron:dev
-
-# Build all targets
-npm run build
-
-# Test
-npm run test:run
-
-# Lint and format
-npm run lint
-npm run format
-```
+- `SECURITY.md` — vulnerability reporting policy
 
 ## Open Source Status
 
-OpenCowork is moving from an internal fast-iteration agent into a stronger open-source developer product. The current release is best suited for builders who want:
+OpenCowork is actively evolving. The current release line is best suited for builders, researchers, and product teams who want to evaluate or contribute to a local desktop agent stack with real browser automation, MCP interoperability, and reusable task infrastructure.
 
-- a desktop automation foundation,
-- an MCP-native local agent shell,
-- a skill-based extensibility layer,
-- a result-centric task system with reusable templates,
-- and a project that is actively shipping core agent infrastructure.
+Good contribution areas:
 
-## Current Release Notes
-
-`v0.12.5` is the current recommended tag.
-
-- `v0.12.0` introduced the task-result-template workflow convergence.
-- `v0.12.1` fixed the missing overview panel files from that release.
-- `v0.12.2` adds follow-up stabilization for result delivery, i18n, run scoping, overview safety, and reusable workflow UX.
-- `v0.12.3` adds bidirectional Feishu file workflows and real image analysis for IM-driven tasks.
-- `v0.12.4` fixes Feishu IM reply routing.
-- `v0.12.5` introduces the first working Hybrid CUA feature slice with explicit visual browser execution and persisted visual trace review.
+- browser and desktop workflow reliability,
+- MCP client/server interoperability,
+- task trace and result UX,
+- templates and workflow packs,
+- skills and reusable capability packaging,
+- release quality, tests, and docs.
 
 ## Community
 
 - Issues: https://github.com/LeonGaoHaining/opencowork/issues
 - Discussions: https://github.com/LeonGaoHaining/opencowork/discussions
+- Releases: https://github.com/LeonGaoHaining/opencowork/releases
 - Website: https://opencowork.me
 
 ## License

@@ -1,40 +1,55 @@
 ---
-name: 🐛 Bug 报告
-about: 发现了一个 Bug？请在这里报告！
-title: '[Bug] '
+name: Bug report
+about: Report a reproducible problem in OpenCowork
+title: "[Bug] "
 labels: bug
-assignees: ''
+assignees: ""
 ---
 
-## Bug 描述
+## Summary
 
-请简要描述您遇到的问题。
+Describe the problem clearly and briefly.
 
-**复现步骤**：
+## Environment
 
-1. 打开 '...'
-2. 执行 '...'
-3. 出现错误
+- OpenCowork version:
+- Commit or tag:
+- OS:
+- Node.js version:
+- npm version:
+- LLM provider/model:
+- Entry point: Chat / Scheduler / IM / MCP / Skill / Other
 
-**预期行为**：
-期望发生什么？
+## Steps to Reproduce
 
-**实际行为**：
-实际发生了什么？
+1. 
+2. 
+3. 
 
-**截图/日志**：
-如果有截图或日志，请在此处粘贴。
+## Expected Behavior
 
----
+What should have happened?
 
-## 环境信息
+## Actual Behavior
 
-- 操作系统：
-- 应用版本：
-- Node.js 版本：
+What happened instead?
 
----
+## Logs, Screenshots, or Trace
 
-## 其他说明
+Paste relevant logs or screenshots if safe to share.
 
-其他需要说明的内容。
+Do not include API keys, Feishu credentials, cookies, tokens, private files, or local databases.
+
+## Impact
+
+- [ ] App crash or white screen
+- [ ] Task hangs or cannot be cancelled
+- [ ] Incorrect browser/desktop action
+- [ ] Data loss or corrupted result/history/template
+- [ ] MCP or skill failure
+- [ ] Documentation issue
+- [ ] Other
+
+## Additional Context
+
+Anything else reviewers should know?

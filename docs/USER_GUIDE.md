@@ -11,6 +11,8 @@ This copy is kept in `docs/` for readers who prefer all documentation under one 
 - Skill-based extensibility
 - MCP client and MCP server support
 - Persistent task history and follow-up continuity
+- Reusable task templates and workflow packs
+- Runtime trace, approval, and Agent Runtime platformization planning
 
 ## Recommended Reading Order
 

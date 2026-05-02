@@ -1,36 +1,50 @@
 ---
-name: 💡 功能建议
-about: 有新想法？请在这里告诉我们！
-title: '[Feature] '
+name: Feature request
+about: Suggest an improvement for OpenCowork
+title: "[Feature] "
 labels: enhancement
-assignees: ''
+assignees: ""
 ---
 
-## 功能描述
+## Problem
 
-请描述您希望添加的功能。
+What user or developer problem should this solve?
 
-**解决的问题**：
-这个功能将解决什么问题？
+## Proposed Solution
 
-**期望行为**：
-描述您期望的行为。
+Describe the behavior, workflow, or API you want.
 
-**替代方案**：
-如果有其他实现方式，请说明。
+## Use Case
 
----
+Who needs this and when?
 
-## 使用场景
+Example:
 
-描述您希望使用这个功能的场景。
-
-```
-作为 [角色]，我希望 [功能]，以便 [收益]。
+```text
+As a [user type], I want [capability], so that [outcome].
 ```
 
----
+## Product Area
 
-## 其他说明
+- [ ] Browser automation
+- [ ] Desktop / Hybrid computer use
+- [ ] Agent Runtime / protocol
+- [ ] MCP client/server
+- [ ] Skills or workflow packs
+- [ ] Templates or scheduler
+- [ ] IM / Feishu
+- [ ] Result, history, or trace UX
+- [ ] Documentation or onboarding
+- [ ] Other
 
-其他需要说明的内容。
+## Alternatives Considered
+
+What other approaches could solve this?
+
+## Acceptance Criteria
+
+How would we know this is done?
+
+## Additional Context
+
+Links, screenshots, examples, or related projects.

@@ -63,6 +63,7 @@ describe('BenchmarkSuiteRepository', () => {
     expect(repository.getById('suite-p4-desktop-smoke')).toMatchObject({
       benchmarkIds: [
         'benchmark-desktop-notes-smoke',
+        'benchmark-desktop-vm-notes-smoke',
         'benchmark-desktop-browser-handoff',
         'benchmark-desktop-browser-reference-note',
         'benchmark-desktop-approval-recovery',

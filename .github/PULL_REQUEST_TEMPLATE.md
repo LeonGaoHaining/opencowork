@@ -1,32 +1,58 @@
-## 描述
+## Summary
 
-请简要描述这个 PR 解决的问题。
+Describe what changed and why it matters.
 
-## 更改类型
+## Type of Change
 
-- [ ] 🐛 Bug 修复
-- [ ] 💡 新功能
-- [ ] 📝 文档更新
-- [ ] ♻️ 代码重构（不影响功能）
-- [ ] ⚡ 性能优化
-- [ ] ✅ 测试更新
+- [ ] Bug fix
+- [ ] Feature
+- [ ] Documentation
+- [ ] Refactor
+- [ ] Test coverage
+- [ ] Release / packaging
+- [ ] Other
 
-## 测试
+## Product Area
 
-请描述您是如何测试这些更改的：
+- [ ] Browser automation
+- [ ] Desktop / Hybrid computer use
+- [ ] Agent runtime / protocol
+- [ ] MCP
+- [ ] Skills / workflow packs
+- [ ] Templates / scheduler
+- [ ] IM / Feishu
+- [ ] Result / history / trace
+- [ ] Documentation
 
-- [ ] 已添加单元测试
-- [ ] 已手动测试
-- [ ] 无需测试（文档更新等）
+## Verification
 
-## 检查清单
+Commands or manual checks run:
 
-- [ ] 我的代码遵循项目的代码风格
-- [ ] 我已经进行了自我审查
-- [ ] 我已经添加了适当的注释，特别是复杂代码部分
-- [ ] 我的更改没有产生新的警告
-- [ ] 我已经更新了相关文档
+- [ ] `npm run build`
+- [ ] `npm run test:run`
+- [ ] `npm run lint`
+- [ ] Manual desktop app check
+- [ ] Not applicable
 
-## 其他说明
+## User-Facing Changes
 
-其他需要审查者注意的事项。
+- [ ] Updated docs
+- [ ] Updated release notes / changelog
+- [ ] Added migration or compatibility notes
+- [ ] No user-facing behavior change
+
+## Risk Notes
+
+Call out any risk around task lifecycle, cleanup, memory growth, persisted data, credentials, or external integrations.
+
+## Screenshots or Logs
+
+Add screenshots, logs, or traces when useful. Do not include secrets or private data.
+
+## Checklist
+
+- [ ] The change is focused and reviewable.
+- [ ] I avoided committing local config, credentials, tokens, generated databases, or private logs.
+- [ ] I updated relevant docs for user-facing changes.
+- [ ] I added or updated tests where practical.
+- [ ] I listed verification steps and known limitations.

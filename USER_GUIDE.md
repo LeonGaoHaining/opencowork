@@ -1,136 +1,150 @@
 # OpenCowork User Guide
 
-This guide covers the current public workflow for using OpenCowork as a desktop AI work system.
+This guide explains how to use OpenCowork as a desktop AI work system for browser automation, local execution, reusable task runs, templates, skills, IM workflows, and MCP tools.
 
 ## What OpenCowork Does Best
 
-OpenCowork is designed for tasks that require a mix of:
+OpenCowork is strongest when a task requires more than one model response:
 
-- browser automation,
-- local desktop execution,
-- structured agent reasoning,
-- reusable skills,
-- and MCP-native tool integration.
-
-Common examples include:
-
-- research and summarization,
-- browser-based operations,
-- task follow-ups over multiple turns,
-- company and product discovery,
-- document and presentation generation.
+- opening websites and operating a headed browser,
+- collecting and summarizing information,
+- generating files or structured results,
+- calling local tools and reusable skills,
+- using MCP-connected services,
+- receiving tasks from IM and returning result files,
+- saving successful work as reusable templates.
 
 ## Getting Started
 
-### 1. Configure your model
+### 1. Install Dependencies
 
-Create `config/llm.json` with your preferred provider and credentials.
+```bash
+git clone https://github.com/LeonGaoHaining/opencowork.git
+cd opencowork
+npm install
+```
 
-If you want image analysis and OCR through IM attachments, the configured model deployment must support image input.
+### 2. Configure Your Model
 
-### Local config safety
+Create `config/llm.json` with your provider, model, and credentials.
+
+```json
+{
+  "provider": "openai",
+  "model": "gpt-5.4-mini",
+  "apiKey": "your-api-key",
+  "baseUrl": "https://api.openai.com/v1",
+  "timeout": 60000,
+  "maxRetries": 3
+}
+```
+
+For image analysis and OCR through IM attachments, use a model deployment that supports image input.
+
+### 3. Keep Local Config Private
 
 - Keep all files under `config/` local to your device.
 - `config/` is git-ignored and should not be committed or published.
-- In particular, `config/feishu.json` contains live IM credentials and must never be pushed to GitHub.
+- `config/feishu.json` contains live IM credentials and must never be pushed to GitHub.
 
-### 2. Launch the app
+### 4. Launch the App
 
 ```bash
 npm run electron:dev
-```
-
-### 3. Start with a concrete task
-
-Examples:
-
-```text
-Open Baidu and search for a company.
-Summarize what this company does.
-Create a professional PPT from the findings.
-Use the connected LangChain MCP to fetch an example.
 ```
 
 ## Main Product Areas
 
 ### Chat and Task Execution
 
-Use the main input box to give the agent a task.
+Use the main input box to give the agent a concrete goal. OpenCowork can plan the task, operate the browser, run CLI actions, call installed skills, use MCP tools, and continue across follow-up prompts when the task stays in the same active thread.
 
-OpenCowork can:
+Good prompt examples:
 
-- plan a task,
-- operate the browser,
-- execute CLI commands,
-- call installed skills,
-- and continue work across follow-up prompts when the task stays in the same thread.
+```text
+Open Baidu and search for a company, then summarize what it does.
+Create a five-slide company intro deck from the research findings.
+Use LangChain Docs MCP and give me a minimal Python example.
+Analyze this uploaded product screenshot and return a concise report.
+```
 
-### Live Preview
+### Live Preview and Human Oversight
 
-The preview area shows the browser and agent activity in real time so you can observe what the agent is doing and decide when to intervene.
+The preview area shows browser and agent activity in real time. You can observe execution, approve high-impact actions, pause or resume work, interrupt active tasks, or take over when manual control is safer.
 
 ### Result Delivery
 
-When a task completes, the result summary is shown in the right sidebar together with execution context.
+When a task completes, OpenCowork surfaces the result in the sidebar so you can review the final outcome without scrolling through the full chat.
 
-This makes it easier to:
+Result delivery can include:
 
-- review the final outcome without scrolling through the full chat,
-- inspect artifacts and structured output,
-- jump to the full run record,
-- save the task as a template,
-- or add it directly to the scheduler.
+- final summary,
+- structured data,
+- generated files,
+- screenshots,
+- artifact links,
+- run details,
+- template and scheduler actions.
 
-### History
+### History and Runs
 
-Task history stores prior executions, results, steps, and outcomes so you can review what happened and recover context when needed.
+Task history stores prior executions, results, steps, and outcomes. The current product direction is result-centric: summaries, artifacts, run links, and template links are more important than raw step logs alone.
 
-History is now more result-centric:
+Use history and runs to:
 
-- summary and artifacts are shown before raw step traces,
-- run links let you jump back to the full execution record,
-- template links let you reuse successful tasks faster.
+- inspect what happened,
+- find successful work,
+- rerun useful tasks,
+- save a run as a template,
+- debug failures and recovery behavior.
 
-### Task Results and Templates
+### Templates
 
-When a task completes successfully, OpenCowork saves a structured result object.
+Templates turn successful work into reusable automation.
 
-You can then:
+You can:
 
-- open the result panel to review the summary and artifacts,
-- save the run as a reusable template,
-- run that template again with parameters,
-- or add it to the scheduler for repeat execution.
-
-This is the main workflow for the current v0.12 task-model direction.
+- save a successful run as a template,
+- edit template metadata and parameters,
+- run a template again with new inputs,
+- add a template to the scheduler,
+- trigger template-like workflows from IM.
 
 ### Skills
 
 Skills are reusable capability modules stored under `~/.opencowork/skills/`.
 
-Current workflows include:
+Current skill workflows include:
 
 - listing installed skills,
-- opening the skill panel,
-- generating or previewing skills,
-- running specialized capabilities such as `ppt-creator`.
+- browsing available skills,
+- previewing skill metadata,
+- installing or updating skills,
+- running specialized capabilities such as presentation generation.
 
-### Templates and Runs
+### MCP Client
 
-OpenCowork now exposes reusable task flows more explicitly:
+Open the MCP panel and use the `Clients` tab to connect external MCP servers.
 
-- `Templates` stores reusable task definitions,
-- `Runs` stores recent task executions,
-- both surfaces support English and Chinese UI labels,
-- successful runs can become templates,
-- and templates can be rerun with parameters or added to the scheduler.
+Supported endpoint types:
+
+- local `stdio` servers,
+- remote standard `streamable-http` endpoints.
+
+Once connected, the agent can discover and call MCP tools during task execution.
+
+### MCP Server Mode
+
+OpenCowork can expose selected capabilities to external MCP clients through a standard `/mcp` endpoint while preserving a legacy `/tools` compatibility path.
+
+Use server mode when another MCP-capable app or agent should call OpenCowork.
 
 ### IM and Feishu File Workflows
 
-OpenCowork now supports file-driven IM workflows through Feishu:
+OpenCowork supports file-driven IM workflows through Feishu:
 
 - send a text task plus an attached file or image,
-- send only a file and let OpenCowork create a default task automatically,
+- send only a file and let OpenCowork create a default task,
 - receive generated result files and images back through Feishu,
 - ask follow-up questions about a just-uploaded image.
 
@@ -138,73 +152,43 @@ Current behavior:
 
 - incoming Feishu attachments are downloaded to the local app data directory,
 - the agent receives the local file path as task context,
-- image attachments can use OCR or general image analysis through the `vision` tool,
-- result file artifacts are uploaded back to Feishu after task completion.
+- image attachments can use OCR or general image analysis through the vision path,
+- result file artifacts can be uploaded back to Feishu after task completion.
 
-## MCP Client Guide
+## Current Runtime Direction
 
-Open the MCP panel and use the `Clients` tab to connect external MCP servers.
+The current release line is moving toward a reusable local Agent Runtime:
 
-Supported today:
+- shared protocol for task events, approvals, outputs, artifacts, and errors,
+- one runtime API for Electron, Scheduler, IM, MCP, and future clients,
+- unified approval policy across browser, desktop, visual, CLI, MCP, and skills,
+- Plan Mode for read-only analysis before execution,
+- trace and diff artifacts for audit-grade observability.
 
-- local `stdio` servers,
-- remote standard `streamable-http` endpoints.
-
-Example remote endpoint:
-
-```text
-https://docs.langchain.com/mcp
-```
-
-Once connected, the agent can discover and call these MCP tools during task execution.
-
-## MCP Server Mode Guide
-
-Open the MCP panel and use the `Server Mode` tab to expose OpenCowork capabilities to external MCP clients.
-
-Current server mode supports:
-
-- a standard `/mcp` endpoint,
-- a legacy `/tools` compatibility layer,
-- configurable authentication,
-- selected internal tools exposed as MCP tools.
-
-Use server mode when you want another MCP-capable app or agent to call OpenCowork.
-
-## Internationalization
-
-The desktop UI is English-first and supports Chinese. Language choice is persistent.
-
-Recent task-centric surfaces with language support include:
-
-- result delivery,
-- template panel,
-- runs panel,
-- history actions,
-- IM task cards.
+See `docs/SPEC_P5_agent-runtime-platformization.md` for the detailed plan.
 
 ## Recommended Prompt Style
 
 Best results come from prompts that specify:
 
-- the site or system to use,
+- the site, file, or tool to use,
 - the target outcome,
-- what format you want back,
-- and whether the agent should continue with a follow-up action.
+- the output format,
+- whether follow-up actions are allowed,
+- whether the task should be saved as a reusable workflow.
 
-Examples:
+Example:
 
 ```text
-Open Baidu, search for X, and summarize what the company does.
-Then turn the findings into a five-slide company intro deck.
-Use LangChain docs MCP and give me a minimal Python example.
+Open the target website, collect the pricing table, summarize changes in markdown, save the result, and offer to turn this into a weekly template.
 ```
 
 ## Known Behavioral Notes
 
-- Desktop opener commands such as `xdg-open` may launch successfully even if the current executor times them out.
+- Desktop and hybrid computer-use support is still productizing and should be treated as an active development area.
 - Some text-centric browser tasks may still overuse screenshots before falling back to extraction.
 - MCP tool choice is improving, but some tools may still require a retry when the model first under-specifies parameters.
+- Long-running desktop opener commands can succeed on the host even when the current executor reports a timeout.
 
 ## Troubleshooting
 
@@ -216,14 +200,8 @@ Use LangChain docs MCP and give me a minimal Python example.
 
 ### A follow-up task loses context
 
-- Make sure the task is being continued in the same active thread.
+- Make sure the task is continued in the same active thread.
 - Avoid manually resetting the current task state between turns.
-
-### The overview panel opens but shows no useful data
-
-- Make sure the desktop app has writable access to the history database and config directory.
-- If there are simply no recent tasks, the overview panel may show zeroed metrics rather than charts.
-- `v0.12.1` adds safer fallback handling for partial metrics payloads.
 
 ### An IM image task says the model cannot analyze the image
 
@@ -233,12 +211,13 @@ Use LangChain docs MCP and give me a minimal Python example.
 
 ### A browser task extracts noisy content
 
-- Ask the agent to target a narrower page region instead of `body`.
-- Ask for extraction from the result container, article container, or main content area.
+- Ask the agent to target a narrower page region.
+- Prefer article, table, result container, or main content selectors over `body`.
 
 ## More Docs
 
 - `README.md`
 - `docs/ARCHITECTURE.md`
 - `docs/ROADMAP.md`
+- `docs/PRD.md`
 - `CHANGELOG.md`

@@ -98,6 +98,16 @@ The current codebase is entering an architectural convergence phase:
 - Support browser-and-desktop mixed workflows as first-class automation targets.
 - Establish the desktop computer use contract for future industry packs and ecosystem extensions.
 
+### P5: Agent runtime platformization
+
+- Extract a shared runtime protocol for task events, commands, approvals, outputs, errors, and artifacts.
+- Introduce an `AgentRuntimeApi` facade so Electron, Scheduler, IM, MCP, and future CLI/Web clients reuse the same runtime.
+- Unify approval policy across browser, desktop, visual, CLI, MCP, and skill execution.
+- Productize Plan Mode as a read-only planning path before execution.
+- Add task trace, file-change summaries, diff artifacts, and structured execution output for audit-grade observability.
+- Centralize runtime configuration, workspace rules, and `AGENTS.md` loading.
+- Continue decomposing `TaskEngine` into focused runtime services and coordinators.
+
 ## Strategic Themes
 
 ### 1. Browser-first task delivery
@@ -124,6 +134,10 @@ Skills should become a compelling layer for community extension and lightweight 
 
 The project should feel reliable, well-documented, and easy to evaluate for builders, tinkerers, and product teams.
 
+### 7. Runtime platformization
+
+OpenCowork should become a reusable local Agent Runtime, not only an Electron app. UI, IM, scheduler, MCP, and future clients should share protocol, approval, trace, configuration, and task lifecycle semantics.
+
 ## Key Specs
 
 - `docs/SPEC_v0.10.x_task-foundation.md` — task foundation and architectural convergence
@@ -132,4 +146,5 @@ The project should feel reliable, well-documented, and easy to evaluate for buil
 - `docs/SPEC_P2_templateization-and-multi-entry.md` — templateization and multi-entry hybrid reuse
 - `docs/SPEC_P3_platformization-and-ecosystem.md` — platformization, provider abstraction, and ecosystem expansion
 - `docs/SPEC_P4_desktop-computer-use-productization.md` — desktop computer use productization
-- `docs/PRD.md` — product direction and P0-P4 / PRD 6.0 planning
+- `docs/SPEC_P5_agent-runtime-platformization.md` — agent runtime protocol, approval, trace, config, and multi-client reuse
+- `docs/PRD.md` — product direction and P0-P5 / PRD 7.0 planning

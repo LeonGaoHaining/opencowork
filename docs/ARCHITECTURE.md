@@ -2,21 +2,22 @@
 
 ## Overview
 
-OpenCowork is an Electron-based desktop AI work system. The current implementation combines a renderer UI, a main-process orchestration layer, LangGraph-based agent execution, browser and CLI executors, a skill system, and MCP integration on both the client and server side.
+OpenCowork is an Electron-based desktop AI work system. The current implementation combines a renderer UI, a main-process orchestration layer, LangGraph-based agent execution, browser and CLI executors, a skill system, MCP integration on both the client and server side, and an emerging browser / desktop / hybrid computer-use runtime.
 
 The architecture is currently in transition from an entry-point-driven agent shell to a more unified task-oriented system. The near-term goal is to make `TaskRun`, `TaskResult`, and unified orchestration first-class concepts so that chat, scheduler, IM, history, runs, and templates can share one task lifecycle.
 
-The next major product direction also introduces a Hybrid CUA layer for browser-heavy work. In this direction, OpenCowork keeps `webfetch` and DOM-based browser execution as the default low-cost path, while adding a visual execution path that can inspect screenshots, propose UI actions, and act as a fallback for unstable or highly visual browser tasks. This direction is organized in the product docs as `P0-P3` planning rather than a single versioned browser rewrite.
+The major product direction now has two layers. First, Hybrid CUA keeps DOM-based browser execution as the default low-cost path while adding visual execution for unstable or highly visual browser tasks. Second, Agent Runtime platformization extracts shared protocol, approval, trace, config, and runtime API boundaries so Electron, Scheduler, IM, MCP, and future clients can reuse the same core task lifecycle.
 
 ## Architecture Layers
 
 ```text
-Renderer UI (React)
-  -> IPC Layer (Electron main process)
-  -> Task Orchestration Layer
-  -> Agent and Runtime Layer
-  -> Executors and Tools
-  -> Persistence and External Integrations
+Clients: Electron UI / Scheduler / IM / MCP / Future CLI
+  -> Agent Runtime API / IPC Adapter
+  -> Shared Protocol Layer
+  -> Runtime Services: lifecycle, approval, trace, config, rules, state
+  -> Agent and Execution Layer
+  -> Browser / Desktop / Visual / CLI / MCP / Skill Adapters
+  -> Persistence, Artifacts, Benchmarks, and External Integrations
 ```
 
 ## Current vs Target
@@ -30,15 +31,17 @@ The current system is still primarily organized around entry points calling into
 The target direction is:
 
 ```text
-Chat / Scheduler / IM / MCP / Replay
-  -> Task Orchestrator
+Chat / Scheduler / IM / MCP / Replay / Future CLI
+  -> Agent Runtime API
+  -> Shared runtime protocol
+  -> Task lifecycle, approval, trace, config, and state services
   -> Task Runtime + Agent Brain
-  -> Browser / CLI / Skill / MCP Adapters
-  -> Run / Result / History / Template Persistence
-  -> Result-oriented UI and notifications
+  -> Browser / Desktop / Visual / CLI / Skill / MCP Adapters
+  -> Run / Result / History / Template / Artifact Persistence
+  -> Result-oriented UI, notifications, and release-quality observability
 ```
 
-This direction is specified in `docs/SPEC_v0.10.x_task-foundation.md`.
+This direction is specified across `docs/SPEC_v0.10.x_task-foundation.md`, `docs/SPEC_P4_desktop-computer-use-productization.md`, and `docs/SPEC_P5_agent-runtime-platformization.md`.
 
 ## Renderer Layer
 
@@ -69,7 +72,7 @@ The main process owns:
 - browser executor access,
 - MCP client/server coordination.
 
-The current main-process layer is still too centralized. A near-term architecture goal is to thin `ipcHandlers` by introducing a dedicated task orchestration layer instead of letting entry handlers directly coordinate agent execution and result handling.
+The current main-process layer is still too centralized. The target architecture thins `ipcHandlers` by turning them into adapters over `AgentRuntimeApi` instead of letting entry handlers directly coordinate agent execution, approval, result handling, and persistence.
 
 ## Task Orchestration Layer
 
@@ -82,7 +85,7 @@ The next architecture milestone introduces a dedicated task orchestration layer 
 - persisting standardized `TaskResult` objects,
 - coordinating post-run history and future template creation.
 
-This layer is the foundation for the `v0.11` result-delivery work and the `v0.12` template and multi-entry reuse work.
+This layer is the foundation for the `v0.11` result-delivery work, the `v0.12` template and multi-entry reuse work, and the `v0.14` Agent Runtime platformization plan.
 
 The latest `v0.12.x` work also depends on keeping post-run analysis scoped to the current task run, so that task results, run detail views, and skill-generation heuristics are not polluted by previous turns in the same thread.
 
@@ -112,7 +115,16 @@ The runtime layer, currently centered on `TaskEngine`, is responsible for:
 - coordination with browser and CLI executors,
 - runtime state transitions during task execution.
 
-Near-term work will keep `TaskEngine` as the execution core while shifting more system-level orchestration concerns out of entry points and into a dedicated task layer.
+Near-term work will keep `TaskEngine` as the execution facade while shifting more system-level orchestration concerns into dedicated runtime services.
+
+Planned decomposition:
+
+- `TaskLifecycleController` for run state transitions,
+- `TaskApprovalCoordinator` for unified browser / desktop / CLI / MCP / skill approvals,
+- `TaskTraceCollector` for runtime events, artifacts, screenshots, and file-change summaries,
+- `TaskStatePersistence` for durable task state,
+- `WorkspaceRuleLoader` for `AGENTS.md` and workspace rules,
+- `RuntimeConfigService` for shared config defaults, schema, and migration.
 
 ## Executors and Tools
 
@@ -158,6 +170,8 @@ This is still an incremental integration rather than a full system-wide migratio
 ### CLI Executor
 
 Supports controlled command execution for local workflows and skill-backed scripts.
+
+The P5 runtime direction requires CLI output to become structured rather than string-only. Command results should include stdout, stderr, exit code, duration, timeout state, truncation metadata, and optional log artifacts.
 
 ### Vision Executor
 
@@ -214,6 +228,34 @@ In practice, the current codebase already persists:
 - template definitions built from successful runs,
 - UI-facing overview metrics composed from history, scheduler, and IM data,
 - IM-delivered attachment files stored locally for task execution and follow-up analysis.
+
+The next architecture milestone adds trace and artifact persistence as a first-class concern:
+
+- runtime trace events,
+- approval requests and responses,
+- structured execution outputs,
+- file-change summaries,
+- diff artifacts,
+- benchmark release-gate metadata.
+
+## Shared Protocol and Runtime API
+
+P5 introduces a shared protocol layer for cross-entry consistency.
+
+Core protocol families:
+
+- `RuntimeCommand` for start, interrupt, resume, cancel, and approval responses,
+- `RuntimeEvent` for task lifecycle, tool calls, approval, artifacts, completion, and failure,
+- `ApprovalRequest` for human-in-the-loop decisions,
+- `ExecutionOutput` for structured tool and adapter results,
+- `RuntimeArtifact` for files, screenshots, logs, traces, diffs, and links,
+- `RuntimeError` for machine-readable failure handling.
+
+The `AgentRuntimeApi` facade is the boundary that future-proofs clients:
+
+- Electron UI remains the primary client,
+- Scheduler, IM, and MCP use the same runtime semantics,
+- future CLI or local app-server transport can be added without duplicating task lifecycle logic.
 
 ## Design Priorities
 
