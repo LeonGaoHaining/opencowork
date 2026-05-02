@@ -41,7 +41,6 @@ OpenCowork is a practical foundation for:
 Highlights:
 
 - updated open-source positioning around desktop AI work, MCP, reusable runs, and runtime platformization,
-- documented the P5 Agent Runtime platformization plan inspired by OpenAI Codex engineering patterns,
 - refreshed roadmap, user guide, contributor guidance, security policy, and GitHub issue/PR templates,
 - aligned package metadata with the new release line after the existing `v0.12.9` tag.
 
