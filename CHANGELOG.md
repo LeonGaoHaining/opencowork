@@ -11,7 +11,7 @@ Refresh the public open-source surface for the current desktop AI work system di
 ### Highlights
 
 - Repositioned the README around desktop AI work, browser automation, MCP-native tooling, reusable task runs, Hybrid CUA, and runtime platformization.
-- Added PRD 7.0 planning for a shared Agent Runtime inspired by OpenAI Codex engineering patterns.
+- Added PRD 7.0 planning for a shared Agent Runtime with clearer protocol, approval, trace, config, and runtime service boundaries.
 - Added `docs/SPEC_P5_agent-runtime-platformization.md` covering shared protocol, runtime API, unified approval, structured outputs, Plan Mode, workspace rules, trace/diff, config, and `TaskEngine` decomposition.
 - Updated `docs/ROADMAP.md` with P5 Agent Runtime platformization and a new runtime platformization strategic theme.
 - Refreshed the user guide, contributing guide, security policy, issue templates, and pull request template for a more polished open-source contributor experience.
@@ -40,6 +40,22 @@ Close the current desktop-computer-use slice by tightening VM as the primary smo
 ### Focus
 
 The next work stream builds on `v0.12.4` with more result-driven desktop workflows, stronger IM delivery quality, and broader product hardening.
+
+### Business positioning
+
+- Refined the README positioning around OpenCowork as a local-first desktop AI Agent Runtime for executable, reusable, and auditable business workflows.
+- Clarified that the product is not a generic chatbot or traditional RPA recorder; it is intended to turn successful local AI task runs into templates, scheduled work, IM-driven workflows, and private automation packages.
+- Added a stronger target-customer description for builders, researchers, product teams, semi-technical operators, and enterprise design partners evaluating local AI automation.
+
+### Commercial scenarios
+
+- Added typical commercialization-oriented scenarios including market and sales research, operations file processing, MCP-connected internal workflows, browser back-office automation, scheduled knowledge work, and agent runtime experiments.
+- Connected core runtime capabilities to business outputs such as research briefs, lead lists, cleaned spreadsheets, OCR results, structured reports, workflow templates, audit traces, and reusable artifacts.
+
+### Go-to-market notes
+
+- Documented the recommended commercial direction: open-source distribution, design partner pilots, scenario-based workflow delivery, private deployment guidance, annual support, reusable template packs, training, and later lightweight team subscriptions.
+- Explicitly avoided presenting commercial pricing or customer claims as shipped product features; the update is a product narrative and release-surface improvement rather than a runtime change.
 
 ### Highlights
 

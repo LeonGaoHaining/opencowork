@@ -1,6 +1,6 @@
 <h1 align="center">OpenCowork</h1>
 
-<p align="center"><strong>Open-source desktop AI work system for browser automation, desktop workflows, MCP-native tools, reusable task runs, and result-first agent execution.</strong></p>
+<p align="center"><strong>Open-source, local-first desktop AI Agent Runtime for turning business goals into executable, reusable, and auditable workflows.</strong></p>
 
 <p align="center">
   <a href="https://github.com/LeonGaoHaining/opencowork/stargazers"><img src="https://img.shields.io/github/stars/LeonGaoHaining/opencowork?style=social" alt="stars"></a>
@@ -12,7 +12,9 @@
 
 ## Why OpenCowork
 
-OpenCowork is for builders who want an AI agent that can do real work on a local desktop, not only answer chat messages. It combines a headed browser, local execution, reusable skills, MCP integrations, task history, templates, and human-in-the-loop approval into one desktop-native agent system.
+OpenCowork is for teams that want an AI agent to do real work on a local desktop, not only answer chat messages. It combines a headed browser, local execution, reusable skills, MCP integrations, task history, templates, scheduling, IM file workflows, and human-in-the-loop approval into one desktop-native agent system.
+
+The core product idea is simple: describe a business outcome, let the agent operate local tools and websites, review the result, then turn the successful run into a reusable workflow. OpenCowork is not positioned as a generic chatbot or a traditional RPA recorder. It is a local AI automation layer for repeatable knowledge work where execution, traceability, privacy, and result reuse matter.
 
 The product direction is result-first:
 
@@ -22,16 +24,48 @@ The product direction is result-first:
 - connect local desktop execution with IM, Scheduler, Skills, and MCP,
 - make browser and desktop automation observable, recoverable, and repeatable.
 
+## Product Positioning
+
+OpenCowork is currently best suited for builders, researchers, product teams, and early enterprise design partners who need local execution, BYO model configuration, browser automation, and private workflow delivery.
+
+The strongest early fit is not low-price self-serve SaaS. It is high-value, scenario-driven automation where a team wants a local AI worker that can be deployed privately, connected to internal tools, and supported through repeatable workflow packages.
+
+Good fit:
+
+- technical or semi-technical teams evaluating local AI automation,
+- privacy-sensitive teams that prefer local execution and BYO model keys,
+- operations, research, sales, and consulting teams with repeated browser-heavy work,
+- product and agent teams building on MCP, Hybrid CUA, task traces, and reusable runtime APIs,
+- enterprise pilots that need private deployment, scenario delivery, templates, and annual support.
+
+Not the current focus:
+
+- a fully hosted multi-tenant SaaS platform,
+- a generic personal chatbot,
+- a no-code RPA replacement for every enterprise process,
+- a production claims package with published commercial pricing.
+
+## Typical Scenarios
+
+| Scenario | What OpenCowork does | Typical output |
+| --- | --- | --- |
+| Market and sales research | Opens websites, searches companies, extracts public information, compares competitors, and summarizes findings | Research brief, lead list, pricing watch, PPT outline |
+| Operations file processing | Receives files or screenshots through IM, analyzes them, applies repeatable rules, and sends result files back | Cleaned spreadsheet, OCR result, structured report |
+| Internal tool workflows | Connects MCP tools, browser back offices, local scripts, and skills into one task run | Reusable workflow template, run record, artifacts |
+| Browser back-office automation | Handles non-standard web consoles, forms, dashboards, approvals, and long-tail manual workflows | Completed operation, audit trace, screenshot evidence |
+| Scheduled knowledge work | Runs recurring checks, summaries, monitoring, and weekly/monthly reporting through templates | Daily report, weekly digest, monitoring summary |
+| Agent runtime experiments | Provides a local runtime surface for browser/desktop computer-use, MCP client/server, approval, and trace UX | Runtime prototype, benchmark trace, reusable adapter |
+
 ## What You Can Build
 
 OpenCowork is a practical foundation for:
 
-- research and browser automation agents,
-- internal operations copilots,
-- result-centric task history and reusable automation,
-- MCP-native local agent workflows,
-- Feishu-driven task intake and file delivery,
-- desktop computer-use experiments with approval and benchmark loops,
+- local AI automation pilots for research, operations, sales, and consulting teams,
+- scenario-specific workflow packages that turn successful task runs into templates,
+- private deployment and annual support offerings for teams that need local execution,
+- MCP-native local agent workflows that connect internal tools and external services,
+- Feishu-driven task intake, file analysis, progress updates, and result delivery,
+- desktop computer-use experiments with approval, trace, and benchmark loops,
 - open-source agent runtime research around protocol, trace, and multi-client reuse.
 
 ## Current Release: v0.12.10
@@ -41,6 +75,7 @@ OpenCowork is a practical foundation for:
 Highlights:
 
 - updated open-source positioning around desktop AI work, MCP, reusable runs, and runtime platformization,
+- documented the P5 Agent Runtime platformization plan for shared protocol, approval, trace, and reusable runtime services,
 - refreshed roadmap, user guide, contributor guidance, security policy, and GitHub issue/PR templates,
 - aligned package metadata with the new release line after the existing `v0.12.9` tag.
 
@@ -69,6 +104,20 @@ Recent product milestones:
 | MCP Server | Expose OpenCowork capabilities to external MCP clients |
 | Human Oversight | Pause, resume, interrupt, approve, cancel, and take over tasks |
 | i18n | English-first UI with Chinese support |
+
+## Commercial Direction
+
+OpenCowork remains an open-source project. The commercial direction is to use open-source distribution for adoption while productizing high-value local AI automation services around the runtime.
+
+Current recommended commercialization path:
+
+- design partner pilots around a small number of standard scenarios,
+- scenario-based workflow delivery for market research, operations file processing, and MCP-connected internal tools,
+- private deployment guidance and annual support for teams that need local-first AI automation,
+- reusable industry template packs and workflow packs created from proven customer runs,
+- training, implementation partners, and a lightweight team edition after installability, support, and template reuse are stronger.
+
+This direction avoids premature dependence on a heavy multi-tenant cloud platform. It prioritizes high-ARPU design partners, repeatable templates, local deployment trust, and measurable business outputs before broader self-serve subscriptions.
 
 ## Architecture Direction
 
