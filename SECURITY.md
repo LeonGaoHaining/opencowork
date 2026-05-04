@@ -18,7 +18,6 @@ Security fixes are released on the latest active release line whenever practical
 Please use GitHub Security Advisories instead of opening a public issue for sensitive findings.
 
 - Security Advisories: https://github.com/LeonGaoHaining/opencowork/security/advisories
-- Contact: leon.gao@opencowork.com
 
 ## What to Include
 
