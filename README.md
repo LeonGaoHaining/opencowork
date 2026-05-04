@@ -215,8 +215,6 @@ Try connecting a remote MCP endpoint from the MCP panel, then ask the agent what
 - `USER_GUIDE.md` — practical usage guide
 - `docs/ARCHITECTURE.md` — architecture overview
 - `docs/ROADMAP.md` — near-term and strategic roadmap
-- `docs/PRD.md` — product requirements and version planning
-- `docs/SPEC_P5_agent-runtime-platformization.md` — next runtime platformization spec
 - `docs/RELEASE_v0.14.2.md` — current release notes
 - `CHANGELOG.md` — release history
 - `CONTRIBUTING.md` — contribution workflow
