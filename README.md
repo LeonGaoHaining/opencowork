@@ -143,8 +143,39 @@ Electron UI / Scheduler / IM / MCP / Future CLI
 
 - Node.js 18+
 - npm 9+
-- Python 3.8+ for selected skills
+- Python 3.8+
 - A valid LLM API configuration in `config/llm.json`
+
+### Install Prerequisites
+
+macOS:
+
+```bash
+brew install node python
+node -v
+npm -v
+python3 --version
+```
+
+Ubuntu / Debian:
+
+```bash
+sudo apt update
+sudo apt install -y nodejs npm python3 python3-pip
+node -v
+npm -v
+python3 --version
+```
+
+Windows:
+
+```powershell
+winget install OpenJS.NodeJS.LTS
+winget install Python.Python.3.12
+node -v
+npm -v
+python --version
+```
 
 ### Install
 
