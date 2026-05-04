@@ -68,19 +68,23 @@ OpenCowork is a practical foundation for:
 - desktop computer-use experiments with approval, trace, and benchmark loops,
 - open-source agent runtime research around protocol, trace, and multi-client reuse.
 
-## Current Release: v0.12.10
+## Current Release: v0.14.2
 
-`v0.12.10` refreshes the public open-source surface and aligns the documentation with the current runtime direction.
+`v0.14.2` focuses on release polish for the current desktop AI workflow surface: skill uninstall correctness, session-scoped successful workflow templates, safer template reruns, cleaner chat/result overflow handling, and immediate session switching after creating a new session.
 
 Highlights:
 
-- updated open-source positioning around desktop AI work, MCP, reusable runs, and runtime platformization,
-- documented the P5 Agent Runtime platformization plan for shared protocol, approval, trace, and reusable runtime services,
-- refreshed roadmap, user guide, contributor guidance, security policy, and GitHub issue/PR templates,
-- aligned package metadata with the new release line after the existing `v0.12.9` tag.
+- fixed skill uninstall so installed skill folders are removed by their actual persisted path,
+- added a session-level successful workflow save path that creates templates only from completed chat runs in the active session,
+- kept full template prompts for execution while showing short run titles in chat, task status, and logs,
+- hardened long text rendering in chat messages, task status, and result delivery surfaces,
+- made the new-session button immediately switch the chat UI into the created session.
 
 Recent product milestones:
 
+- `v0.14.2`: session template save, template-run UI hardening, result overflow fixes, and immediate new-session switching.
+- `v0.14.1`: skill uninstall fix and current skill management release polish.
+- `v0.14.0`: Agent Runtime baseline and release-line alignment.
 - `v0.12.9`: skill panel toolbar wrapping and release polish.
 - `v0.12.8`: Feishu delivery and GPT-5 fixes.
 - `v0.12.7`: desktop smoke and approval updates.
@@ -212,6 +216,7 @@ Try connecting a remote MCP endpoint from the MCP panel, then ask the agent what
 - `docs/ROADMAP.md` — near-term and strategic roadmap
 - `docs/PRD.md` — product requirements and version planning
 - `docs/SPEC_P5_agent-runtime-platformization.md` — next runtime platformization spec
+- `docs/RELEASE_v0.14.2.md` — current release notes
 - `CHANGELOG.md` — release history
 - `CONTRIBUTING.md` — contribution workflow
 - `SECURITY.md` — vulnerability reporting policy

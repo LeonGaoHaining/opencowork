@@ -10,7 +10,7 @@ Security fixes are released on the latest active release line whenever practical
 
 | Version | Status |
 | --- | --- |
-| `v0.12.x` | Active |
+| `v0.14.x` | Active |
 | Older versions | Best effort |
 
 ## Reporting a Vulnerability
@@ -67,7 +67,7 @@ Security fixes are released in patch versions whenever possible.
 
 Example:
 
-- `v0.12.9` -> `v0.12.10`
+- `v0.14.1` -> `v0.14.2`
 
 ## Thanks
 

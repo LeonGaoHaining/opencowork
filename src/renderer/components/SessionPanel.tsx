@@ -15,19 +15,53 @@ export function SessionPanel() {
     deleteSession,
     renameSession,
   } = useSessionStore();
-  const { setMessages, setSessionId } = useTaskStore();
+  const {
+    setMessages,
+    setSessionId,
+    setTask,
+    setCurrentRun,
+    setCurrentResult,
+    clearActiveSteps,
+  } = useTaskStore();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState('');
 
   useEffect(() => {
-    loadSessions();
-  }, []);
+    const initializeSession = async (): Promise<void> => {
+      try {
+        await loadSessions();
+        const { activeSessionId: loadedActiveSessionId, activeSession } = useSessionStore.getState();
+        if (loadedActiveSessionId) {
+          setSessionId(loadedActiveSessionId);
+          if (activeSession?.messages) {
+            setMessages(activeSession.messages);
+          }
+          return;
+        }
+
+        const session = await createSession();
+        if (session) {
+          setSessionId(session.id);
+          setMessages(session.messages || []);
+        }
+      } catch (error) {
+        console.error('[SessionPanel] initializeSession error:', error);
+      }
+    };
+
+    void initializeSession();
+  }, [createSession, loadSessions, setMessages, setSessionId]);
 
   const handleCreateSession = async () => {
     try {
       const session = await createSession();
       if (session) {
         setSessionId(session.id);
+        setMessages(session.messages || []);
+        setTask(null);
+        setCurrentRun(null, null, null, null);
+        setCurrentResult(null);
+        clearActiveSteps();
       }
     } catch (error) {
       console.error('[SessionPanel] handleCreateSession error:', error);

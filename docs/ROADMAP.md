@@ -18,6 +18,8 @@ OpenCowork is evolving from an internal high-velocity agent shell into a Browser
 - MCP client support,
 - MCP server mode,
 - English and Chinese UI.
+- skill uninstall from persisted local folders,
+- session-level successful workflow template creation.
 
 ### Current transition
 
@@ -52,6 +54,10 @@ The current codebase is entering an architectural convergence phase:
 - Added a browser-to-desktop-to-browser download/rename/upload benchmark to cover a realistic mixed file workflow.
 - Workflow pack catalog now shows outcomes, install feedback, installed-state sorting, and installed-only filtering.
 - Result/history/task-run surfaces now normalize `executionTarget` and `actionContract` so desktop metadata persists cleanly across reloads.
+- Skill uninstall now removes the actual installed skill folder instead of only updating UI state.
+- Successful completed chat runs in the active session can now be saved as a reusable workflow template.
+- Template reruns now keep full prompts for execution while showing short titles in chat, task status, and logs.
+- New session creation now immediately switches the active chat surface without requiring a second click.
 
 ## Near-Term Roadmap
 
@@ -79,6 +85,7 @@ The current codebase is entering an architectural convergence phase:
 - Strengthen result delivery as a first-class product surface.
 - Make history more result-centric and reuse-oriented.
 - Expand artifact delivery: files, links, screenshots, structured outputs.
+- Keep long template prompts and result payloads from breaking chat, status, and sidebar layouts.
 - Continue improving tests for browser, task, history, and template flows.
 
 ### P3: Platformization and ecosystem expansion

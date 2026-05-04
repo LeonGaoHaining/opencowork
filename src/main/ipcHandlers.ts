@@ -10,7 +10,7 @@ import { CLIExecutor } from '../core/executor/CLIExecutor';
 import { ActionType } from '../core/action/ActionSchema';
 import { createMainAgent, MainAgent, AgentStep, AgentResult } from '../agents/mainAgent';
 import { executeVisualBrowserTask, resolveVisualAdapterMode } from '../agents/visualBrowserHelper';
-import { ActionContract } from '../core/task/types';
+import { ActionContract, createTaskEntityId } from '../core/task/types';
 import { normalizeActionContract } from '../core/task/actionContract';
 import { ScheduleType } from '../scheduler/types';
 import { getIMConfigStore } from '../config/imConfig';
@@ -546,6 +546,14 @@ interface RuntimeIpcContext {
   previewWindow: BrowserWindow | null;
 }
 
+function summarizeForLog(value: unknown, maxLength: number = 160): string {
+  const text = typeof value === 'string' ? value : String(value ?? '');
+  if (text.length <= maxLength) {
+    return text;
+  }
+  return `${text.slice(0, maxLength).trim()}... (${text.length} chars)`;
+}
+
 let ipcAgentRuntimeApi: InProcessAgentRuntimeApi | null = null;
 
 function getIpcAgentRuntimeApi(): InProcessAgentRuntimeApi {
@@ -578,14 +586,19 @@ export const IPC_HANDLERS: Record<string, IpcHandler> = {
   'task:start': async (
     mainWindow,
     previewWindow,
-    { task, threadId, source = 'chat', templateId, params, executionMode, executionTargetKind, __runtimeAdapter }
+    { task, displayTitle, threadId, source = 'chat', templateId, params, executionMode, executionTargetKind, sessionId, __runtimeAdapter }
   ) => {
-    console.log('[IPC] task:start:', task, 'threadId:', threadId, 'source:', source, 'executionMode:', executionMode, 'executionTargetKind:', executionTargetKind);
+    const taskTitle =
+      typeof displayTitle === 'string' && displayTitle.trim().length > 0
+        ? displayTitle.trim()
+        : task;
+    console.log('[IPC] task:start:', summarizeForLog(taskTitle), 'threadId:', threadId, 'source:', source, 'executionMode:', executionMode, 'executionTargetKind:', executionTargetKind);
 
     if (!__runtimeAdapter && (source === 'chat' || source === 'mcp')) {
       return getIpcAgentRuntimeApi().startTask(
         {
           task,
+          displayTitle: taskTitle,
           threadId,
           source,
           client: source === 'mcp' ? 'mcp' : 'electron',
@@ -593,6 +606,7 @@ export const IPC_HANDLERS: Record<string, IpcHandler> = {
           params,
           executionMode,
           executionTargetKind,
+          sessionId,
         },
         { mainWindow, previewWindow } satisfies RuntimeIpcContext
       );
@@ -617,6 +631,8 @@ export const IPC_HANDLERS: Record<string, IpcHandler> = {
       }
 
       const handleId = agent.getThreadId();
+      const runId = createTaskEntityId('run');
+      const runSessionId = typeof sessionId === 'string' && sessionId.length > 0 ? sessionId : undefined;
       const route = resolveTaskExecutionRoute({
         task,
         source,
@@ -626,21 +642,22 @@ export const IPC_HANDLERS: Record<string, IpcHandler> = {
       const benchmarkId = typeof params?.benchmarkId === 'string' ? params.benchmarkId : undefined;
       const taskOrchestrator = getTaskOrchestrator();
       const run = taskOrchestrator.startRun({
-        runId: handleId,
+        runId,
         source,
-        title: task,
+        title: taskTitle,
         prompt: task,
         params,
         templateId,
-        sessionId: handleId,
+        sessionId: runSessionId,
         metadata: buildTaskExecutionMetadata({
           source,
           executionMode: route.executionMode,
           templateId,
-          sessionId: handleId,
+          sessionId: runSessionId,
           threadId: handleId,
           visualProvider: route.visualProvider,
           taskRouting: route,
+          extra: { displayTitle: taskTitle },
         }),
       });
 
@@ -648,7 +665,7 @@ export const IPC_HANDLERS: Record<string, IpcHandler> = {
       let pendingApprovalPayload: any = null;
 
       void taskOrchestrator
-        .executeRun(handleId, async () => {
+        .executeRun(runId, async () => {
           if (route.executionMode === 'visual' || route.executionMode === 'hybrid') {
             if (benchmarkId && isMixedBrowserDesktopBenchmark(benchmarkId) && route.executionTarget.kind === 'desktop') {
               const mixedWorkflowTasks = buildMixedWorkflowStepTasks(benchmarkId, task);
@@ -734,7 +751,7 @@ export const IPC_HANDLERS: Record<string, IpcHandler> = {
           }
 
           try {
-            taskOrchestrator.completeRun(handleId, routedResult);
+            taskOrchestrator.completeRun(runId, routedResult);
           } catch (error) {
             console.warn('[IPC] Failed to persist routed result:', error);
           }
@@ -744,7 +761,7 @@ export const IPC_HANDLERS: Record<string, IpcHandler> = {
           const taskError = createTaskResultError(error?.message || String(error));
           if (error?.code === 'APPROVAL_REQUIRED' || pendingApprovalPayload?.pendingApproval) {
             const pendingApproval = pendingApprovalPayload?.pendingApproval || error?.pendingApproval;
-            taskOrchestrator.updateMetadata(handleId, {
+            taskOrchestrator.updateMetadata(runId, {
               approval: {
                 pending: true,
                 requestedAt: Date.now(),
@@ -762,11 +779,11 @@ export const IPC_HANDLERS: Record<string, IpcHandler> = {
                     : [],
               },
             });
-            taskOrchestrator.pauseRun(handleId);
+            taskOrchestrator.pauseRun(runId);
             mainWindow?.webContents.send('task:statusUpdate', { handleId, status: 'waiting_confirm' });
             mainWindow?.webContents.send('task:error', {
               handleId,
-              runId: handleId,
+              runId,
               status: 'waiting_confirm',
               error: {
                 ...taskError,
@@ -780,13 +797,13 @@ export const IPC_HANDLERS: Record<string, IpcHandler> = {
           }
           mainWindow?.webContents.send('task:error', {
             handleId,
-            runId: handleId,
+            runId,
             status: 'failed',
             error: taskError,
           });
           mainWindow?.webContents.send('task:failed', {
             handleId,
-            runId: handleId,
+            runId,
             status: 'failed',
             error: taskError,
           });
@@ -795,6 +812,7 @@ export const IPC_HANDLERS: Record<string, IpcHandler> = {
           return {
             accepted: true,
             handle: handleId,
+            runId,
             run,
             route,
           };
@@ -1916,6 +1934,31 @@ export const IPC_HANDLERS: Record<string, IpcHandler> = {
     }
   },
 
+  'template:createFromSession': async (
+    mainWindow,
+    previewWindow,
+    { sessionId, currentRunId }: { sessionId: string; currentRunId?: string }
+  ) => {
+    try {
+      const session = sessionManager.get(sessionId);
+      if (!session) {
+        return { success: false, error: `Session not found: ${sessionId}` };
+      }
+
+      const repository = getTaskTemplateRepository();
+      const template = await repository.createFromSession({
+        sessionId,
+        sessionName: session.name,
+        currentRunId,
+      });
+
+      return { success: true, data: template };
+    } catch (error: any) {
+      console.error('[IPC] template:createFromSession error:', error);
+      return { success: false, error: error.message };
+    }
+  },
+
   'template:list': async () => {
     try {
       const repository = getTaskTemplateRepository();
@@ -2319,7 +2362,15 @@ export const IPC_HANDLERS: Record<string, IpcHandler> = {
       templateId,
       input,
       executionMode,
-    }: { templateId: string; input?: Record<string, unknown>; executionMode?: 'dom' | 'visual' | 'hybrid' }
+      sessionId,
+      displayTitle,
+    }: {
+      templateId: string;
+      input?: Record<string, unknown>;
+      executionMode?: 'dom' | 'visual' | 'hybrid';
+      sessionId?: string;
+      displayTitle?: string;
+    }
   ) => {
     try {
       const repository = getTaskTemplateRepository();
@@ -2332,10 +2383,15 @@ export const IPC_HANDLERS: Record<string, IpcHandler> = {
 
       const result = await IPC_HANDLERS['task:start'](mainWindow, previewWindow, {
         task: resolved.prompt,
+        displayTitle:
+          typeof displayTitle === 'string' && displayTitle.trim().length > 0
+            ? displayTitle.trim()
+            : `运行模板：${template.name}`,
         source: 'chat',
         templateId,
         params: resolved.params,
         executionMode: executionMode || (template.executionProfile === 'mixed' ? 'hybrid' : 'dom'),
+        sessionId,
       });
 
       return { success: true, data: result };

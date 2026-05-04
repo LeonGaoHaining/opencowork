@@ -422,7 +422,7 @@ function App() {
 
           {/* Chat area */}
           <div
-            className={`flex flex-col overflow-hidden ${previewMode === 'sidebar' ? 'flex-1' : 'w-full'}`}
+            className={`flex min-h-0 flex-col overflow-hidden ${previewMode === 'sidebar' ? 'flex-1' : 'w-full'}`}
           >
             {/* Task status */}
             {task && <TaskStatus task={task} />}
@@ -433,7 +433,7 @@ function App() {
 
           {/* Sidebar - Result and Execution Panels */}
           {previewMode === 'sidebar' && (
-            <div className="w-[40%] border-l border-border bg-surface flex flex-col overflow-hidden">
+            <div className="flex min-h-0 w-[40%] flex-col overflow-hidden border-l border-border bg-surface">
               <ResultPanel embedded />
               <ExecutionStepsPanel embedded />
             </div>

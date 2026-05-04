@@ -116,6 +116,8 @@ export interface TaskTemplate {
   description: string;
   origin?: {
     runId?: string;
+    runIds?: string[];
+    sessionId?: string;
     source?: TaskSource;
     executionMode?: 'dom' | 'visual' | 'hybrid';
   };

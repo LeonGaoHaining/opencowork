@@ -20,10 +20,12 @@ export function TaskStatus({ task }: TaskStatusProps) {
   const visualProviderLabel = currentVisualProvider?.name || currentVisualProvider?.id || null;
 
   return (
-    <div className="px-4 py-3 border-b border-border bg-surface">
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-sm font-medium">{task.description}</span>
-        <span className="text-sm text-text-muted">
+    <div className="min-w-0 border-b border-border bg-surface px-4 py-3">
+      <div className="mb-2 flex min-w-0 items-start justify-between gap-3">
+        <span className="max-h-10 min-w-0 overflow-y-auto break-words text-sm font-medium [overflow-wrap:anywhere]">
+          {task.description}
+        </span>
+        <span className="shrink-0 text-sm text-text-muted">
           {task.progress.current} / {task.progress.total}
         </span>
       </div>
@@ -51,7 +53,7 @@ export function TaskStatus({ task }: TaskStatusProps) {
 
       {/* Current step */}
       {task.currentStep && (
-        <p className="text-xs text-text-muted mt-2">
+        <p className="mt-2 max-h-12 overflow-y-auto break-words text-xs text-text-muted [overflow-wrap:anywhere]">
           当前: {task.currentStep}
         </p>
       )}

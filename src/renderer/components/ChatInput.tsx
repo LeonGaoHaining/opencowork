@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import { useTaskStore } from '../stores/taskStore';
+import { useSessionStore } from '../stores/sessionStore';
 import { useTranslation } from '../i18n/useTranslation';
 
 export function ChatInput() {
   const [input, setInput] = useState('');
   const { addMessage, setTask, task, updateTaskStatus, setCurrentRun, setCurrentResult } =
     useTaskStore();
+  const { activeSessionId } = useSessionStore();
   const { t } = useTranslation();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -49,17 +51,19 @@ export function ChatInput() {
       const result = await window.electron.invoke('task:start', {
         task: taskDescription,
         threadId: continuationThreadId,
+        sessionId: activeSessionId,
       });
       console.log('[Renderer] IPC result:', result);
       const payload = result?.data || result;
       if (result?.success && payload?.accepted) {
-        const handleId = payload?.run?.id || payload?.handle || taskId;
+        const runId = payload?.run?.id || payload?.handle || taskId;
+        const handleId = payload?.handle || runId;
         const visualProvider =
           payload?.run?.metadata?.visualProvider ||
           payload?.route?.visualProvider ||
           null;
         setCurrentRun(
-          handleId,
+          runId,
           payload?.run?.source || 'chat',
           payload?.run?.templateId || null,
           visualProvider

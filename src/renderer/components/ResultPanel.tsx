@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useTaskStore } from '../stores/taskStore';
 import { useSchedulerStore } from '../stores/schedulerStore';
+import { useSessionStore } from '../stores/sessionStore';
 import { useTranslation } from '../i18n/useTranslation';
 import RelationBadge from './RelationBadge';
 import ArtifactViewer from './ArtifactViewer';
@@ -27,11 +28,23 @@ function emitTemplateChanged(detail: TemplateChangeEventDetail): void {
   window.dispatchEvent(new CustomEvent<TemplateChangeEventDetail>('template:changed', { detail }));
 }
 
+function extractTemplatePayload(result: any): { id?: string } | null {
+  const payload = result?.data || result;
+  return payload?.data || payload || null;
+}
+
 export function ResultPanel({ embedded = false }: ResultPanelProps) {
   const { currentResult, currentRunId, currentTemplateId, task, setCurrentResult, openRunsPanel } =
     useTaskStore();
   const { prepareDraftFromTemplate, prepareDraftFromPrompt } = useSchedulerStore();
+  const { activeSessionId } = useSessionStore();
   const { t } = useTranslation();
+  const [isSavingSessionTemplate, setIsSavingSessionTemplate] = useState(false);
+  const [savedSessionTemplateId, setSavedSessionTemplateId] = useState<string | null>(null);
+  const [sessionTemplateMessage, setSessionTemplateMessage] = useState<{
+    type: 'success' | 'error' | 'info';
+    text: string;
+  } | null>(null);
 
   const rawOutputRecord =
     currentResult && currentResult.rawOutput && typeof currentResult.rawOutput === 'object' && !Array.isArray(currentResult.rawOutput)
@@ -55,6 +68,12 @@ export function ResultPanel({ embedded = false }: ResultPanelProps) {
     | undefined;
   const actionContract = extractActionContract(currentResult);
   const skillCandidate = extractSkillCandidate(rawOutputRecord);
+
+  useEffect(() => {
+    setIsSavingSessionTemplate(false);
+    setSavedSessionTemplateId(null);
+    setSessionTemplateMessage(null);
+  }, [currentRunId, currentResult?.id]);
 
   if (!currentResult) {
     return null;
@@ -84,8 +103,9 @@ export function ResultPanel({ embedded = false }: ResultPanelProps) {
       if (currentRunId) {
         const result = await window.electron.invoke('template:createFromRun', { runId: currentRunId });
         const payload = result?.data || result;
+        const template = extractTemplatePayload(result);
         if (result?.success && payload?.success !== false) {
-          emitTemplateChanged({ templateId: payload?.id, source: 'run' });
+          emitTemplateChanged({ templateId: template?.id, source: 'run' });
         }
         return;
       }
@@ -98,11 +118,64 @@ export function ResultPanel({ embedded = false }: ResultPanelProps) {
         executionProfile: 'browser-first',
       });
       const payload = createResult?.data || createResult;
+      const template = extractTemplatePayload(createResult);
       if (createResult?.success && payload?.success !== false) {
-        emitTemplateChanged({ templateId: payload?.id, source: 'manual' });
+        emitTemplateChanged({ templateId: template?.id, source: 'manual' });
       }
     } catch (error) {
       console.error('[ResultPanel] Failed to save template:', error);
+    }
+  };
+
+  const handleSaveSessionTemplate = async () => {
+    if (!activeSessionId) {
+      setSessionTemplateMessage({ type: 'error', text: t('taskPanels.noActiveSession') });
+      return;
+    }
+
+    if (isSavingSessionTemplate) {
+      return;
+    }
+
+    if (savedSessionTemplateId) {
+      setSessionTemplateMessage({
+        type: 'info',
+        text: t('taskPanels.saveSessionTemplateAlreadySaved'),
+      });
+      return;
+    }
+
+    setIsSavingSessionTemplate(true);
+    setSessionTemplateMessage({ type: 'info', text: t('taskPanels.savingSessionTemplate') });
+    try {
+      const result = await window.electron.invoke('template:createFromSession', {
+        sessionId: activeSessionId,
+        currentRunId,
+      });
+      const payload = result?.data || result;
+      const template = extractTemplatePayload(result);
+      if (result?.success && payload?.success !== false) {
+        setSavedSessionTemplateId(template?.id || 'saved');
+        setSessionTemplateMessage({
+          type: 'success',
+          text: t('taskPanels.saveSessionTemplateSuccess'),
+        });
+        emitTemplateChanged({ templateId: template?.id, source: 'run' });
+        return;
+      }
+
+      setSessionTemplateMessage({
+        type: 'error',
+        text: payload?.error || result?.error || t('taskPanels.saveSessionTemplateFailed'),
+      });
+    } catch (error) {
+      console.error('[ResultPanel] Failed to save session template:', error);
+      setSessionTemplateMessage({
+        type: 'error',
+        text: `${t('taskPanels.saveSessionTemplateFailed')}: ${error}`,
+      });
+    } finally {
+      setIsSavingSessionTemplate(false);
     }
   };
 
@@ -125,26 +198,37 @@ export function ResultPanel({ embedded = false }: ResultPanelProps) {
 
   return (
     <div
-      className={`${embedded ? 'border-b border-border bg-surface px-4 py-4' : 'bg-surface/80 px-4 py-4'}`}
+      className={`${embedded ? 'max-h-[45vh] overflow-y-auto border-b border-border bg-surface px-4 py-4' : 'bg-surface/80 px-4 py-4'}`}
     >
       <div className="mb-3 flex items-start justify-between gap-4">
-        <div>
+        <div className="min-w-0 flex-1">
           <div className="text-xs uppercase tracking-wide text-text-muted">
             {t('taskPanels.resultDelivery')}
           </div>
-          <div className="mt-1 text-base font-semibold text-white">{result.summary}</div>
+          <div className="mt-1 max-h-32 overflow-y-auto whitespace-pre-wrap break-words text-base font-semibold text-white [overflow-wrap:anywhere]">
+            {result.summary}
+          </div>
         </div>
         <button
           onClick={() => setCurrentResult(null)}
-          className="rounded px-2 py-1 text-xs text-text-muted hover:bg-border hover:text-white"
+          className="shrink-0 rounded px-2 py-1 text-xs text-text-muted hover:bg-border hover:text-white"
         >
           {t('taskPanels.hide')}
         </button>
       </div>
 
-      <div className="mb-3 flex gap-2">
+      <div className="mb-3 flex flex-wrap gap-2">
         <button onClick={handleSaveTemplate} className="btn btn-secondary text-sm">
           {t('taskPanels.saveAsTemplate')}
+        </button>
+        <button
+          onClick={() => void handleSaveSessionTemplate()}
+          className="btn btn-secondary text-sm"
+          disabled={isSavingSessionTemplate || !!savedSessionTemplateId}
+        >
+          {isSavingSessionTemplate
+            ? t('taskPanels.savingSessionTemplate')
+            : t('taskPanels.saveSessionSuccessTemplate')}
         </button>
         <button onClick={handleAddToScheduler} className="btn btn-secondary text-sm">
           {t('taskPanels.addToScheduler')}
@@ -155,6 +239,20 @@ export function ResultPanel({ embedded = false }: ResultPanelProps) {
           </button>
         )}
       </div>
+
+      {sessionTemplateMessage && (
+        <div
+          className={`mb-3 rounded border px-3 py-2 text-xs ${
+            sessionTemplateMessage.type === 'success'
+              ? 'border-green-700/60 bg-green-900/20 text-green-300'
+              : sessionTemplateMessage.type === 'error'
+                ? 'border-red-700/60 bg-red-900/20 text-red-300'
+                : 'border-border bg-background text-text-secondary'
+          }`}
+        >
+          {sessionTemplateMessage.text}
+        </div>
+      )}
 
       {taskRouting && (
         <div className="mb-3 rounded-lg border border-border bg-background px-3 py-2 text-sm text-text-secondary">
@@ -280,7 +378,7 @@ export function ResultPanel({ embedded = false }: ResultPanelProps) {
           <div className="mb-2 text-xs uppercase tracking-wide text-text-muted">
             {t('taskPanels.structuredData')}
           </div>
-          <div className="rounded-lg border border-border bg-background px-3 py-3 text-xs text-text-secondary">
+          <div className="max-h-48 overflow-y-auto rounded-lg border border-border bg-background px-3 py-3 text-xs text-text-secondary">
             <pre className="whitespace-pre-wrap break-all">
               {JSON.stringify(result.structuredData, null, 2)}
             </pre>
@@ -293,7 +391,7 @@ export function ResultPanel({ embedded = false }: ResultPanelProps) {
           <div className="mb-2 text-xs uppercase tracking-wide text-text-muted">
             {t('taskPanels.visualTrace')}
           </div>
-          <div className="rounded-lg border border-border bg-background px-3 py-3 text-xs text-text-secondary space-y-3">
+          <div className="max-h-72 space-y-3 overflow-y-auto rounded-lg border border-border bg-background px-3 py-3 text-xs text-text-secondary">
             {visualTrace.routeReasons.length > 0 && (
               <div>
                 <span className="text-text-muted">{t('taskPanels.visualRouteReason')}:</span>{' '}
@@ -407,7 +505,7 @@ export function ResultPanel({ embedded = false }: ResultPanelProps) {
           <div className="mb-2 text-xs uppercase tracking-wide text-text-muted">
             {t('taskPanels.artifacts')}
           </div>
-          <div className="space-y-2">
+          <div className="max-h-48 space-y-2 overflow-y-auto">
             {result.artifacts.map((artifact) => (
               <ArtifactViewer
                 key={artifact.id}

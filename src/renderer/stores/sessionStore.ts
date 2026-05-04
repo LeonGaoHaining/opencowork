@@ -47,18 +47,20 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     set({ isLoading: true });
     try {
       if (window.electron) {
-        const { data } = await window.electron.invoke('session:list');
-        if (data?.meta?.sessions) {
-          let sessions = data.meta.sessions;
+        const response = await window.electron.invoke('session:list');
+        const payload = response?.data || response;
+        const meta = payload?.sessions || payload?.meta;
+        if (meta?.sessions) {
+          let sessions = meta.sessions;
           if (sessions.length > MAX_SESSIONS) {
             sessions = sessions.slice(-MAX_SESSIONS);
           }
           set({
             sessions,
-            activeSessionId: data.meta.activeSessionId,
+            activeSessionId: meta.activeSessionId,
           });
-          if (data.meta.activeSessionId) {
-            await get().selectSession(data.meta.activeSessionId);
+          if (meta.activeSessionId) {
+            await get().selectSession(meta.activeSessionId);
           }
         }
       }

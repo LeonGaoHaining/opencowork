@@ -18,6 +18,7 @@ export interface RuntimeCommand {
 
 export interface StartTaskParams {
   task: string;
+  displayTitle?: string;
   source?: string;
   client?: RuntimeClient;
   mode?: RuntimeMode;

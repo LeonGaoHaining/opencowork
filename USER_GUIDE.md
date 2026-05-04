@@ -86,6 +86,14 @@ Result delivery can include:
 - run details,
 - template and scheduler actions.
 
+The result panel also supports saving the successful workflow for the current session. This path only uses completed chat runs from the active session, so failed, cancelled, paused, or confirmation-waiting attempts are not folded into the saved template.
+
+Long summaries, structured data, artifact lists, and visual traces are constrained inside scrollable result sections so one large result does not break the main layout.
+
+### Sessions
+
+Use the session panel to create, select, rename, and delete chat sessions. Creating a new session immediately switches the chat area to that session, clears the current task/result surface, and keeps future prompts attached to the new session without requiring a second click on the session row.
+
 ### History and Runs
 
 Task history stores prior executions, results, steps, and outcomes. The current product direction is result-centric: summaries, artifacts, run links, and template links are more important than raw step logs alone.
@@ -105,10 +113,13 @@ Templates turn successful work into reusable automation.
 You can:
 
 - save a successful run as a template,
+- save the successful runs from the active session as a reusable workflow template,
 - edit template metadata and parameters,
 - run a template again with new inputs,
 - add a template to the scheduler,
 - trigger template-like workflows from IM.
+
+When running a saved template, OpenCowork keeps the full template prompt for execution but shows a short title in chat, task status, and run records. This prevents long workflow prompts from overflowing the chat UI while preserving the real execution input.
 
 ### Skills
 
@@ -120,6 +131,7 @@ Current skill workflows include:
 - browsing available skills,
 - previewing skill metadata,
 - installing or updating skills,
+- uninstalling installed skills from their actual persisted folder,
 - running specialized capabilities such as presentation generation.
 
 ### MCP Client
@@ -229,4 +241,5 @@ Open the target website, collect the pricing table, summarize changes in markdow
 - `docs/ARCHITECTURE.md`
 - `docs/ROADMAP.md`
 - `docs/PRD.md`
+- `docs/RELEASE_v0.14.2.md`
 - `CHANGELOG.md`

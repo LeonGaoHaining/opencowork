@@ -2,6 +2,29 @@
 
 All notable changes to OpenCowork are documented in this file.
 
+## v0.14.2 - 2026-05-04
+
+### Release focus
+
+Ship the current workflow-template, session, and UI hardening slice while keeping the existing open-source commercial direction intact.
+
+### Highlights
+
+- Fixed installed skill uninstall so the backend deletes the real persisted `skill.path`, with compatibility for legacy skill folder locations.
+- Added session-level successful workflow template creation from completed chat runs in the current session, excluding failed, cancelled, paused, or confirmation-waiting attempts.
+- Improved template execution UX by keeping the full prompt for runtime execution while showing short template titles in chat, task status, run titles, and main-process logs.
+- Hardened result delivery, chat messages, task status, and active step rendering against oversized template text and long structured output.
+- Fixed new-session creation so clicking the new session button immediately switches the chat UI, task state, current run, result panel, and active steps to the new session.
+- Updated public documentation and release notes for the current `v0.14.2` release line.
+
+### Verification
+
+- `npm run build`
+
+### Notes
+
+- Commercial direction content in `README.md` and this changelog remains intentionally preserved: OpenCowork stays open source while productizing high-value local AI automation services around the runtime.
+
 ## v0.12.10 - 2026-05-02
 
 ### Release focus

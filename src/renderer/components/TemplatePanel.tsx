@@ -45,6 +45,7 @@ export function TemplatePanel({ isOpen, onClose, preferredTemplateId = null }: T
   const [draftPrompt, setDraftPrompt] = useState('');
   const [draftFields, setDraftFields] = useState<EditableTemplateField[]>([]);
   const [isSaving, setIsSaving] = useState(false);
+  const [isRunningTemplate, setIsRunningTemplate] = useState(false);
   const { t } = useTranslation();
   const { runTemplate } = useHistoryStore();
   const { prepareDraftFromTemplate } = useSchedulerStore();
@@ -102,6 +103,27 @@ export function TemplatePanel({ isOpen, onClose, preferredTemplateId = null }: T
       await loadTemplates();
     } catch (error) {
       console.error('[TemplatePanel] Failed to delete template:', error);
+    }
+  };
+
+  const handleRunTemplate = async (): Promise<void> => {
+    if (!selectedTemplate || !runValidation.valid || isRunningTemplate) {
+      return;
+    }
+
+    setIsRunningTemplate(true);
+    try {
+      await runTemplate(
+        selectedTemplate.id,
+        {
+          prompt: runPrompt,
+          ...runInputValues,
+        },
+        runExecutionMode,
+        selectedTemplate.name
+      );
+    } finally {
+      setIsRunningTemplate(false);
     }
   };
 
@@ -789,16 +811,11 @@ export function TemplatePanel({ isOpen, onClose, preferredTemplateId = null }: T
 
                 <div className="flex gap-2">
                   <button
-                    onClick={() =>
-                      runTemplate(selectedTemplate.id, {
-                        prompt: runPrompt,
-                        ...runInputValues,
-                      }, runExecutionMode)
-                    }
+                    onClick={() => void handleRunTemplate()}
                     className="btn btn-primary text-sm"
-                    disabled={!runValidation.valid}
+                    disabled={!runValidation.valid || isRunningTemplate}
                   >
-                    {t('taskPanels.runTemplate')}
+                    {isRunningTemplate ? t('taskPanels.runningTemplate') : t('taskPanels.runTemplate')}
                   </button>
                   <button onClick={handleAddToScheduler} className="btn btn-secondary text-sm">
                     {t('taskPanels.addToScheduler')}

@@ -50,6 +50,7 @@ The renderer provides the operator-facing product experience:
 - chat input and task lifecycle UI,
 - result consumption and rerun entry points,
 - sidebar result delivery and run inspection,
+- session-scoped chat switching and current-run state reset,
 - live preview,
 - history panel,
 - template panel,
@@ -58,7 +59,7 @@ The renderer provides the operator-facing product experience:
 - MCP panel,
 - settings and control surfaces.
 
-Near-term renderer changes focus on moving result state out of chat messages alone and toward explicit task result state, consistent result sidebars, and reusable task surfaces.
+Near-term renderer changes focus on moving result state out of chat messages alone and toward explicit task result state, consistent result sidebars, reusable task surfaces, and overflow-safe long-content rendering.
 
 ## Main Process Layer
 
@@ -87,7 +88,7 @@ The next architecture milestone introduces a dedicated task orchestration layer 
 
 This layer is the foundation for the `v0.11` result-delivery work, the `v0.12` template and multi-entry reuse work, and the `v0.14` Agent Runtime platformization plan.
 
-The latest `v0.12.x` work also depends on keeping post-run analysis scoped to the current task run, so that task results, run detail views, and skill-generation heuristics are not polluted by previous turns in the same thread.
+The latest `v0.14.x` work also depends on keeping post-run analysis scoped to the current task run or active session, so that task results, run detail views, templates, and skill-generation heuristics are not polluted by unrelated turns.
 
 ## Agent Layer
 
@@ -226,6 +227,7 @@ In practice, the current codebase already persists:
 - result records,
 - history-linked summaries,
 - template definitions built from successful runs,
+- session-scoped workflow templates built from completed chat runs,
 - UI-facing overview metrics composed from history, scheduler, and IM data,
 - IM-delivered attachment files stored locally for task execution and follow-up analysis.
 
@@ -268,7 +270,8 @@ The project currently prioritizes:
 - progressive convergence toward a unified task system,
 - pragmatic extensibility,
 - stable follow-up continuity,
-- safe handling of large tool outputs.
+- safe handling of large tool outputs,
+- session-correct task and result surfaces.
 
 ## Near-Term Technical Focus
 
@@ -284,6 +287,7 @@ The project currently prioritizes:
 - introduce the P0 Hybrid CUA foundation with a unified visual protocol,
 - deepen Hybrid execution recovery, approval, and takeover flows,
 - productize successful browser runs into reusable templates and multi-entry workflows,
+- keep template execution UI short while preserving full prompts for runtime execution,
 - prepare provider-aware routing and platform-level capability abstraction.
 
 ## Related Specs

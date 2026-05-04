@@ -5,6 +5,7 @@ import {
   HistorySearchResult,
 } from '../../history/taskHistory';
 import { useTaskStore } from './taskStore';
+import { useSessionStore } from './sessionStore';
 
 interface HistoryState {
   isOpen: boolean;
@@ -28,7 +29,8 @@ interface HistoryState {
   runTemplate: (
     templateId: string,
     input?: Record<string, unknown>,
-    executionMode?: 'dom' | 'visual' | 'hybrid'
+    executionMode?: 'dom' | 'visual' | 'hybrid',
+    displayTitle?: string
   ) => Promise<void>;
   searchTasks: (query: string) => Promise<void>;
   summarizeSearch: (query: string) => Promise<void>;
@@ -158,9 +160,24 @@ export const useHistoryStore = create<HistoryState>((set, get) => ({
     }
   },
 
-  runTemplate: async (templateId, input, executionMode) => {
+  runTemplate: async (templateId, input, executionMode, displayTitle) => {
     try {
-      const result = await window.electron.invoke('template:run', { templateId, input, executionMode });
+      const activeSessionId = useSessionStore.getState().activeSessionId;
+      const shortTitle = displayTitle?.trim() || '模板任务';
+      const taskDescription = `运行模板：${shortTitle}`;
+      const taskStore = useTaskStore.getState();
+
+      taskStore.addMessage({ role: 'user', content: taskDescription });
+      taskStore.addMessage({ role: 'ai', content: '任务已创建' });
+      taskStore.setCurrentResult(null);
+
+      const result = await window.electron.invoke('template:run', {
+        templateId,
+        input,
+        executionMode,
+        sessionId: activeSessionId,
+        displayTitle: taskDescription,
+      });
       const payload = result?.data?.data || result?.data || result;
       if (!result?.success || payload?.success === false) {
         throw new Error(payload?.error || result?.error || '运行模板失败');
@@ -170,23 +187,25 @@ export const useHistoryStore = create<HistoryState>((set, get) => ({
         payload?.route?.visualProvider ||
         null;
 
-      useTaskStore.getState().setTask({
-        id: payload?.run?.id || payload?.handle || `task-${Date.now()}`,
+      const runId = payload?.runId || payload?.run?.id || payload?.handle || `task-${Date.now()}`;
+      taskStore.setTask({
+        id: payload?.handle || runId,
         status: 'executing',
-        description: payload?.run?.title || '模板任务',
+        description: payload?.run?.title || taskDescription,
         progress: { current: 0, total: 0 },
       });
-      useTaskStore
-        .getState()
-        .setCurrentRun(
-          payload?.run?.id || payload?.handle || null,
-          payload?.run?.source || 'chat',
-          payload?.run?.templateId || templateId,
-          visualProvider
-        );
-      useTaskStore.getState().setCurrentResult(null);
+      taskStore.setCurrentRun(
+        runId,
+        payload?.run?.source || 'chat',
+        payload?.run?.templateId || templateId,
+        visualProvider
+      );
     } catch (error) {
       console.error('[HistoryStore] Failed to run template:', error);
+      useTaskStore.getState().addMessage({
+        role: 'ai',
+        content: `运行模板失败: ${error instanceof Error ? error.message : String(error)}`,
+      });
     }
   },
 
