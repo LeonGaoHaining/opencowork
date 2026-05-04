@@ -1,7 +1,7 @@
 {
   "provider": "openai",
   "model": "gpt-5.4-mini",
-  "apiKey": "9sJoidDMlR8tHEawDYLnklhkitHrUigiVG7yCP0xBzuj0dmWZGS5JQQJ99BHACHYHv6XJ3w3AAAAACOGT2ah",
-  "baseUrl": "https://gpt5eastus2-resource.cognitiveservices.azure.com/openai/v1/",
+  "apiKey": "",
+  "baseUrl": "",
   "timeout": 60000
 }
