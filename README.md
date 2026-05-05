@@ -83,13 +83,6 @@ Highlights:
 Recent product milestones:
 
 - `v0.14.2`: session template save, template-run UI hardening, result overflow fixes, and immediate new-session switching.
-- `v0.14.1`: skill uninstall fix and current skill management release polish.
-- `v0.14.0`: Agent Runtime baseline and release-line alignment.
-- `v0.12.9`: skill panel toolbar wrapping and release polish.
-- `v0.12.8`: Feishu delivery and GPT-5 fixes.
-- `v0.12.7`: desktop smoke and approval updates.
-- `v0.12.6`: P3 platformization and workflow packs.
-- `v0.12.5`: first working Hybrid CUA browser runtime with visual execution and persisted visual trace review.
 
 ## Core Capabilities
 
