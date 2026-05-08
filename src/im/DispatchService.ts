@@ -16,6 +16,13 @@ import { attachTaskRoutingToResult, resolveTaskExecutionRoute } from '../core/ta
 import { getDefaultDesktopUserId } from './desktopBinding';
 import { getBindingStore } from './store/bindingStore';
 import { InProcessAgentRuntimeApi } from '../core/runtime/AgentRuntimeApi';
+import {
+  buildFeishuTaskPrompt,
+  MAX_FEISHU_CONVERSATION_CONTEXT_CHARS,
+  MAX_FEISHU_CONVERSATION_TURNS,
+  truncateFeishuConversationText,
+} from './feishuPrompt';
+import type { FeishuConversationTurn } from './feishuPrompt';
 
 const PRIORITY_MAP: Record<string, number> = {
   low: 10,
@@ -25,6 +32,7 @@ const PRIORITY_MAP: Record<string, number> = {
 
 const MAX_STATUS_MAP_SIZE = 1000;
 const MAX_TASK_QUEUE_SIZE = 500;
+const MAX_FEISHU_CONVERSATION_HISTORY_AGE_MS = 2 * 60 * 60 * 1000;
 
 export class DispatchService extends EventEmitter {
   private bot: IMBot;
@@ -33,6 +41,7 @@ export class DispatchService extends EventEmitter {
   private statusInsertionOrder: string[] = [];
   private recentFileAttachmentsByConversation: Map<string, IMAttachment> = new Map();
   private recentFileAttachment: IMAttachment | null = null;
+  private conversationTurnsByConversation: Map<string, FeishuConversationTurn[]> = new Map();
   private isProcessingQueue = false;
   private runtimeApi: InProcessAgentRuntimeApi;
 
@@ -158,6 +167,13 @@ export class DispatchService extends EventEmitter {
       createdAt: Date.now(),
     };
 
+    this.rememberConversationTurn(task.conversationId, {
+      role: 'user',
+      content: task.description,
+      taskId: task.id,
+      createdAt: task.createdAt,
+    });
+
     this.enqueueTask(task);
     this.statusMap.set(task.id, {
       id: task.id,
@@ -265,6 +281,13 @@ export class DispatchService extends EventEmitter {
         createdAt: Date.now(),
       };
 
+      this.rememberConversationTurn(task.conversationId, {
+        role: 'user',
+        content: task.description,
+        taskId: task.id,
+        createdAt: task.createdAt,
+      });
+
       this.enqueueTask(task);
       this.statusMap.set(task.id, {
         id: task.id,
@@ -323,7 +346,7 @@ export class DispatchService extends EventEmitter {
   }
 
   private async forwardToDesktop(task: DispatchTask): Promise<void> {
-    const prompt = this.buildTaskPrompt(task.description, task.attachments);
+    const prompt = this.buildTaskPrompt(task);
     const response = await this.runtimeApi.startTask({
       task: prompt,
       source: 'im',
@@ -336,6 +359,12 @@ export class DispatchService extends EventEmitter {
     });
 
     if (!response.accepted) {
+      this.rememberConversationTurn(task.conversationId, {
+        role: 'assistant',
+        content: response.error || 'IM runtime task was not accepted',
+        taskId: task.id,
+        createdAt: Date.now(),
+      });
       this.updateTaskStatus(task.id, {
         status: 'failed',
         message: response.error || 'IM runtime task was not accepted',
@@ -365,7 +394,7 @@ export class DispatchService extends EventEmitter {
       }
 
       console.log('[DispatchService] Forwarding task to sharedMainAgent:', task.description);
-      const prompt = this.buildTaskPrompt(task.description, task.attachments);
+      const prompt = this.buildTaskPrompt(task);
       const taskOrchestrator = getTaskOrchestrator();
       const routing = resolveTaskExecutionRoute({
         task: prompt,
@@ -421,6 +450,12 @@ export class DispatchService extends EventEmitter {
       });
 
       if (!taskResult.error) {
+        this.rememberConversationTurn(task.conversationId, {
+          role: 'assistant',
+          content: taskResult.summary || '任务已完成',
+          taskId: task.id,
+          createdAt: taskResult.completedAt,
+        });
         this.updateTaskStatus(task.id, {
           status: 'completed',
           message: task.templateId ? '模板任务执行完成' : '任务执行完成',
@@ -439,6 +474,12 @@ export class DispatchService extends EventEmitter {
         );
         await this.sendTaskArtifacts(task, taskResult);
       } else {
+        this.rememberConversationTurn(task.conversationId, {
+          role: 'assistant',
+          content: taskResult.error.message,
+          taskId: task.id,
+          createdAt: taskResult.completedAt,
+        });
         this.updateTaskStatus(task.id, {
           status: 'failed',
           message: taskResult.error.message,
@@ -457,6 +498,12 @@ export class DispatchService extends EventEmitter {
       }
     } catch (error) {
       console.error('[DispatchService] Forward to desktop failed:', error);
+      this.rememberConversationTurn(task.conversationId, {
+        role: 'assistant',
+        content: `任务执行失败: ${String(error)}`,
+        taskId: task.id,
+        createdAt: Date.now(),
+      });
       this.updateTaskStatus(task.id, {
         status: 'failed',
         message: String(error),
@@ -716,22 +763,39 @@ export class DispatchService extends EventEmitter {
     );
   }
 
-  private buildTaskPrompt(description: string, attachments?: IMAttachment[]): string {
-    if (!attachments || attachments.length === 0) {
-      return description;
-    }
+  private buildTaskPrompt(task: DispatchTask): string {
+    const conversationTurns = this.getConversationTurns(task.conversationId, task.id);
+    return buildFeishuTaskPrompt({
+      description: task.description,
+      attachments: task.attachments,
+      conversationTurns,
+    });
+  }
 
-    const attachmentLines = attachments.map((attachment, index) => {
-      const fields = [
-        `类型: ${attachment.type}`,
-        attachment.fileName ? `文件名: ${attachment.fileName}` : undefined,
-        attachment.mimeType ? `MIME: ${attachment.mimeType}` : undefined,
-        attachment.localPath ? `本地路径: ${attachment.localPath}` : undefined,
-      ].filter(Boolean);
-      return `${index + 1}. ${fields.join(' | ')}`;
+  private getConversationTurns(conversationId: string, excludeTaskId?: string): FeishuConversationTurn[] {
+    const turns = this.conversationTurnsByConversation.get(conversationId) || [];
+    const now = Date.now();
+    const filteredTurns = turns.filter((turn) => now - turn.createdAt <= MAX_FEISHU_CONVERSATION_HISTORY_AGE_MS);
+    const scopedTurns = excludeTaskId ? filteredTurns.filter((turn) => turn.taskId !== excludeTaskId) : filteredTurns;
+    return scopedTurns.slice(-MAX_FEISHU_CONVERSATION_TURNS);
+  }
+
+  private rememberConversationTurn(conversationId: string, turn: FeishuConversationTurn): void {
+    const turns = this.conversationTurnsByConversation.get(conversationId) || [];
+    const now = Date.now();
+    const freshTurns = turns.filter((existing) => now - existing.createdAt <= MAX_FEISHU_CONVERSATION_HISTORY_AGE_MS);
+    freshTurns.push({
+      role: turn.role,
+      content: truncateFeishuConversationText(turn.content, MAX_FEISHU_CONVERSATION_CONTEXT_CHARS),
+      taskId: turn.taskId,
+      createdAt: turn.createdAt,
     });
 
-    return `${description}\n\n附加文件（可直接读取本地路径）:\n${attachmentLines.join('\n')}`;
+    while (freshTurns.length > MAX_FEISHU_CONVERSATION_TURNS) {
+      freshTurns.shift();
+    }
+
+    this.conversationTurnsByConversation.set(conversationId, freshTurns);
   }
 
   private async sendTaskArtifacts(task: DispatchTask, taskResult: TaskResult): Promise<void> {

@@ -1,6 +1,6 @@
 {
   "name": "opencowork",
-  "version": "0.14.2",
+  "version": "0.14.3",
   "description": "Open-source desktop AI agent with browser automation, skills, and MCP support",
   "homepage": "https://opencowork.me",
   "repository": {
@@ -27,7 +27,12 @@
     "lint": "eslint src --ext .ts,.tsx",
     "lint:fix": "eslint src --ext .ts,.tsx --fix",
     "format": "prettier --write \"src/**/*.{ts,tsx}\"",
-    "prepare": "npm run build:main && npm run build:preload"
+    "prepare": "npm run build:main && npm run build:preload",
+    "dist": "npm run build && electron-builder --config electron-builder.json",
+    "dist:linux": "npm run build && electron-builder --config electron-builder.json --linux AppImage",
+    "dist:linux:deb": "npm run build && electron-builder --config electron-builder.json --linux deb",
+    "dist:win": "npm run build && electron-builder --config electron-builder.json --win nsis",
+    "dist:mac": "npm run build && electron-builder --config electron-builder.json --mac dmg"
   },
   "keywords": [
     "ai",
@@ -99,19 +104,26 @@
     "appId": "com.opencowork.app",
     "productName": "OpenCowork",
     "directories": {
-      "output": "release"
+      "output": "release",
+      "buildResources": "build"
     },
     "files": [
       "dist/**/*",
       "package.json"
     ],
+    "extraMetadata": {
+      "main": "dist/main/main/index.js"
+    },
     "mac": {
       "target": "dmg"
     },
     "linux": {
-      "target": "AppImage"
+      "target": [
+        "AppImage"
+      ],
+      "category": "Utility"
     },
-    "windows": {
+    "win": {
       "target": "nsis"
     }
   }

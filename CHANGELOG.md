@@ -2,6 +2,22 @@
 
 All notable changes to OpenCowork are documented in this file.
 
+## v0.14.3 - 2026-05-08
+
+### Release focus
+
+Improve Feishu follow-up handling so repeated messages in the same conversation preserve recent context when forwarded to the agent.
+
+### Highlights
+
+- Added bounded Feishu conversation history to task prompts so follow-up questions keep the recent chat context.
+- Recorded Feishu task outcomes back into the same conversation history to improve continuity across related requests.
+
+### Verification
+
+- `npm run test:run -- src/im/DispatchService.spec.ts`
+- `npm run build:main`
+
 ## v0.14.2 - 2026-05-04
 
 ### Release focus
