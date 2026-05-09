@@ -19,6 +19,7 @@ import { InProcessAgentRuntimeApi } from '../core/runtime/AgentRuntimeApi';
 import { getLLMClient } from '../llm/OpenAIResponses';
 import {
   buildFeishuTaskPrompt,
+  isFeishuAuthorizationClarification,
   isExplicitFeishuCommandText,
   MAX_FEISHU_CONVERSATION_CONTEXT_CHARS,
   MAX_FEISHU_CONVERSATION_TURNS,
@@ -103,6 +104,18 @@ export class DispatchService extends EventEmitter {
     const selectionContext = this.selectionContextByConversation.get(msg.conversationId) || null;
     const normalizedContent = normalizeFeishuConversationText(msg.content);
     const explicitCommand = isExplicitFeishuCommandText(normalizedContent);
+
+    if (this.shouldRememberAuthorizationClarification(msg.conversationId, normalizedContent)) {
+      this.rememberConversationTurn(msg.conversationId, {
+        role: 'user',
+        content: normalizedContent,
+        taskId: this.generateTaskId(),
+        createdAt: Date.now(),
+      });
+      await this.bot.sendMessage(targetId, '已记录你的授权/合规说明。你可以回复“重新执行这个任务”。', chatType);
+      return;
+    }
+
     let selectionReply = resolveFeishuSelectionReply(msg.content, selectionContext);
 
     if (selectionContext && !explicitCommand) {
@@ -438,7 +451,7 @@ export class DispatchService extends EventEmitter {
       const prompt = this.buildTaskPrompt(task);
       const taskOrchestrator = getTaskOrchestrator();
       const routing = resolveTaskExecutionRoute({
-        task: prompt,
+        task: task.description,
         source: 'im',
         executionMode: task.executionMode || undefined,
       });
@@ -484,10 +497,36 @@ export class DispatchService extends EventEmitter {
                 task: prompt,
                 adapterMode: resolveVisualAdapterMode(routing.executionMode, routing.visualProvider),
                 maxTurns: 8,
+                approvalEnabled: false,
                 visualProvider: routing.visualProvider,
               })
             : await agent.run(prompt);
-        return attachTaskRoutingToResult(mapAgentResultToTaskResult(result), routing);
+        const mappedResult = mapAgentResultToTaskResult(result);
+
+        if (mappedResult.error && mappedResult.error.recoverable && routing.executionMode === 'dom' && !task.executionMode) {
+          const fallbackRouting = resolveTaskExecutionRoute({
+            task: task.description,
+            source: 'im',
+            hasPriorDomFailure: true,
+          });
+          this.updateTaskStatus(task.id, {
+            status: 'executing',
+            message: 'DOM 提取失败，正在切换到视觉兜底',
+            runId: task.id,
+            templateId: task.templateId,
+            conversationId: task.conversationId,
+          });
+          const fallbackResult = await executeVisualBrowserTask({
+            task: prompt,
+            adapterMode: resolveVisualAdapterMode(fallbackRouting.executionMode, fallbackRouting.visualProvider),
+            maxTurns: 8,
+            approvalEnabled: false,
+            visualProvider: fallbackRouting.visualProvider,
+          });
+          return attachTaskRoutingToResult(mapAgentResultToTaskResult(fallbackResult), fallbackRouting);
+        }
+
+        return attachTaskRoutingToResult(mappedResult, routing);
       });
 
       if (!taskResult.error) {
@@ -819,6 +858,14 @@ export class DispatchService extends EventEmitter {
     const filteredTurns = turns.filter((turn) => now - turn.createdAt <= MAX_FEISHU_CONVERSATION_HISTORY_AGE_MS);
     const scopedTurns = excludeTaskId ? filteredTurns.filter((turn) => turn.taskId !== excludeTaskId) : filteredTurns;
     return scopedTurns.slice(-MAX_FEISHU_CONVERSATION_TURNS);
+  }
+
+  private shouldRememberAuthorizationClarification(conversationId: string, content: string): boolean {
+    if (!isFeishuAuthorizationClarification(content)) {
+      return false;
+    }
+
+    return this.getConversationTurns(conversationId).length > 0;
   }
 
   private rememberConversationTurn(conversationId: string, turn: FeishuConversationTurn): void {

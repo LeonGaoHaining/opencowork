@@ -1,9 +1,11 @@
 import { generateId } from '../../core/action/ActionSchema';
 import { getLLMConfig } from '../../llm/config';
 import {
+  UIAction,
   VisualAdapterCapabilities,
   VisualAdapterSessionConfig,
   VisualSessionHandle,
+  VisualTurnError,
   VisualTurnRequest,
   VisualTurnResponse,
 } from '../types/visualProtocol';
@@ -12,6 +14,7 @@ import { VisualModelAdapter } from './VisualModelAdapter';
 interface ResponsesApiOutputItem {
   type?: string;
   call_id?: string;
+  action?: Record<string, unknown>;
   actions?: Array<Record<string, unknown>>;
   status?: string;
   content?: Array<{ type?: string; text?: string }>;
@@ -71,7 +74,15 @@ export class ResponsesVisualAdapter implements VisualModelAdapter {
         ? session.providerState.previousResponseId
         : undefined;
 
-    const input = this.buildInput(request);
+    const inputResult = this.buildInput(request, !previousResponseId);
+    if (inputResult.error) {
+      return {
+        status: 'failed',
+        error: inputResult.error,
+      };
+    }
+
+    const input = inputResult.input;
     const controller = new AbortController();
     const timeoutMs = Number(session.providerState?.timeoutMs || 60000);
     const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
@@ -130,7 +141,37 @@ export class ResponsesVisualAdapter implements VisualModelAdapter {
 
   async destroySession(_session: VisualSessionHandle): Promise<void> {}
 
-  private buildInput(request: VisualTurnRequest): Array<Record<string, unknown>> {
+  private buildInput(
+    request: VisualTurnRequest,
+    allowImage: boolean
+  ): { input: Array<Record<string, unknown>>; error?: VisualTurnError } {
+    if (request.providerComputerCallOutput) {
+      if (!request.observation.screenshotBase64) {
+        return {
+          input: [],
+          error: {
+            code: 'RESPONSES_COMPUTER_OUTPUT_MISSING_SCREENSHOT',
+            message: 'Computer call output requires a screenshot observation',
+            recoverable: true,
+          },
+        };
+      }
+
+      const mimeType = request.observation.screenshotMimeType || 'image/png';
+      return {
+        input: [
+          {
+            type: 'computer_call_output',
+            call_id: request.providerComputerCallOutput.callId,
+            output: {
+              type: 'input_image',
+              image_url: `data:${mimeType};base64,${request.observation.screenshotBase64}`,
+            },
+          },
+        ],
+      };
+    }
+
     const text = [
       request.taskContext.task,
       request.taskContext.instruction,
@@ -146,7 +187,7 @@ export class ResponsesVisualAdapter implements VisualModelAdapter {
       },
     ];
 
-    if (request.observation.screenshotBase64) {
+    if (allowImage && request.observation.screenshotBase64) {
       const mimeType = request.observation.screenshotMimeType || 'image/png';
       input[0].content = [
         ...(input[0].content as Array<Record<string, unknown>>),
@@ -157,15 +198,33 @@ export class ResponsesVisualAdapter implements VisualModelAdapter {
       ];
     }
 
-    return input;
+    return { input };
   }
 
   private parseResponse(payload: ResponsesApiResponse): VisualTurnResponse {
     const computerCall = payload.output?.find((item) => item.type === 'computer_call');
-    if (computerCall?.actions && computerCall.actions.length > 0) {
+    const computerActions = this.extractComputerActions(computerCall);
+    if (computerCall && computerActions.length > 0) {
+      if (!computerCall.call_id) {
+        return {
+          status: 'failed',
+          error: {
+            code: 'RESPONSES_COMPUTER_CALL_MISSING_ID',
+            message: 'Responses API returned a computer_call without call_id',
+            recoverable: true,
+          },
+          rawProviderResponse: payload,
+        };
+      }
+
       return {
         status: 'actions_proposed',
-        actions: computerCall.actions as any,
+        actions: computerActions,
+        providerComputerCall: {
+          type: 'computer_call',
+          callId: computerCall.call_id,
+          rawProviderItem: computerCall,
+        },
         rawProviderResponse: payload,
       };
     }
@@ -194,5 +253,21 @@ export class ResponsesVisualAdapter implements VisualModelAdapter {
       },
       rawProviderResponse: payload,
     };
+  }
+
+  private extractComputerActions(computerCall: ResponsesApiOutputItem | undefined): UIAction[] {
+    if (!computerCall) {
+      return [];
+    }
+
+    if (Array.isArray(computerCall.actions)) {
+      return computerCall.actions as unknown as UIAction[];
+    }
+
+    if (computerCall.action && typeof computerCall.action === 'object') {
+      return [computerCall.action as unknown as UIAction];
+    }
+
+    return [];
   }
 }

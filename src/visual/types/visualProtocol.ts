@@ -79,12 +79,24 @@ export interface VisualObservation {
   textualHints?: string;
 }
 
+export interface ProviderComputerCall {
+  type: 'computer_call';
+  callId: string;
+  rawProviderItem?: unknown;
+}
+
+export interface ProviderComputerCallOutput {
+  type: 'computer_call_output';
+  callId: string;
+}
+
 export interface VisualTurnRequest {
   runId: string;
   turnId: string;
   taskContext: VisualTaskContext;
   observation: VisualObservation;
   allowedActions: UIActionType[];
+  providerComputerCallOutput?: ProviderComputerCallOutput;
 }
 
 export type VisualTurnStatus = 'needs_observation' | 'actions_proposed' | 'completed' | 'failed';
@@ -102,6 +114,7 @@ export interface VisualTurnResponse {
   modelMessage?: string;
   error?: VisualTurnError;
   rawProviderResponse?: unknown;
+  providerComputerCall?: ProviderComputerCall;
 }
 
 export interface VisualAdapterCapabilities {

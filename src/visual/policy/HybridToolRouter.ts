@@ -42,17 +42,17 @@ const GENERIC_SELECTOR_PATTERNS = [
 
 export class HybridToolRouter {
   decide(input: HybridRouteInput): HybridRouteDecision {
-    if (input.requiresStrictExtraction) {
-      return {
-        mode: 'dom',
-        reason: 'Strict extraction tasks should stay on the DOM-first path',
-      };
-    }
-
     if (input.hasPriorDomFailure) {
       return {
         mode: 'hybrid',
         reason: 'Previous DOM failure suggests visual fallback should be enabled',
+      };
+    }
+
+    if (input.requiresStrictExtraction) {
+      return {
+        mode: 'dom',
+        reason: 'Structured extraction tasks should start on the DOM-first path',
       };
     }
 

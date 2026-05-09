@@ -4,6 +4,7 @@ import {
   ComputerUseRunInput,
   ComputerUseRunResult,
   RecoveryDetail,
+  ProviderComputerCallOutput,
   UIAction,
   UIActionType,
   VisualObservation,
@@ -80,6 +81,7 @@ export class ComputerUseRuntime {
     const recoveryDetails: RecoveryDetail[] = [];
     let totalDurationMs = 0;
     let previousObservation: string | undefined;
+    let pendingComputerCallOutput: ProviderComputerCallOutput | undefined;
 
     for (let index = 0; index < input.maxTurns; index++) {
       const turnId = generateId();
@@ -100,7 +102,9 @@ export class ComputerUseRuntime {
         taskContext,
         observation,
         allowedActions,
+        providerComputerCallOutput: pendingComputerCallOutput,
       });
+      pendingComputerCallOutput = undefined;
 
       const turn = this.createTurn(turnId, observation.textualHints, response, Date.now() - startedAt);
       totalDurationMs += turn.duration;
@@ -193,6 +197,12 @@ export class ComputerUseRuntime {
         const execution = await this.computer.executeActions(response.actions);
         turn.executedActions = execution.executed;
         executedActionCount += execution.executed.length;
+        if (response.providerComputerCall) {
+          pendingComputerCallOutput = {
+            type: 'computer_call_output',
+            callId: response.providerComputerCall.callId,
+          };
+        }
         const verification = execution.success
           ? await this.verifyActionEffect(observation, response.actions)
           : null;

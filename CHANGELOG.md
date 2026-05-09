@@ -2,6 +2,25 @@
 
 All notable changes to OpenCowork are documented in this file.
 
+## v0.14.4 - 2026-05-09
+
+### Release focus
+
+Stabilize Feishu follow-up handling, preserve user authorization context, and make the browser visual/computer-use execution path more reliable.
+
+### Highlights
+
+- Preserved authorization clarifications in Feishu conversation history so follow-up retries keep the user's explicit approval intent.
+- Updated the main agent execution contract to treat explicit authorization for public data collection as executable work instead of an automatic refusal.
+- Added DOM-first routing for structured extraction tasks, with fallback to hybrid visual execution only when DOM parsing fails.
+- Implemented the Responses computer-use protocol closed loop with `computer_call` parsing and `computer_call_output` continuation handling.
+- Added regression coverage for Feishu authorization context, DOM-first routing, and Responses computer-call continuation.
+
+### Verification
+
+- `npm run build:main`
+- `npx vitest run src/im/feishuPrompt.test.ts src/im/__tests__/DispatchService.test.ts src/core/task/__tests__/taskRouting.test.ts src/visual/runtime/__tests__/ComputerUseRuntime.test.ts src/visual/__tests__/VisualAutomationService.test.ts`
+
 ## v0.14.3 - 2026-05-08
 
 ### Release focus

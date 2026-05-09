@@ -40,6 +40,47 @@ export interface ResolveTaskExecutionRouteInput {
 
 const hybridToolRouter = new HybridToolRouter();
 
+const STRUCTURED_EXTRACTION_PATTERNS = [
+  /提取/,
+  /解析/,
+  /抓取/,
+  /采集/,
+  /配置/,
+  /车型\s*ID/i,
+  /车系\s*ID/i,
+  /链接/,
+  /列表/,
+  /页面结构/,
+  /页面文本/,
+  /html/i,
+  /dom/i,
+  /url/i,
+];
+
+const IMAGE_UNDERSTANDING_PATTERNS = [
+  /识别图片/,
+  /图片识别/,
+  /视觉识别/,
+  /轮胎特写/,
+  /清晰度/,
+  /轮胎品牌/,
+  /规格型号/,
+  /轮胎花纹/,
+  /花纹/,
+];
+
+export function isStructuredExtractionTask(task: string): boolean {
+  return STRUCTURED_EXTRACTION_PATTERNS.some((pattern) => pattern.test(task));
+}
+
+export function isImageUnderstandingTask(task: string): boolean {
+  return IMAGE_UNDERSTANDING_PATTERNS.some((pattern) => pattern.test(task));
+}
+
+function getCurrentIntentText(task: string): string {
+  return task.split(/上一轮|最近会话历史|飞书会话上下文|AI:/)[0] || task;
+}
+
 function deriveExecutionTarget(
   executionMode: TaskExecutionMode,
   executionTargetKind?: TaskExecutionTargetKind
@@ -145,6 +186,11 @@ export function resolveTaskExecutionRoute(
   input: ResolveTaskExecutionRouteInput
 ): TaskExecutionRoute {
   const isDesktopTarget = input.executionTargetKind === 'desktop';
+  const currentIntentText = getCurrentIntentText(input.task);
+  const requiresStrictExtraction =
+    input.requiresStrictExtraction ??
+    (isStructuredExtractionTask(currentIntentText) && !isImageUnderstandingTask(currentIntentText));
+  const isVisualTask = input.isVisualTask ?? isImageUnderstandingTask(currentIntentText);
 
   if (input.executionMode) {
     let routeMode: TaskExecutionRoute['routeMode'] =
@@ -179,8 +225,8 @@ export function resolveTaskExecutionRoute(
   const decision = hybridToolRouter.decide({
     task: input.task,
     hasPriorDomFailure: input.hasPriorDomFailure,
-    isVisualTask: input.isVisualTask,
-    requiresStrictExtraction: input.requiresStrictExtraction,
+    isVisualTask,
+    requiresStrictExtraction,
   });
   const visualProviderRequirements: ProviderRoutingRequirements | null =
     (isDesktopTarget && decision.mode === 'dom')

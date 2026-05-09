@@ -7,6 +7,7 @@ export interface VisualBrowserTaskParams {
   task: string;
   adapterMode?: 'chat-structured' | 'responses-computer';
   maxTurns?: number;
+  approvalEnabled?: boolean;
   visualProvider?: TaskVisualProviderSelection | null;
   executionTarget?: ComputerExecutionTarget | null;
 }
@@ -39,6 +40,7 @@ export async function executeVisualBrowserTask(
     task: params.task,
     adapterMode: params.adapterMode || params.visualProvider?.adapterMode,
     maxTurns: params.maxTurns,
+    approvalEnabled: params.approvalEnabled,
     visualProvider: params.visualProvider || undefined,
     executionTarget: params.executionTarget || undefined,
   });

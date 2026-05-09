@@ -181,6 +181,25 @@ export function isExplicitFeishuCommandText(content: unknown): boolean {
   );
 }
 
+export function isFeishuAuthorizationClarification(content: unknown): boolean {
+  const normalized = normalizeFeishuConversationText(content);
+  if (!normalized) {
+    return false;
+  }
+
+  return [
+    '合规',
+    '已授权',
+    '授权',
+    '允许执行',
+    '可以执行',
+    '不用考虑合规',
+    '不需要考虑合规',
+    '这是合规的任务',
+    '这是合法的任务',
+  ].some((keyword) => normalized.includes(keyword));
+}
+
 export interface FeishuSelectionLLMDecision {
   kind: 'select' | 'new_task' | 'uncertain';
   selectedIndex?: number | string;

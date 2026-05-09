@@ -5,7 +5,7 @@ interface AgentLikeResult {
   success: boolean;
   output?: unknown;
   actionContract?: unknown;
-  error?: string;
+  error?: unknown;
   finalMessage?: string;
   steps?: Array<{
     toolName?: string;
@@ -54,6 +54,40 @@ export function createTaskResultError(message: string, code: string = 'TASK_FAIL
     code,
     message,
     recoverable: true,
+  };
+}
+
+function stringifyAgentError(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  if (typeof error === 'string') {
+    return error;
+  }
+
+  if (error && typeof error === 'object') {
+    const maybeMessage = (error as Record<string, unknown>).message;
+    if (typeof maybeMessage === 'string') {
+      return maybeMessage;
+    }
+
+    try {
+      return JSON.stringify(error);
+    } catch {
+      return String(error);
+    }
+  }
+
+  return error == null ? '' : String(error);
+}
+
+function createTaskResultErrorFromAgent(error: unknown): TaskResultError {
+  const record = error && typeof error === 'object' ? (error as Record<string, unknown>) : null;
+  return {
+    code: typeof record?.code === 'string' ? record.code : 'TASK_FAILED',
+    message: stringifyAgentError(error) || '任务执行失败',
+    recoverable: typeof record?.recoverable === 'boolean' ? record.recoverable : true,
   };
 }
 
@@ -319,10 +353,11 @@ export function mapAgentResultToTaskResult(agentResult: AgentLikeResult): TaskRe
   const visualTrace = collectVisualTrace(agentResult);
   const visualMetrics = collectVisualMetrics(agentResult);
   const actionContract = normalizeActionContract(agentResult.actionContract);
+  const errorMessage = stringifyAgentError(agentResult.error);
   const summary =
     agentResult.finalMessage ||
     (typeof agentResult.output === 'string' ? agentResult.output : '') ||
-    (agentResult.success ? '任务已完成' : agentResult.error || '任务执行失败');
+    (agentResult.success ? '任务已完成' : errorMessage || '任务执行失败');
 
   return {
     id: createTaskEntityId('result'),
@@ -331,7 +366,7 @@ export function mapAgentResultToTaskResult(agentResult: AgentLikeResult): TaskRe
     artifacts: buildStructuredArtifacts(summary, agentResult.output),
     rawOutput: buildRawOutput(agentResult.output, visualTrace, visualMetrics, actionContract),
     actionContract,
-    error: agentResult.success ? undefined : createTaskResultError(agentResult.error || '任务执行失败'),
+    error: agentResult.success ? undefined : createTaskResultErrorFromAgent(agentResult.error),
     reusable: !!agentResult.success,
     completedAt,
   };
