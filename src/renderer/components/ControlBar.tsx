@@ -194,7 +194,7 @@ export function ControlBar({ onSkillClick, onMCPClick, onTemplateClick, onRunsCl
       const payload = result?.data || result;
 
       if (!payload?.handled) {
-        alert(payload?.message || '未检测到登录弹窗');
+        alert(payload?.message || t('controlBar.loginPopupNotDetected'));
       }
     } catch (error) {
       console.error('Check login error:', error);
@@ -378,7 +378,6 @@ export function ControlBar({ onSkillClick, onMCPClick, onTemplateClick, onRunsCl
 
         <button
           onClick={() => {
-            console.log('技能按钮被点击');
             onSkillClick();
           }}
           className="btn btn-secondary"
@@ -423,7 +422,7 @@ export function ControlBar({ onSkillClick, onMCPClick, onTemplateClick, onRunsCl
         <button
           onClick={onSettingsClick}
           className="btn btn-secondary"
-          title={t('settings.title') || '设置'}
+          title={t('settings.title')}
         >
           <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path
@@ -433,13 +432,13 @@ export function ControlBar({ onSkillClick, onMCPClick, onTemplateClick, onRunsCl
               d="M10.325 4.317c1.86-1.28 4.827-1.28 6.687 0M19 12h-2M12 19v-2m0-9V5m0 7h-2m9 0a9 9 0 11-18 0 9 9 0 0118 0z"
             />
           </svg>
-          {t('settings.title') || '设置'}
+          {t('settings.title')}
         </button>
 
         <button
           onClick={onOverviewClick}
           className="btn btn-secondary"
-          title="概览"
+          title={t('overview.title')}
         >
           <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path
@@ -449,7 +448,7 @@ export function ControlBar({ onSkillClick, onMCPClick, onTemplateClick, onRunsCl
               d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
             />
           </svg>
-          概览
+          {t('overview.title')}
         </button>
 
         {/* Language Switcher */}
@@ -461,7 +460,7 @@ export function ControlBar({ onSkillClick, onMCPClick, onTemplateClick, onRunsCl
           }
         >
           <option value="en">EN</option>
-          <option value="zh">中文</option>
+          <option value="zh">{t('language.zh')}</option>
         </select>
       </div>
 

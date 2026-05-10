@@ -1,17 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
+import './i18n';
+import { useTranslation } from './i18n/useTranslation';
 
 function Preview() {
+  const { t } = useTranslation();
   const [screenshot, setScreenshot] = useState<string | null>(null);
-  const [status, setStatus] = useState('等待任务执行...');
+  const [status, setStatus] = useState(t('preview.waiting'));
 
   useEffect(() => {
     const unsubscribe = window.electron.onScreenshot((data) => {
       setScreenshot(data.screenshot);
-      setStatus('截图已更新');
+      setStatus(t('preview.updated'));
     });
     return unsubscribe;
-  }, []);
+  }, [t]);
 
   return (
     <div style={{
@@ -27,7 +30,7 @@ function Preview() {
       {screenshot ? (
         <img
           src={`data:image/png;base64,${screenshot}`}
-          alt="Preview"
+          alt={t('preview.alt')}
           style={{
             maxWidth: '100%',
             maxHeight: '100%',
@@ -37,7 +40,7 @@ function Preview() {
         />
       ) : (
         <div style={{ color: '#A1A1AA', textAlign: 'center' }}>
-          <h2 style={{ color: '#fff', marginBottom: '10px' }}>Preview Window</h2>
+          <h2 style={{ color: '#fff', marginBottom: '10px' }}>{t('preview.title')}</h2>
           <p>{status}</p>
         </div>
       )}

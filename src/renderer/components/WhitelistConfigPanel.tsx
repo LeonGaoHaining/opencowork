@@ -8,6 +8,7 @@ import {
   getRiskLevelColor,
   DEFAULT_WHITELIST_CONFIG,
 } from '../../config/whitelistConfig';
+import { useTranslation } from '../i18n/useTranslation';
 
 type TabType = 'cli' | 'paths' | 'agents' | 'network';
 
@@ -17,6 +18,7 @@ interface WhitelistConfigPanelProps {
 }
 
 export function WhitelistConfigPanel({ isOpen, onClose }: WhitelistConfigPanelProps) {
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<TabType>('cli');
   const [config, setConfig] = useState<WhitelistConfig>(DEFAULT_WHITELIST_CONFIG);
   const [isLoading, setIsLoading] = useState(false);
@@ -47,19 +49,19 @@ export function WhitelistConfigPanel({ isOpen, onClose }: WhitelistConfigPanelPr
     try {
       const result = await window.electron.invoke('whitelist:save', { config });
       if (result.success) {
-        setMessage({ type: 'success', text: '配置保存成功' });
+        setMessage({ type: 'success', text: t('whitelist.saveSuccess') });
       } else {
         setMessage({ type: 'error', text: result.validation.errors.join(', ') });
       }
     } catch (error) {
-      setMessage({ type: 'error', text: `保存失败: ${error}` });
+      setMessage({ type: 'error', text: t('whitelist.saveFailed', { message: String(error) }) });
     } finally {
       setIsSaving(false);
     }
   };
 
   const handleReset = async () => {
-    if (confirm('确定重置为默认配置？')) {
+    if (confirm(t('whitelist.confirmReset'))) {
       setConfig(DEFAULT_WHITELIST_CONFIG);
       await handleSave();
     }
@@ -123,7 +125,7 @@ export function WhitelistConfigPanel({ isOpen, onClose }: WhitelistConfigPanelPr
         {/* Header */}
         <div className="h-14 flex items-center justify-between px-4 border-b border-border">
           <div className="flex items-center gap-4">
-            <h2 className="text-lg font-semibold text-white">白名单配置</h2>
+            <h2 className="text-lg font-semibold text-white">{t('whitelist.configTitle')}</h2>
             {message && (
               <span
                 className={`text-sm ${
@@ -162,23 +164,17 @@ export function WhitelistConfigPanel({ isOpen, onClose }: WhitelistConfigPanelPr
                     : 'text-text-muted hover:text-white hover:bg-border'
                 }`}
               >
-                {tab === 'cli'
-                  ? 'CLI 命令'
-                  : tab === 'paths'
-                    ? '路径访问'
-                    : tab === 'agents'
-                      ? 'Agent 工具'
-                      : '网络访问'}
+                {t(`whitelist.tabs.${tab}`)}
               </button>
             ))}
           </div>
           <div className="flex-1" />
           <div className="flex gap-2">
             <button onClick={handleReset} className="btn btn-secondary text-sm">
-              重置
+              {t('whitelist.reset')}
             </button>
             <button onClick={handleSave} disabled={isSaving} className="btn btn-primary text-sm">
-              {isSaving ? '保存中...' : '保存'}
+              {isSaving ? t('common.loading') : t('schedulerPanel.save')}
             </button>
           </div>
         </div>
@@ -186,7 +182,7 @@ export function WhitelistConfigPanel({ isOpen, onClose }: WhitelistConfigPanelPr
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-4">
           {isLoading ? (
-            <div className="flex items-center justify-center h-32 text-text-muted">加载中...</div>
+            <div className="flex items-center justify-center h-32 text-text-muted">{t('common.loading')}</div>
           ) : (
             <>
               {/* CLI Commands Tab */}
@@ -194,7 +190,7 @@ export function WhitelistConfigPanel({ isOpen, onClose }: WhitelistConfigPanelPr
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <span className="text-sm text-white">启用 CLI 白名单</span>
+                      <span className="text-sm text-white">{t('whitelist.enableCli')}</span>
                       <label className="relative inline-flex items-center cursor-pointer">
                         <input
                           type="checkbox"
@@ -217,16 +213,16 @@ export function WhitelistConfigPanel({ isOpen, onClose }: WhitelistConfigPanelPr
                       <thead className="bg-elevated">
                         <tr>
                           <th className="text-left px-4 py-2 text-sm font-medium text-text-muted">
-                            命令
+                            {t('whitelist.command')}
                           </th>
                           <th className="text-left px-4 py-2 text-sm font-medium text-text-muted">
-                            参数
+                            {t('whitelist.args')}
                           </th>
                           <th className="text-left px-4 py-2 text-sm font-medium text-text-muted">
-                            风险等级
+                            {t('whitelist.riskLevel')}
                           </th>
                           <th className="text-center px-4 py-2 text-sm font-medium text-text-muted">
-                            启用
+                            {t('whitelist.enabled')}
                           </th>
                         </tr>
                       </thead>
@@ -249,7 +245,7 @@ export function WhitelistConfigPanel({ isOpen, onClose }: WhitelistConfigPanelPr
                                   })
                                 }
                                 className="w-full bg-background border border-border rounded px-2 py-1 text-sm text-white"
-                                placeholder="参数列表"
+                                placeholder={t('whitelist.argsPlaceholder')}
                               />
                             </td>
                             <td className="px-4 py-2">
@@ -262,10 +258,10 @@ export function WhitelistConfigPanel({ isOpen, onClose }: WhitelistConfigPanelPr
                                 }
                                 className={`px-2 py-1 rounded text-sm border ${getRiskLevelBadgeClass(cmd.riskLevel)} border-transparent`}
                               >
-                                <option value="low">低</option>
-                                <option value="medium">中</option>
-                                <option value="high">高</option>
-                                <option value="critical">极高</option>
+                                <option value="low">{t('whitelist.risk.low')}</option>
+                                <option value="medium">{t('whitelist.risk.medium')}</option>
+                                <option value="high">{t('whitelist.risk.high')}</option>
+                                <option value="critical">{t('whitelist.risk.critical')}</option>
                               </select>
                             </td>
                             <td className="px-4 py-2 text-center">
@@ -291,7 +287,7 @@ export function WhitelistConfigPanel({ isOpen, onClose }: WhitelistConfigPanelPr
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <span className="text-sm text-white">启用路径白名单</span>
+                      <span className="text-sm text-white">{t('whitelist.enablePaths')}</span>
                       <label className="relative inline-flex items-center cursor-pointer">
                         <input
                           type="checkbox"
@@ -314,19 +310,19 @@ export function WhitelistConfigPanel({ isOpen, onClose }: WhitelistConfigPanelPr
                       <thead className="bg-elevated">
                         <tr>
                           <th className="text-left px-4 py-2 text-sm font-medium text-text-muted">
-                            路径
+                            {t('whitelist.path')}
                           </th>
                           <th className="text-center px-4 py-2 text-sm font-medium text-text-muted">
-                            读取
+                            {t('whitelist.read')}
                           </th>
                           <th className="text-center px-4 py-2 text-sm font-medium text-text-muted">
-                            写入
+                            {t('whitelist.write')}
                           </th>
                           <th className="text-center px-4 py-2 text-sm font-medium text-text-muted">
-                            执行
+                            {t('whitelist.execute')}
                           </th>
                           <th className="text-center px-4 py-2 text-sm font-medium text-text-muted">
-                            启用
+                            {t('whitelist.enabled')}
                           </th>
                         </tr>
                       </thead>
@@ -398,7 +394,7 @@ export function WhitelistConfigPanel({ isOpen, onClose }: WhitelistConfigPanelPr
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <span className="text-sm text-white">启用 Agent 工具白名单</span>
+                      <span className="text-sm text-white">{t('whitelist.enableAgents')}</span>
                       <label className="relative inline-flex items-center cursor-pointer">
                         <input
                           type="checkbox"
@@ -415,7 +411,7 @@ export function WhitelistConfigPanel({ isOpen, onClose }: WhitelistConfigPanelPr
                       </label>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="text-sm text-text-muted">最大步数/任务:</span>
+                      <span className="text-sm text-text-muted">{t('whitelist.maxStepsPerTask')}</span>
                       <input
                         type="number"
                         value={config.agents.maxStepsPerTask || 100}
@@ -438,13 +434,13 @@ export function WhitelistConfigPanel({ isOpen, onClose }: WhitelistConfigPanelPr
                       <thead className="bg-elevated">
                         <tr>
                           <th className="text-left px-4 py-2 text-sm font-medium text-text-muted">
-                            工具名称
+                            {t('whitelist.toolName')}
                           </th>
                           <th className="text-left px-4 py-2 text-sm font-medium text-text-muted">
-                            描述
+                            {t('whitelist.description')}
                           </th>
                           <th className="text-center px-4 py-2 text-sm font-medium text-text-muted">
-                            启用
+                            {t('whitelist.enabled')}
                           </th>
                         </tr>
                       </thead>
@@ -462,7 +458,7 @@ export function WhitelistConfigPanel({ isOpen, onClose }: WhitelistConfigPanelPr
                                   updateAgentTool(index, { description: e.target.value })
                                 }
                                 className="w-full bg-background border border-border rounded px-2 py-1 text-sm text-white"
-                                placeholder="描述"
+                                placeholder={t('whitelist.description')}
                               />
                             </td>
                             <td className="px-4 py-2 text-center">
@@ -488,7 +484,7 @@ export function WhitelistConfigPanel({ isOpen, onClose }: WhitelistConfigPanelPr
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <span className="text-sm text-white">启用网络白名单</span>
+                      <span className="text-sm text-white">{t('whitelist.enableNetwork')}</span>
                       <label className="relative inline-flex items-center cursor-pointer">
                         <input
                           type="checkbox"
@@ -507,16 +503,16 @@ export function WhitelistConfigPanel({ isOpen, onClose }: WhitelistConfigPanelPr
                   </div>
 
                   <div>
-                    <h3 className="text-sm font-medium text-white mb-2">允许的主机</h3>
+                    <h3 className="text-sm font-medium text-white mb-2">{t('whitelist.allowedHosts')}</h3>
                     <div className="border border-border rounded-lg overflow-hidden">
                       <table className="w-full">
                         <thead className="bg-elevated">
                           <tr>
                             <th className="text-left px-4 py-2 text-sm font-medium text-text-muted">
-                              主机
+                              {t('whitelist.host')}
                             </th>
                             <th className="text-center px-4 py-2 text-sm font-medium text-text-muted">
-                              启用
+                              {t('whitelist.enabled')}
                             </th>
                           </tr>
                         </thead>
@@ -552,7 +548,7 @@ export function WhitelistConfigPanel({ isOpen, onClose }: WhitelistConfigPanelPr
                   </div>
 
                   <div>
-                    <h3 className="text-sm font-medium text-white mb-2">阻止的端口</h3>
+                    <h3 className="text-sm font-medium text-white mb-2">{t('whitelist.blockedPorts')}</h3>
                     <div className="flex flex-wrap gap-2">
                       {[22, 3389, 3306, 5432, 27017, 6379].map((port) => (
                         <label

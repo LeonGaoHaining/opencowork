@@ -374,7 +374,7 @@ export function TaskRunsPanel({ isOpen, onClose }: TaskRunsPanelProps) {
                         </div>
                         {selectedVisualProviderSelection.reasons.length > 0 && (
                           <div className="mt-1">
-                            <div className="mb-1">reasons</div>
+                            <div className="mb-1">{t('taskPanels.reasons')}</div>
                             <ul className="list-disc pl-4 text-text-secondary">
                               {selectedVisualProviderSelection.reasons.map((reason) => (
                                 <li key={reason}>{reason}</li>
@@ -397,7 +397,7 @@ export function TaskRunsPanel({ isOpen, onClose }: TaskRunsPanelProps) {
                   </div>
                   {selectedExecutionTarget && (
                     <div className="rounded-lg border border-border bg-background px-3 py-2">
-                      <div className="text-xs text-text-muted">execution target</div>
+                      <div className="text-xs text-text-muted">{t('taskPanels.executionTarget')}</div>
                       <div className="mt-1 text-white">
                         {selectedExecutionTarget.kind || 'browser'} · {selectedExecutionTarget.environment || 'playwright'}
                       </div>
@@ -405,7 +405,7 @@ export function TaskRunsPanel({ isOpen, onClose }: TaskRunsPanelProps) {
                   )}
                   {selectedActionContract && (
                     <div className="rounded-lg border border-border bg-background px-3 py-2">
-                      <div className="text-xs text-text-muted">desktop contract</div>
+                      <div className="text-xs text-text-muted">{t('taskPanels.desktopContract')}</div>
                       <div className="mt-1 text-white">
                         {selectedActionContract.supportedActions?.join(', ') || 'none'}
                       </div>
@@ -504,7 +504,7 @@ export function TaskRunsPanel({ isOpen, onClose }: TaskRunsPanelProps) {
 
                 {(lifecycleDetails.approval || lifecycleDetails.takeover) && (
                   <div className="rounded-lg border border-border bg-background px-3 py-3">
-                    <div className="text-xs uppercase tracking-wide text-text-muted mb-2">Lifecycle</div>
+                    <div className="text-xs uppercase tracking-wide text-text-muted mb-2">{t('taskPanels.lifecycle')}</div>
                     <div className="space-y-3 text-sm text-text-secondary">
                       {lifecycleDetails.approval && (
                         <div>
@@ -512,7 +512,7 @@ export function TaskRunsPanel({ isOpen, onClose }: TaskRunsPanelProps) {
                           <div className="mt-1 space-y-1">
                             {typeof lifecycleDetails.approval.pending === 'boolean' && (
                               <div>
-                                <span className="text-text-muted">pending:</span>{' '}
+                                <span className="text-text-muted">{t('taskPanels.pending')}:</span>{' '}
                                 <span className="text-white">
                                   {lifecycleDetails.approval.pending ? 'yes' : 'no'}
                                 </span>
@@ -520,7 +520,7 @@ export function TaskRunsPanel({ isOpen, onClose }: TaskRunsPanelProps) {
                             )}
                             {typeof lifecycleDetails.approval.approved === 'boolean' && (
                               <div>
-                                <span className="text-text-muted">approved:</span>{' '}
+                                <span className="text-text-muted">{t('taskPanels.approved')}:</span>{' '}
                                 <span className="text-white">
                                   {lifecycleDetails.approval.approved ? 'yes' : 'no'}
                                 </span>
@@ -528,7 +528,7 @@ export function TaskRunsPanel({ isOpen, onClose }: TaskRunsPanelProps) {
                             )}
                             {typeof lifecycleDetails.approval.requestedAt === 'number' && (
                               <div>
-                                <span className="text-text-muted">requested:</span>{' '}
+                                <span className="text-text-muted">{t('taskPanels.requested')}:</span>{' '}
                                 <span className="text-white">
                                   {new Date(lifecycleDetails.approval.requestedAt).toLocaleString()}
                                 </span>
@@ -536,7 +536,7 @@ export function TaskRunsPanel({ isOpen, onClose }: TaskRunsPanelProps) {
                             )}
                             {typeof lifecycleDetails.approval.approvedAt === 'number' && (
                               <div>
-                                <span className="text-text-muted">approved at:</span>{' '}
+                                <span className="text-text-muted">{t('taskPanels.approvedAt')}:</span>{' '}
                                 <span className="text-white">
                                   {new Date(lifecycleDetails.approval.approvedAt).toLocaleString()}
                                 </span>
@@ -544,7 +544,7 @@ export function TaskRunsPanel({ isOpen, onClose }: TaskRunsPanelProps) {
                             )}
                             {lifecycleDetails.approval.reason && (
                               <div>
-                                <span className="text-text-muted">reason:</span>{' '}
+                                <span className="text-text-muted">{t('taskPanels.reason')}:</span>{' '}
                                 <span className="text-white whitespace-pre-wrap">
                                   {lifecycleDetails.approval.reason}
                                 </span>
@@ -560,7 +560,7 @@ export function TaskRunsPanel({ isOpen, onClose }: TaskRunsPanelProps) {
                           <div className="mt-1 space-y-1">
                             {typeof lifecycleDetails.takeover.active === 'boolean' && (
                               <div>
-                                <span className="text-text-muted">active:</span>{' '}
+                                <span className="text-text-muted">{t('taskPanels.active')}:</span>{' '}
                                 <span className="text-white">
                                   {lifecycleDetails.takeover.active ? 'yes' : 'no'}
                                 </span>
@@ -568,7 +568,7 @@ export function TaskRunsPanel({ isOpen, onClose }: TaskRunsPanelProps) {
                             )}
                             {typeof lifecycleDetails.takeover.interrupted === 'boolean' && (
                               <div>
-                                <span className="text-text-muted">interrupted:</span>{' '}
+                                <span className="text-text-muted">{t('taskPanels.interrupted')}:</span>{' '}
                                 <span className="text-white">
                                   {lifecycleDetails.takeover.interrupted ? 'yes' : 'no'}
                                 </span>
@@ -576,13 +576,13 @@ export function TaskRunsPanel({ isOpen, onClose }: TaskRunsPanelProps) {
                             )}
                             {lifecycleDetails.takeover.interruptReason && (
                               <div>
-                                <span className="text-text-muted">reason:</span>{' '}
+                                <span className="text-text-muted">{t('taskPanels.reason')}:</span>{' '}
                                 <span className="text-white">{lifecycleDetails.takeover.interruptReason}</span>
                               </div>
                             )}
                             {typeof lifecycleDetails.takeover.interruptedAt === 'number' && (
                               <div>
-                                <span className="text-text-muted">interrupted at:</span>{' '}
+                                <span className="text-text-muted">{t('taskPanels.interruptedAt')}:</span>{' '}
                                 <span className="text-white">
                                   {new Date(lifecycleDetails.takeover.interruptedAt).toLocaleString()}
                                 </span>
@@ -590,7 +590,7 @@ export function TaskRunsPanel({ isOpen, onClose }: TaskRunsPanelProps) {
                             )}
                             {typeof lifecycleDetails.takeover.resumedAt === 'number' && (
                               <div>
-                                <span className="text-text-muted">resumed at:</span>{' '}
+                                <span className="text-text-muted">{t('taskPanels.resumedAt')}:</span>{' '}
                                 <span className="text-white">
                                   {new Date(lifecycleDetails.takeover.resumedAt).toLocaleString()}
                                 </span>
@@ -598,7 +598,7 @@ export function TaskRunsPanel({ isOpen, onClose }: TaskRunsPanelProps) {
                             )}
                             {typeof lifecycleDetails.takeover.restoredAt === 'number' && (
                               <div>
-                                <span className="text-text-muted">restored at:</span>{' '}
+                                <span className="text-text-muted">{t('taskPanels.restoredAt')}:</span>{' '}
                                 <span className="text-white">
                                   {new Date(lifecycleDetails.takeover.restoredAt).toLocaleString()}
                                 </span>
@@ -613,7 +613,7 @@ export function TaskRunsPanel({ isOpen, onClose }: TaskRunsPanelProps) {
 
                 {selectedTrace && (
                   <div className="rounded-lg border border-border bg-background px-3 py-3">
-                    <div className="text-xs uppercase tracking-wide text-text-muted mb-2">Runtime trace</div>
+                    <div className="text-xs uppercase tracking-wide text-text-muted mb-2">{t('taskPanels.runtimeTrace')}</div>
                     <div className="grid grid-cols-2 gap-3 text-sm text-text-secondary md:grid-cols-4">
                       <div>
                         <div className="text-xs text-text-muted">status</div>
@@ -644,7 +644,7 @@ export function TaskRunsPanel({ isOpen, onClose }: TaskRunsPanelProps) {
 
                     {latestTraceEvents.length > 0 && (
                       <div className="mt-3 space-y-2">
-                        <div className="text-xs text-text-muted">latest events</div>
+                        <div className="text-xs text-text-muted">{t('taskPanels.latestEvents')}</div>
                         {latestTraceEvents.map((event) => (
                           <div key={event.id} className="rounded border border-border/70 px-2 py-2 text-xs">
                             <div className="flex items-center justify-between gap-2">
@@ -661,7 +661,7 @@ export function TaskRunsPanel({ isOpen, onClose }: TaskRunsPanelProps) {
 
                     {selectedTrace.artifacts.length > 0 && (
                       <div className="mt-3 space-y-2">
-                        <div className="text-xs text-text-muted">trace artifacts</div>
+                        <div className="text-xs text-text-muted">{t('taskPanels.traceArtifacts')}</div>
                         {selectedTrace.artifacts.map((artifact) => (
                           <div key={artifact.id} className="rounded border border-border/70 px-2 py-2 text-xs">
                             <div className="flex items-start justify-between gap-2">
@@ -773,11 +773,11 @@ export function TaskRunsPanel({ isOpen, onClose }: TaskRunsPanelProps) {
                             {visualTrace.metrics.actionBatches !== undefined && <div><span className="text-text-muted">{t('taskPanels.visualActionBatches')}:</span> <span className="text-white">{visualTrace.metrics.actionBatches}</span></div>}
                             {visualTrace.metrics.approvalInterruptions !== undefined && <div><span className="text-text-muted">{t('taskPanels.visualApprovalInterruptions')}:</span> <span className="text-white">{visualTrace.metrics.approvalInterruptions}</span></div>}
                             {visualTrace.metrics.recoveryAttempts !== undefined && <div><span className="text-text-muted">{t('taskPanels.visualRecoveryAttempts')}:</span> <span className="text-white">{visualTrace.metrics.recoveryAttempts}</span></div>}
-                            {visualTrace.metrics.verificationFailures !== undefined && <div><span className="text-text-muted">Verification failures:</span> <span className="text-white">{visualTrace.metrics.verificationFailures}</span></div>}
+                            {visualTrace.metrics.verificationFailures !== undefined && <div><span className="text-text-muted">{t('taskPanels.verificationFailures')}:</span> <span className="text-white">{visualTrace.metrics.verificationFailures}</span></div>}
                             {visualTrace.metrics.recoveryStrategies && visualTrace.metrics.recoveryStrategies.length > 0 && <div><span className="text-text-muted">{t('taskPanels.visualRecoveryStrategies')}:</span> <span className="text-white">{visualTrace.metrics.recoveryStrategies.join(', ')}</span></div>}
                             {visualTrace.metrics.recoveryDetails && visualTrace.metrics.recoveryDetails.length > 0 && (
                               <div>
-                                <div className="text-text-muted">Recovery details:</div>
+                                <div className="text-text-muted">{t('taskPanels.recoveryDetails')}:</div>
                                 <div className="space-y-1 mt-1">
                                   {visualTrace.metrics.recoveryDetails.map((detail, index) => (
                                     <div key={`${detail.strategy || 'recovery'}-${index}`} className="text-white">

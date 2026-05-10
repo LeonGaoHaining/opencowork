@@ -252,7 +252,7 @@ export function HistoryPanel() {
               }
               className="rounded border border-border bg-background px-2 py-1 text-sm text-white"
             >
-              <option value="all">All sources</option>
+              <option value="all">{t('historyPanel.allSources')}</option>
               <option value="chat">chat</option>
               <option value="scheduler">scheduler</option>
               <option value="im">im</option>
@@ -264,12 +264,12 @@ export function HistoryPanel() {
               onChange={(e) => setOutcomeFilter(e.target.value as OutcomeFilter)}
               className="rounded border border-border bg-background px-2 py-1 text-sm text-white"
             >
-              <option value="all">All outcomes</option>
-              <option value="result">has result</option>
-              <option value="artifacts">has artifacts</option>
-              <option value="run">has run</option>
-              <option value="template">has template</option>
-              <option value="visual">has visual trace</option>
+              <option value="all">{t('historyPanel.allOutcomes')}</option>
+              <option value="result">{t('historyPanel.hasResult')}</option>
+              <option value="artifacts">{t('historyPanel.hasArtifacts')}</option>
+              <option value="run">{t('historyPanel.hasRun')}</option>
+              <option value="template">{t('historyPanel.hasTemplate')}</option>
+              <option value="visual">{t('historyPanel.hasVisualTrace')}</option>
             </select>
             <input
               type="text"
@@ -474,7 +474,7 @@ export function HistoryPanel() {
                           )}
                           {selectedActionContract && (
                             <RelationBadge
-                              label="desktop contract"
+                              label={t('taskPanels.desktopContract')}
                               value={
                                 selectedActionContract.workflowSemantics && selectedActionContract.workflowSemantics.length > 0
                                   ? selectedActionContract.workflowSemantics
@@ -490,7 +490,7 @@ export function HistoryPanel() {
                         {selectedVisualProviderSelection && (
                           <div className="mt-3 rounded-md border border-border bg-background px-3 py-2 text-xs text-text-secondary">
                             <div className="text-text-muted">
-                              {t('taskPanels.visualProvider', 'Visual provider')}
+                              {t('taskPanels.visualProvider')}
                             </div>
                             <div className="mt-1 text-white">{selectedVisualProviderSelection.name}</div>
                             <div className="mt-2 text-text-muted">
@@ -515,7 +515,7 @@ export function HistoryPanel() {
                             )}
                             {selectedVisualProviderSelection.reasons.length > 0 && (
                               <div className="mt-2">
-                                <div className="mb-1 text-text-muted">reasons</div>
+                                <div className="mb-1 text-text-muted">{t('taskPanels.reasons')}</div>
                                 <ul className="list-disc pl-4 text-text-secondary">
                                   {selectedVisualProviderSelection.reasons.map((reason) => (
                                     <li key={reason}>{reason}</li>
@@ -580,13 +580,13 @@ export function HistoryPanel() {
                     {(getSourceLabel(selectedTask) || getArtifactCount(selectedTask) > 0) && (
                       <div className="grid grid-cols-2 gap-4">
                         <div>
-                          <h3 className="text-sm font-medium text-text-muted mb-1">Source</h3>
+                          <h3 className="text-sm font-medium text-text-muted mb-1">{t('historyPanel.sourceTitle')}</h3>
                           <span className="text-sm text-white">
                             {getSourceLabel(selectedTask) || 'unknown'}
                           </span>
                         </div>
                         <div>
-                          <h3 className="text-sm font-medium text-text-muted mb-1">Artifacts</h3>
+                          <h3 className="text-sm font-medium text-text-muted mb-1">{t('historyPanel.artifactsTitle')}</h3>
                           <span className="text-sm text-white">{getArtifactCount(selectedTask)}</span>
                         </div>
                       </div>
@@ -623,7 +623,7 @@ export function HistoryPanel() {
 
                     {(selectedLifecycle.approval || selectedLifecycle.takeover) && (
                       <div>
-                        <h3 className="text-sm font-medium text-text-muted mb-1">Lifecycle</h3>
+                        <h3 className="text-sm font-medium text-text-muted mb-1">{t('taskPanels.lifecycle')}</h3>
                         <div className="bg-background rounded p-3 text-sm text-text-secondary space-y-3">
                           {selectedLifecycle.approval && (
                             <div>
@@ -631,23 +631,23 @@ export function HistoryPanel() {
                               <div className="mt-1 space-y-1">
                                 {typeof selectedLifecycle.approval.pending === 'boolean' && (
                                   <div>
-                                    <span className="text-text-muted">pending:</span>{' '}
+                                    <span className="text-text-muted">{t('taskPanels.pending')}:</span>{' '}
                                     <span className="text-white">
-                                      {selectedLifecycle.approval.pending ? 'yes' : 'no'}
+                                      {selectedLifecycle.approval.pending ? t('taskPanels.yes') : t('taskPanels.no')}
                                     </span>
                                   </div>
                                 )}
                                 {typeof selectedLifecycle.approval.approved === 'boolean' && (
                                   <div>
-                                    <span className="text-text-muted">approved:</span>{' '}
+                                    <span className="text-text-muted">{t('taskPanels.approved')}:</span>{' '}
                                     <span className="text-white">
-                                      {selectedLifecycle.approval.approved ? 'yes' : 'no'}
+                                      {selectedLifecycle.approval.approved ? t('taskPanels.yes') : t('taskPanels.no')}
                                     </span>
                                   </div>
                                 )}
                                 {typeof selectedLifecycle.approval.requestedAt === 'number' && (
                                   <div>
-                                    <span className="text-text-muted">requested:</span>{' '}
+                                    <span className="text-text-muted">{t('taskPanels.requested')}:</span>{' '}
                                     <span className="text-white">
                                       {new Date(selectedLifecycle.approval.requestedAt).toLocaleString()}
                                     </span>
@@ -655,7 +655,7 @@ export function HistoryPanel() {
                                 )}
                                 {typeof selectedLifecycle.approval.approvedAt === 'number' && (
                                   <div>
-                                    <span className="text-text-muted">approved at:</span>{' '}
+                                    <span className="text-text-muted">{t('taskPanels.approvedAt')}:</span>{' '}
                                     <span className="text-white">
                                       {new Date(selectedLifecycle.approval.approvedAt).toLocaleString()}
                                     </span>
@@ -663,7 +663,7 @@ export function HistoryPanel() {
                                 )}
                                 {selectedLifecycle.approval.reason && (
                                   <div>
-                                    <span className="text-text-muted">reason:</span>{' '}
+                                    <span className="text-text-muted">{t('taskPanels.reason')}:</span>{' '}
                                     <span className="text-white whitespace-pre-wrap">
                                       {selectedLifecycle.approval.reason}
                                     </span>
@@ -679,29 +679,29 @@ export function HistoryPanel() {
                               <div className="mt-1 space-y-1">
                                 {typeof selectedLifecycle.takeover.active === 'boolean' && (
                                   <div>
-                                    <span className="text-text-muted">active:</span>{' '}
+                                    <span className="text-text-muted">{t('taskPanels.active')}:</span>{' '}
                                     <span className="text-white">
-                                      {selectedLifecycle.takeover.active ? 'yes' : 'no'}
+                                      {selectedLifecycle.takeover.active ? t('taskPanels.yes') : t('taskPanels.no')}
                                     </span>
                                   </div>
                                 )}
                                 {typeof selectedLifecycle.takeover.interrupted === 'boolean' && (
                                   <div>
-                                    <span className="text-text-muted">interrupted:</span>{' '}
+                                    <span className="text-text-muted">{t('taskPanels.interrupted')}:</span>{' '}
                                     <span className="text-white">
-                                      {selectedLifecycle.takeover.interrupted ? 'yes' : 'no'}
+                                      {selectedLifecycle.takeover.interrupted ? t('taskPanels.yes') : t('taskPanels.no')}
                                     </span>
                                   </div>
                                 )}
                                 {selectedLifecycle.takeover.interruptReason && (
                                   <div>
-                                    <span className="text-text-muted">reason:</span>{' '}
+                                    <span className="text-text-muted">{t('taskPanels.reason')}:</span>{' '}
                                     <span className="text-white">{selectedLifecycle.takeover.interruptReason}</span>
                                   </div>
                                 )}
                                 {typeof selectedLifecycle.takeover.interruptedAt === 'number' && (
                                   <div>
-                                    <span className="text-text-muted">interrupted at:</span>{' '}
+                                    <span className="text-text-muted">{t('taskPanels.interruptedAt')}:</span>{' '}
                                     <span className="text-white">
                                       {new Date(selectedLifecycle.takeover.interruptedAt).toLocaleString()}
                                     </span>
@@ -709,7 +709,7 @@ export function HistoryPanel() {
                                 )}
                                 {typeof selectedLifecycle.takeover.resumedAt === 'number' && (
                                   <div>
-                                    <span className="text-text-muted">resumed at:</span>{' '}
+                                    <span className="text-text-muted">{t('taskPanels.resumedAt')}:</span>{' '}
                                     <span className="text-white">
                                       {new Date(selectedLifecycle.takeover.resumedAt).toLocaleString()}
                                     </span>
@@ -717,7 +717,7 @@ export function HistoryPanel() {
                                 )}
                                 {typeof selectedLifecycle.takeover.restoredAt === 'number' && (
                                   <div>
-                                    <span className="text-text-muted">restored at:</span>{' '}
+                                    <span className="text-text-muted">{t('taskPanels.restoredAt')}:</span>{' '}
                                     <span className="text-white">
                                       {new Date(selectedLifecycle.takeover.restoredAt).toLocaleString()}
                                     </span>
@@ -805,14 +805,14 @@ export function HistoryPanel() {
                                   <div><span className="text-text-muted">{t('taskPanels.visualRecoveryAttempts')}:</span> <span className="text-white">{selectedVisualTrace.metrics.recoveryAttempts}</span></div>
                                 )}
                                 {selectedVisualTrace.metrics.verificationFailures !== undefined && (
-                                  <div><span className="text-text-muted">Verification failures:</span> <span className="text-white">{selectedVisualTrace.metrics.verificationFailures}</span></div>
+                                  <div><span className="text-text-muted">{t('taskPanels.verificationFailures')}:</span> <span className="text-white">{selectedVisualTrace.metrics.verificationFailures}</span></div>
                                 )}
                                 {selectedVisualTrace.metrics.recoveryStrategies && selectedVisualTrace.metrics.recoveryStrategies.length > 0 && (
                                   <div><span className="text-text-muted">{t('taskPanels.visualRecoveryStrategies')}:</span> <span className="text-white">{selectedVisualTrace.metrics.recoveryStrategies.join(', ')}</span></div>
                                 )}
                                 {selectedVisualTrace.metrics.recoveryDetails && selectedVisualTrace.metrics.recoveryDetails.length > 0 && (
                                   <div>
-                                    <div className="text-text-muted">Recovery details:</div>
+                                    <div className="text-text-muted">{t('taskPanels.recoveryDetails')}:</div>
                                     <div className="space-y-1 mt-1">
                                       {selectedVisualTrace.metrics.recoveryDetails.map((detail, index) => (
                                         <div key={`${detail.strategy || 'recovery'}-${index}`} className="text-white">

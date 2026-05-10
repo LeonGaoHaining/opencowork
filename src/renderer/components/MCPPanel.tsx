@@ -436,7 +436,7 @@ export function MCPPanel({ isOpen, onClose }: MCPPanelProps) {
       });
       const payload = result?.data || result;
       if (!result?.success || payload?.success === false) {
-        throw new Error(payload?.error || result?.error || '保存失败');
+        throw new Error(payload?.error || result?.error || t('mcpPanel.saveFailedFallback'));
       }
       setMessage({ type: 'success', text: t('mcpPanel.saveSuccess') });
       setSelectedConnectionName(name);

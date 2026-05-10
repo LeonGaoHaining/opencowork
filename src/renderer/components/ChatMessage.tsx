@@ -1,5 +1,6 @@
 import React from 'react';
 import { Message, AgentStep } from '../stores/taskStore';
+import { useTranslation } from '../i18n/useTranslation';
 
 interface ChatMessageProps {
   message: Message;
@@ -20,16 +21,17 @@ const StepIcon = ({ status }: { status: AgentStep['status'] }) => {
   }
 };
 
-const formatArgs = (args: any): string => {
+const formatArgs = (args: any, t: ReturnType<typeof useTranslation>['t']): string => {
   if (!args) return '';
   if (args.url) return args.url;
-  if (args.selector) return `点击: ${args.selector}`;
-  if (args.command) return `执行: ${args.command}`;
+  if (args.selector) return t('chatMessage.clickSelector', { selector: args.selector });
+  if (args.command) return t('chatMessage.executeCommand', { command: args.command });
   return JSON.stringify(args).substring(0, 50);
 };
 
 export function ChatMessage({ message }: ChatMessageProps) {
   const isUser = message.role === 'user';
+  const { t } = useTranslation();
 
   return (
     <div className={`flex min-w-0 ${isUser ? 'justify-end' : 'justify-start'}`}>
@@ -52,7 +54,7 @@ export function ChatMessage({ message }: ChatMessageProps) {
                   {step.toolName}:
                 </span>
                 <span className="step-args min-w-0 break-all text-gray-300">
-                  {formatArgs(step.args)}
+                  {formatArgs(step.args, t)}
                 </span>
                 {step.duration && (
                   <span className="step-duration text-gray-500 ml-2">({step.duration}ms)</span>

@@ -272,7 +272,7 @@ export function ResultPanel({ embedded = false }: ResultPanelProps) {
           {actionContract && (
             <div className="mt-2 space-y-2 text-text-muted">
               <div>
-                desktop contract: {actionContract.supportedActions?.join(', ') || 'none'}
+                {t('taskPanels.desktopContract')}: {actionContract.supportedActions?.join(', ') || 'none'}
               </div>
               {actionContract.workflowSemantics && actionContract.workflowSemantics.length > 0 && (
                 <div className="grid gap-2 md:grid-cols-2">
@@ -314,7 +314,7 @@ export function ResultPanel({ embedded = false }: ResultPanelProps) {
               )}
               {visualProviderSelection.reasons.length > 0 && (
                 <div>
-                  <div className="mb-1">reasons</div>
+                  <div className="mb-1">{t('taskPanels.reasons')}</div>
                   <ul className="list-disc pl-4 text-text-secondary">
                     {visualProviderSelection.reasons.map((reason) => (
                       <li key={reason}>{reason}</li>
@@ -422,13 +422,13 @@ export function ResultPanel({ embedded = false }: ResultPanelProps) {
                   {visualTrace.metrics.actionBatches !== undefined && <div>{t('taskPanels.visualActionBatches')}: {visualTrace.metrics.actionBatches}</div>}
                   {visualTrace.metrics.approvalInterruptions !== undefined && <div>{t('taskPanels.visualApprovalInterruptions')}: {visualTrace.metrics.approvalInterruptions}</div>}
                   {visualTrace.metrics.recoveryAttempts !== undefined && <div>{t('taskPanels.visualRecoveryAttempts')}: {visualTrace.metrics.recoveryAttempts}</div>}
-                  {visualTrace.metrics.verificationFailures !== undefined && <div>Verification failures: {visualTrace.metrics.verificationFailures}</div>}
+                  {visualTrace.metrics.verificationFailures !== undefined && <div>{t('taskPanels.verificationFailures')}: {visualTrace.metrics.verificationFailures}</div>}
                   {visualTrace.metrics.recoveryStrategies && visualTrace.metrics.recoveryStrategies.length > 0 && (
                     <div>{t('taskPanels.visualRecoveryStrategies')}: {visualTrace.metrics.recoveryStrategies.join(', ')}</div>
                   )}
                   {visualTrace.metrics.recoveryDetails && visualTrace.metrics.recoveryDetails.length > 0 && (
                     <div className="col-span-2">
-                      <div className="text-text-muted mb-1">Recovery details</div>
+                      <div className="text-text-muted mb-1">{t('taskPanels.recoveryDetails')}</div>
                       <div className="space-y-1 text-white">
                         {visualTrace.metrics.recoveryDetails.map((detail, index) => (
                           <div key={`${detail.strategy || 'recovery'}-${index}`}>

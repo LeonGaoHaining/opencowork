@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import i18n from '../i18n';
 
 export type IMPlatform = 'feishu' | 'dingtalk' | 'wecom' | 'slack';
 export type ConnectionStatus = 'connected' | 'disconnected' | 'connecting' | 'error';
@@ -102,7 +103,7 @@ export const useIMStore = create<IMStore>((set, get) => ({
       set({ configs, statuses });
     } catch (error: any) {
       console.error('[IMStore] Load failed:', error);
-      set({ message: { type: 'error', text: `加载失败: ${error.message}` } });
+      set({ message: { type: 'error', text: i18n.t('imConfig.loadFailedMessage', { message: error.message }) } });
     } finally {
       set({ isLoading: false });
     }
@@ -116,7 +117,7 @@ export const useIMStore = create<IMStore>((set, get) => ({
       if (result?.success && payload?.success !== false) {
         set((state) => ({
           configs: { ...state.configs, [platform]: config },
-          message: { type: 'success', text: '配置保存成功' },
+          message: { type: 'success', text: i18n.t('imConfig.configSaveSuccess') },
         }));
         const status = await window.electron.invoke('im:status', { platform });
         set((state) => ({
@@ -124,12 +125,12 @@ export const useIMStore = create<IMStore>((set, get) => ({
         }));
         return true;
       } else {
-        set({ message: { type: 'error', text: payload?.error || result?.error || '保存失败' } });
+        set({ message: { type: 'error', text: payload?.error || result?.error || i18n.t('mcpPanel.saveFailed') } });
         return false;
       }
     } catch (error: any) {
       console.error('[IMStore] Save failed:', error);
-      set({ message: { type: 'error', text: `保存失败: ${error.message}` } });
+      set({ message: { type: 'error', text: i18n.t('imConfig.saveFailedMessage', { message: error.message }) } });
       return false;
     } finally {
       set({ isSaving: false });
@@ -142,21 +143,21 @@ export const useIMStore = create<IMStore>((set, get) => ({
       const result = await Promise.race([
         window.electron.invoke('im:test', { platform, config }),
         new Promise<{ success: false; error: string }>((_, reject) =>
-          setTimeout(() => reject(new Error('连接超时(5s)')), 5000)
+          setTimeout(() => reject(new Error(i18n.t('imConfig.connectionTimeout'))), 5000)
         ),
       ]);
       const payload = result?.data || result;
 
       if (result?.success && payload?.success !== false) {
-        set({ message: { type: 'success', text: '连接成功' } });
+        set({ message: { type: 'success', text: i18n.t('imConfig.connectionSuccess') } });
         return true;
       } else {
-        set({ message: { type: 'error', text: payload?.error || result?.error || '连接失败' } });
+        set({ message: { type: 'error', text: payload?.error || result?.error || i18n.t('imConfig.connectionFailed') } });
         return false;
       }
     } catch (error: any) {
       console.error('[IMStore] Test failed:', error);
-      set({ message: { type: 'error', text: error.message || '测试失败' } });
+      set({ message: { type: 'error', text: error.message || i18n.t('imConfig.testFailed') } });
       return false;
     } finally {
       set({ isLoading: false });

@@ -526,8 +526,8 @@ export function SkillPanel({ isOpen, onClose }: SkillPanelProps) {
                         <button
                           onClick={() => void handleUpdate(skill.name)}
                           className="p-1 rounded hover:bg-border text-text-muted hover:text-primary"
-                          title={skill.updateAvailable ? 'Update skill' : 'Refresh skill'}
-                          aria-label={skill.updateAvailable ? 'Update skill' : 'Refresh skill'}
+                          title={skill.updateAvailable ? t('skillPanel.updateSkill') : t('skillPanel.refreshSkill')}
+                          aria-label={skill.updateAvailable ? t('skillPanel.updateSkill') : t('skillPanel.refreshSkill')}
                           disabled={isLoading}
                         >
                           <svg
@@ -547,7 +547,7 @@ export function SkillPanel({ isOpen, onClose }: SkillPanelProps) {
                         <button
                           onClick={() => void handleUninstall(skill)}
                           className="p-1 rounded hover:bg-border text-text-muted hover:text-red-400"
-                          title="卸载"
+                          title={t('skillPanel.uninstall')}
                           disabled={isLoading}
                         >
                           <svg
@@ -568,48 +568,48 @@ export function SkillPanel({ isOpen, onClose }: SkillPanelProps) {
                     </div>
                     <div className="mt-2 flex flex-wrap gap-2 text-[11px] text-text-muted">
                       <span className="rounded bg-border px-2 py-0.5">
-                        来源: {skill.source || 'unknown'}
+                        {t('skillPanel.source')}: {skill.source || 'unknown'}
                       </span>
                       {skill.updateAvailable && (
                         <span className="rounded bg-warning/15 px-2 py-0.5 text-warning">
-                          {getFallbackTranslation(t, 'skillPanel.updateAvailable', 'Update available')}
+                          {t('skillPanel.updateAvailable')}
                         </span>
                       )}
                       <span className="rounded bg-border px-2 py-0.5">
-                        {skill.userInvocable ? '可用户调用' : '仅模型调用'}
+                        {skill.userInvocable ? t('skillPanel.userInvocable') : t('skillPanel.modelOnly')}
                       </span>
                     </div>
                     <p className="text-sm text-text-muted mt-2 line-clamp-2">
-                      {skill.description || '无描述'}
+                      {skill.description || t('skillPanel.noDescription')}
                     </p>
                     <div className="mt-3 space-y-2 text-xs">
                       <div>
-                        <div className="text-text-muted mb-1">用途</div>
+                        <div className="text-text-muted mb-1">{t('skillPanel.useCases')}</div>
                         {renderSkillDetailList(skill.useCases)}
                       </div>
                       <div>
-                        <div className="text-text-muted mb-1">输入</div>
+                        <div className="text-text-muted mb-1">{t('skillPanel.input')}</div>
                         <div className="text-text-secondary whitespace-pre-wrap break-words">
                           {skill.inputSpec || skill.argumentHint || '-'}
                         </div>
                       </div>
                       <div>
-                        <div className="text-text-muted mb-1">输出</div>
+                        <div className="text-text-muted mb-1">{t('skillPanel.output')}</div>
                         <div className="text-text-secondary whitespace-pre-wrap break-words">
                           {skill.outputSpec || '-'}
                         </div>
                       </div>
                       <div>
-                        <div className="text-text-muted mb-1">失败提示</div>
+                        <div className="text-text-muted mb-1">{t('skillPanel.failureHints')}</div>
                         {renderSkillDetailList(skill.failureHints)}
                       </div>
                       <div className="grid grid-cols-2 gap-2">
                         <div>
-                          <div className="text-text-muted mb-1">标签</div>
+                          <div className="text-text-muted mb-1">{t('skillPanel.tags')}</div>
                           {renderSkillDetailList(skill.tags)}
                         </div>
                         <div>
-                          <div className="text-text-muted mb-1">允许工具</div>
+                          <div className="text-text-muted mb-1">{t('skillPanel.allowedTools')}</div>
                           {renderSkillDetailList(skill.allowedTools)}
                         </div>
                       </div>
@@ -626,8 +626,8 @@ export function SkillPanel({ isOpen, onClose }: SkillPanelProps) {
           {/* Footer */}
           <div className="p-4 border-t border-border">
             <div className="text-xs text-text-muted">
-              <p>Skill 目录: ~/.opencowork/skills</p>
-              <p className="mt-1">支持 Claude 官方 SKILL.md 规范</p>
+              <p>{t('skillPanel.skillDirectory')}</p>
+              <p className="mt-1">{t('skillPanel.officialSpec')}</p>
             </div>
           </div>
         </div>

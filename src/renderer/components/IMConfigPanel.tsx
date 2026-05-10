@@ -18,16 +18,14 @@ interface RecentIMTask {
 
 interface TabConfig {
   key: IMPlatform;
-  label: string;
   disabled: boolean;
-  tooltip?: string;
 }
 
 const tabs: TabConfig[] = [
-  { key: 'feishu', label: '飞书', disabled: false },
-  { key: 'dingtalk', label: '钉钉', disabled: true, tooltip: '即将支持' },
-  { key: 'wecom', label: '企业微信', disabled: true, tooltip: '即将支持' },
-  { key: 'slack', label: 'Slack', disabled: true, tooltip: '即将支持' },
+  { key: 'feishu', disabled: false },
+  { key: 'dingtalk', disabled: true },
+  { key: 'wecom', disabled: true },
+  { key: 'slack', disabled: true },
 ];
 
 const getStatusIcon = (status: ConnectionStatus): string => {
@@ -76,6 +74,7 @@ function FeishuForm({
   isSaving: boolean;
 }) {
   const [showSecret, setShowSecret] = useState(false);
+  const { t } = useTranslation();
 
   return (
     <div className="space-y-4">
@@ -88,7 +87,7 @@ function FeishuForm({
           className="w-4 h-4"
         />
         <label htmlFor="feishu-enabled" className="text-sm">
-          启用飞书集成
+          {t('imConfig.enableFeishu')}
         </label>
       </div>
 
@@ -119,7 +118,7 @@ function FeishuForm({
                 onClick={() => setShowSecret(!showSecret)}
                 className="px-3 py-2 bg-elevated border border-border rounded-lg text-text-secondary hover:text-white"
               >
-                {showSecret ? '隐藏' : '显示'}
+                {showSecret ? t('imConfig.hide') : t('imConfig.show')}
               </button>
             </div>
           </div>
@@ -241,12 +240,12 @@ export function IMConfigPanel() {
       const result = await window.electron.invoke('template:run', { templateId });
       const payload = result?.data || result;
       if (!result?.success || payload?.success === false) {
-        throw new Error(payload?.error || result?.error || '模板运行失败');
+        throw new Error(payload?.error || result?.error || t('imConfig.templateRunFailed'));
       }
-      setMessage({ type: 'success', text: '模板已重新运行' });
+      setMessage({ type: 'success', text: t('imConfig.templateRerunSuccess') });
     } catch (error) {
       console.error('[IMConfigPanel] Failed to run template:', error);
-      setMessage({ type: 'error', text: `模板重跑失败: ${error}` });
+      setMessage({ type: 'error', text: t('imConfig.templateRerunFailed', { message: String(error) }) });
     }
   };
 
@@ -256,6 +255,7 @@ export function IMConfigPanel() {
 
   const currentStatus = statuses[activeTab];
   const currentConfig = localConfigs[activeTab];
+  const getPlatformLabel = (platform: IMPlatform): string => t(`imConfig.platform.${platform}`);
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
@@ -275,7 +275,7 @@ export function IMConfigPanel() {
             <button
               key={tab.key}
               disabled={tab.disabled}
-              title={tab.tooltip}
+              title={tab.disabled ? t('imConfig.comingSoon') : undefined}
               onClick={() => handleTabChange(tab.key)}
               className={`flex-1 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
                 activeTab === tab.key
@@ -283,7 +283,7 @@ export function IMConfigPanel() {
                   : 'border-transparent text-text-secondary hover:text-white'
               } ${tab.disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
             >
-              {tab.label}
+              {getPlatformLabel(tab.key)}
               {tab.disabled && (
                 <span className="ml-1 text-xs text-warning">{t('imConfig.comingSoon')}</span>
               )}
@@ -308,7 +308,7 @@ export function IMConfigPanel() {
               <span className="text-sm text-text-secondary">
                 {getStatusText(
                   currentStatus,
-                  tabs.find((t) => t.key === activeTab)?.label || '',
+                  getPlatformLabel(activeTab),
                   t
                 )}
               </span>
@@ -327,9 +327,9 @@ export function IMConfigPanel() {
 
             {activeTab === 'feishu' && (
               <div className="rounded-lg border border-border bg-background p-3">
-                <div className="mb-3 text-sm font-medium text-white">最近 IM 任务</div>
+                <div className="mb-3 text-sm font-medium text-white">{t('imConfig.recentTasks')}</div>
                 {recentTasks.length === 0 ? (
-                  <div className="text-sm text-text-muted">暂无最近任务</div>
+                  <div className="text-sm text-text-muted">{t('imConfig.noRecentTasks')}</div>
                 ) : (
                   <div className="space-y-2">
                     {recentTasks.map((task) => (
@@ -381,7 +381,7 @@ export function IMConfigPanel() {
                               onClick={() => void handleRunTemplate(task.templateId as string)}
                               className="rounded px-2 py-1 text-xs text-white bg-primary/20 hover:bg-primary/30"
                             >
-                              重新运行模板
+                              {t('imConfig.rerunTemplate')}
                             </button>
                           )}
                         </div>
@@ -396,7 +396,7 @@ export function IMConfigPanel() {
             )}
 
             {activeTab !== 'feishu' && (
-              <div className="text-center text-text-muted py-8">该平台即将支持，敬请期待</div>
+              <div className="text-center text-text-muted py-8">{t('imConfig.platformComingSoon')}</div>
             )}
           </div>
         </div>
@@ -407,21 +407,21 @@ export function IMConfigPanel() {
             disabled={isLoading || !currentConfig}
             className="px-4 py-2 bg-elevated border border-border rounded-lg text-text-secondary hover:text-white disabled:opacity-50"
           >
-            {isLoading ? '测试中...' : '测试连接'}
+            {isLoading ? t('imConfig.testing') : t('imConfig.testConnection')}
           </button>
           <div className="flex gap-2">
             <button
               onClick={() => setPanelOpen(false)}
               className="px-4 py-2 bg-elevated border border-border rounded-lg text-text-secondary hover:text-white"
             >
-              取消
+              {t('imConfig.cancel')}
             </button>
             <button
               onClick={handleSave}
               disabled={isSaving || !currentConfig}
               className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 disabled:opacity-50"
             >
-              {isSaving ? '保存中...' : '保存'}
+              {isSaving ? t('imConfig.saving') : t('imConfig.save')}
             </button>
           </div>
         </div>

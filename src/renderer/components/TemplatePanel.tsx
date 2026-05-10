@@ -600,15 +600,15 @@ export function TemplatePanel({ isOpen, onClose, preferredTemplateId = null }: T
                   </div>
                   {selectedTemplate.origin && (
                     <div className="rounded-lg border border-border bg-background px-3 py-2">
-                      <div className="text-xs text-text-muted">Template origin</div>
+                      <div className="text-xs text-text-muted">{t('taskPanels.templateOrigin')}</div>
                       <div className="mt-1 text-white break-all">{selectedTemplate.origin.runId || 'manual'}</div>
                       <div className="mt-1 text-xs text-text-muted">
-                        source:{' '}
+                        {t('taskPanels.sourceLabel')}:{' '}
                         <span className="text-text-secondary">{selectedTemplate.origin.source || 'n/a'}</span>
                         {selectedTemplate.origin.executionMode && (
                           <>
                             {' '}
-                            · mode:{' '}
+                            · {t('taskPanels.modeLabel')}:{' '}
                             <span className="text-text-secondary">{selectedTemplate.origin.executionMode}</span>
                           </>
                         )}

@@ -600,9 +600,9 @@ function SchedulerPanel() {
                       setFormData({ ...formData, intervalMs: parseInt(e.target.value) || 0 })
                     }
                     className="w-full px-3 py-2 bg-background border border-border rounded text-sm text-white mt-1"
-                    placeholder="3600000 (1小时)"
+                    placeholder={t('schedulerPanel.intervalPlaceholder')}
                   />
-                  <p className="text-xs text-text-muted mt-1">3600000 = 1小时, 86400000 = 1天</p>
+                  <p className="text-xs text-text-muted mt-1">{t('schedulerPanel.intervalHint')}</p>
                 </div>
               )}
 

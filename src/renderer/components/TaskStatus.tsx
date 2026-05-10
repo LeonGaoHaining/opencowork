@@ -1,6 +1,7 @@
 import React from 'react';
 import RelationBadge from './RelationBadge';
 import { Task, useTaskStore } from '../stores/taskStore';
+import { useTranslation } from '../i18n/useTranslation';
 
 interface TaskStatusProps {
   task: Task;
@@ -8,6 +9,7 @@ interface TaskStatusProps {
 
 export function TaskStatus({ task }: TaskStatusProps) {
   const { currentRunId, currentTemplateId, currentVisualProvider } = useTaskStore();
+  const { t } = useTranslation();
 
   const progressPercent = task.progress.total > 0
     ? Math.round((task.progress.current / task.progress.total) * 100)
@@ -54,7 +56,7 @@ export function TaskStatus({ task }: TaskStatusProps) {
       {/* Current step */}
       {task.currentStep && (
         <p className="mt-2 max-h-12 overflow-y-auto break-words text-xs text-text-muted [overflow-wrap:anywhere]">
-          当前: {task.currentStep}
+          {t('executionSteps.currentStep')}: {task.currentStep}
         </p>
       )}
     </div>

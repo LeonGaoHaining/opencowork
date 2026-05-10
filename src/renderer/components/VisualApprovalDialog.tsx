@@ -158,7 +158,9 @@ export function VisualApprovalDialog() {
 
         {executionTargetLabel && (
           <div className="mb-4 rounded-md border border-[var(--color-border)] bg-[var(--color-elevated)] p-3 text-sm text-[var(--color-text-secondary)]">
-            <div className="font-medium text-[var(--color-text-primary)] mb-1">Execution target</div>
+            <div className="font-medium text-[var(--color-text-primary)] mb-1">
+              {t('visualApprovalDetails.executionTarget')}
+            </div>
             <div>{executionTargetLabel}</div>
           </div>
         )}
@@ -166,10 +168,12 @@ export function VisualApprovalDialog() {
         {((visualApprovalRequest.actionRiskReasons && visualApprovalRequest.actionRiskReasons.length > 0) ||
           (visualApprovalRequest.matchedIntentKeywords && visualApprovalRequest.matchedIntentKeywords.length > 0)) && (
           <div className="mb-4 rounded-md border border-warning/30 bg-warning/10 p-3 text-sm text-[var(--color-text-secondary)]">
-            <div className="font-medium text-warning mb-2">Why this was paused</div>
+            <div className="font-medium text-warning mb-2">{t('visualApprovalDetails.pauseReason')}</div>
             {visualApprovalRequest.matchedIntentKeywords && visualApprovalRequest.matchedIntentKeywords.length > 0 && (
               <div className="mb-2">
-                <div className="text-xs uppercase text-text-muted mb-1">Matched intent keywords</div>
+                <div className="text-xs uppercase text-text-muted mb-1">
+                  {t('visualApprovalDetails.matchedIntentKeywords')}
+                </div>
                 <div className="flex flex-wrap gap-2">
                   {visualApprovalRequest.matchedIntentKeywords.map((keyword) => (
                     <span key={keyword} className="rounded bg-surface px-2 py-0.5 text-xs text-white">
@@ -181,7 +185,9 @@ export function VisualApprovalDialog() {
             )}
             {visualApprovalRequest.actionRiskReasons && visualApprovalRequest.actionRiskReasons.length > 0 && (
               <div>
-                <div className="text-xs uppercase text-text-muted mb-1">Action risk reasons</div>
+                <div className="text-xs uppercase text-text-muted mb-1">
+                  {t('visualApprovalDetails.actionRiskReasons')}
+                </div>
                 <ul className="list-disc pl-5 space-y-1">
                   {visualApprovalRequest.actionRiskReasons.map((reason) => (
                     <li key={reason}>{reason}</li>

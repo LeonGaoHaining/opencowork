@@ -1039,7 +1039,7 @@ export function OverviewPanel({ isOpen, onClose }: OverviewPanelProps) {
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between border-b border-border px-6 py-4">
-          <h2 className="text-lg font-semibold text-white">{t('overview.title', '概览')}</h2>
+          <h2 className="text-lg font-semibold text-white">{t('overview.title')}</h2>
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-1 bg-elevated rounded-lg p-1">
               {(['7d', '14d', '30d'] as DateRangeOption[]).map((option) => (
@@ -1052,7 +1052,11 @@ export function OverviewPanel({ isOpen, onClose }: OverviewPanelProps) {
                       : 'text-text-secondary hover:text-white'
                   }`}
                 >
-                  {option === '7d' ? '7天' : option === '14d' ? '14天' : '30天'}
+                  {option === '7d'
+                    ? t('overview.range7d')
+                    : option === '14d'
+                      ? t('overview.range14d')
+                      : t('overview.range30d')}
                 </button>
               ))}
             </div>
@@ -1070,7 +1074,7 @@ export function OverviewPanel({ isOpen, onClose }: OverviewPanelProps) {
         <div className="flex-1 overflow-y-auto p-6">
           {isLoading && !metrics && (
             <div className="flex items-center justify-center h-64">
-              <div className="text-text-muted">{t('common.loading', '加载中...')}</div>
+              <div className="text-text-muted">{t('common.loading')}</div>
             </div>
           )}
 
@@ -1084,22 +1088,22 @@ export function OverviewPanel({ isOpen, onClose }: OverviewPanelProps) {
             <div className="space-y-6">
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <MetricCard
-                  label={t('overview.totalTasks', '总任务数')}
+                  label={t('overview.totalTasks')}
                   value={summary.totalTasks}
                   color="info"
                 />
                 <MetricCard
-                  label={t('overview.completed', '已完成')}
+                  label={t('overview.completed')}
                   value={summary.completedTasks}
                   color="success"
                 />
                 <MetricCard
-                  label={t('overview.failed', '已失败')}
+                  label={t('overview.failed')}
                   value={summary.failedTasks}
                   color="error"
                 />
                 <MetricCard
-                  label={t('overview.successRate', '成功率')}
+                  label={t('overview.successRate')}
                   value={`${summary.successRate}%`}
                   color={summary.successRate >= 80 ? 'success' : summary.successRate >= 50 ? 'warning' : 'error'}
                 />
@@ -1107,17 +1111,17 @@ export function OverviewPanel({ isOpen, onClose }: OverviewPanelProps) {
 
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                 <MetricCard
-                  label={t('overview.avgDuration', '平均耗时')}
+                  label={t('overview.avgDuration')}
                   value={formatDuration(summary.avgDurationMs)}
                   color="info"
                 />
                 <MetricCard
-                  label={t('overview.totalDuration', '总耗时')}
+                  label={t('overview.totalDuration')}
                   value={formatDuration(summary.totalDurationMs)}
                   color="info"
                 />
                 <MetricCard
-                  label={t('overview.running', '进行中')}
+                  label={t('overview.running')}
                   value={summary.runningTasks}
                   color="warning"
                 />
@@ -1126,42 +1130,42 @@ export function OverviewPanel({ isOpen, onClose }: OverviewPanelProps) {
               <div className="grid grid-cols-2 gap-4">
                 <div className="bg-elevated rounded-xl p-4">
                   <h3 className="text-sm font-medium text-text-secondary mb-3">
-                    {t('overview.scheduler', '调度任务')}
+                    {t('overview.scheduler')}
                   </h3>
                   <div className="flex gap-6">
                     <div>
                         <div className="text-2xl font-bold text-white">
                          {schedulerStats.totalSchedules}
                         </div>
-                      <div className="text-xs text-text-muted">{t('overview.total', '总数')}</div>
+                      <div className="text-xs text-text-muted">{t('overview.total')}</div>
                     </div>
                     <div>
                         <div className="text-2xl font-bold text-success">
                          {schedulerStats.activeSchedules}
                         </div>
-                      <div className="text-xs text-text-muted">{t('overview.active', '活跃')}</div>
+                      <div className="text-xs text-text-muted">{t('overview.active')}</div>
                     </div>
                   </div>
                 </div>
 
                 <div className="bg-elevated rounded-xl p-4">
                   <h3 className="text-sm font-medium text-text-secondary mb-3">
-                    {t('overview.imTasks', 'IM 任务')}
+                    {t('overview.imTasks')}
                   </h3>
                   <div className="flex gap-4">
                     <div>
                        <div className="text-2xl font-bold text-white">{imStats.total}</div>
-                      <div className="text-xs text-text-muted">{t('overview.total', '总数')}</div>
+                      <div className="text-xs text-text-muted">{t('overview.total')}</div>
                     </div>
                     <div>
                       <div className="text-2xl font-bold text-success">
                          {imStats.completed}
                       </div>
-                      <div className="text-xs text-text-muted">{t('overview.completed', '完成')}</div>
+                      <div className="text-xs text-text-muted">{t('overview.completed')}</div>
                     </div>
                     <div>
                        <div className="text-2xl font-bold text-error">{imStats.failed}</div>
-                      <div className="text-xs text-text-muted">{t('overview.failed', '失败')}</div>
+                      <div className="text-xs text-text-muted">{t('overview.failed')}</div>
                     </div>
                   </div>
                 </div>
@@ -1169,24 +1173,24 @@ export function OverviewPanel({ isOpen, onClose }: OverviewPanelProps) {
 
               <div className="bg-elevated rounded-xl p-4">
                 <h3 className="text-sm font-medium text-text-secondary mb-3">
-                  Hybrid / Visual benchmark
+                  {t('overview.benchmarkReport')}
                 </h3>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <MetricCard label="Visual runs" value={visualStats.totalRuns} color="info" />
-                  <MetricCard label="Visual success" value={`${visualStats.successRate}%`} color={visualStats.successRate >= 80 ? 'success' : visualStats.successRate >= 50 ? 'warning' : 'error'} />
-                  <MetricCard label="Recovered runs" value={visualStats.recoveredRuns} color="warning" />
-                  <MetricCard label="Verification failures" value={visualStats.verificationFailures} color="error" />
+                  <MetricCard label={t('overview.visualRuns')} value={visualStats.totalRuns} color="info" />
+                  <MetricCard label={t('overview.visualSuccess')} value={`${visualStats.successRate}%`} color={visualStats.successRate >= 80 ? 'success' : visualStats.successRate >= 50 ? 'warning' : 'error'} />
+                  <MetricCard label={t('overview.recoveredRuns')} value={visualStats.recoveredRuns} color="warning" />
+                  <MetricCard label={t('overview.verificationFailures')} value={visualStats.verificationFailures} color="error" />
                 </div>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-4">
-                  <MetricCard label="Approval interruptions" value={visualStats.approvalInterruptions} color="warning" />
-                  <MetricCard label="Recovery attempts" value={visualStats.recoveryAttempts} color="info" />
-                  <MetricCard label="Completed visual runs" value={visualStats.completedRuns} color="success" />
+                  <MetricCard label={t('overview.approvalInterruptions')} value={visualStats.approvalInterruptions} color="warning" />
+                  <MetricCard label={t('overview.recoveryAttempts')} value={visualStats.recoveryAttempts} color="info" />
+                  <MetricCard label={t('overview.completedVisualRuns')} value={visualStats.completedRuns} color="success" />
                 </div>
                 <div className="mt-4">
-                  <div className="text-xs text-text-muted mb-2">Recovery trigger distribution</div>
+                  <div className="text-xs text-text-muted mb-2">{t('overview.recoveryTriggerDistribution')}</div>
                   <div className="flex flex-wrap gap-2">
                     {Object.keys(visualStats.triggerDistribution).length === 0 ? (
-                      <div className="text-sm text-text-muted">{t('overview.noData', '暂无数据')}</div>
+                      <div className="text-sm text-text-muted">{t('overview.noData')}</div>
                     ) : (
                       Object.entries(visualStats.triggerDistribution)
                         .sort(([, a], [, b]) => b - a)
@@ -1203,13 +1207,13 @@ export function OverviewPanel({ isOpen, onClose }: OverviewPanelProps) {
 
               <div className="bg-elevated rounded-xl p-4">
                 <div className="flex items-center justify-between gap-3 mb-3">
-                  <h3 className="text-sm font-medium text-text-secondary">P1 acceptance summary</h3>
+                  <h3 className="text-sm font-medium text-text-secondary">{t('overview.p1AcceptanceSummary')}</h3>
                   <div className="text-xs text-text-muted">{p1PassCount}/{p1AcceptanceChecks.length} passed</div>
                 </div>
                 <div className="grid grid-cols-3 gap-4 mb-4">
-                  <MetricCard label="Passed" value={p1PassCount} color="success" />
-                  <MetricCard label="Risks" value={p1RiskCount} color="error" />
-                  <MetricCard label="Pending" value={p1PendingCount} color="warning" />
+                  <MetricCard label={t('overview.passed')} value={p1PassCount} color="success" />
+                  <MetricCard label={t('overview.risks')} value={p1RiskCount} color="error" />
+                  <MetricCard label={t('overview.pending')} value={p1PendingCount} color="warning" />
                 </div>
                 <div className="space-y-2">
                   {p1AcceptanceChecks.map((check) => (
@@ -1228,7 +1232,7 @@ export function OverviewPanel({ isOpen, onClose }: OverviewPanelProps) {
 
               <div className="bg-elevated rounded-xl p-4">
                 <div className="flex items-center justify-between gap-3 mb-3">
-                  <h3 className="text-sm font-medium text-text-secondary">Benchmark report</h3>
+                  <h3 className="text-sm font-medium text-text-secondary">{t('overview.benchmarkReport')}</h3>
                   <div className="flex items-center gap-2">
                     <div className="text-xs text-text-muted">{benchmarkReport?.summary.totalRuns || 0} runs</div>
                     <button
@@ -1257,22 +1261,22 @@ export function OverviewPanel({ isOpen, onClose }: OverviewPanelProps) {
                   <div className="mb-3 text-xs text-text-muted">{benchmarkExportMessage}</div>
                 )}
                 {!benchmarkReport ? (
-                  <div className="text-sm text-text-muted">{t('overview.noData', '暂无数据')}</div>
+                  <div className="text-sm text-text-muted">{t('overview.noData')}</div>
                 ) : (
                   <>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                      <MetricCard label="Success rate" value={`${benchmarkReport.summary.successRate}%`} color={benchmarkReport.summary.successRate >= 80 ? 'success' : benchmarkReport.summary.successRate >= 50 ? 'warning' : 'error'} />
-                      <MetricCard label="Avg duration" value={formatDuration(benchmarkReport.summary.avgDurationMs)} color="info" />
-                      <MetricCard label="Avg recovery" value={benchmarkReport.summary.avgRecoveryAttempts} color="warning" />
-                      <MetricCard label="Avg verification failures" value={benchmarkReport.summary.avgVerificationFailures} color="error" />
-                      <MetricCard label="Stable benchmarks" value={benchmarkReport.summary.stableBenchmarks} color="success" />
-                      <MetricCard label="Flaky benchmarks" value={benchmarkReport.summary.flakyBenchmarks} color="warning" />
+                      <MetricCard label={t('overview.successRate')} value={`${benchmarkReport.summary.successRate}%`} color={benchmarkReport.summary.successRate >= 80 ? 'success' : benchmarkReport.summary.successRate >= 50 ? 'warning' : 'error'} />
+                      <MetricCard label={t('overview.avgDuration')} value={formatDuration(benchmarkReport.summary.avgDurationMs)} color="info" />
+                      <MetricCard label={t('overview.avgRecovery')} value={benchmarkReport.summary.avgRecoveryAttempts} color="warning" />
+                      <MetricCard label={t('overview.avgVerificationFailures')} value={benchmarkReport.summary.avgVerificationFailures} color="error" />
+                      <MetricCard label={t('overview.stableBenchmarks')} value={benchmarkReport.summary.stableBenchmarks} color="success" />
+                      <MetricCard label={t('overview.flakyBenchmarks')} value={benchmarkReport.summary.flakyBenchmarks} color="warning" />
                     </div>
                     {benchmarkGate && (
                       <div className="mt-4 rounded-lg border border-border bg-surface p-4">
                         <div className="flex items-center justify-between gap-3">
                           <div>
-                            <div className="text-xs uppercase tracking-wide text-text-muted">Benchmark gate</div>
+                            <div className="text-xs uppercase tracking-wide text-text-muted">{t('overview.benchmarkGate')}</div>
                             <div className={`mt-1 text-sm font-medium ${benchmarkGate.status === 'pass' ? 'text-success' : benchmarkGate.status === 'risk' ? 'text-warning' : 'text-text-secondary'}`}>
                               {benchmarkGate.status.toUpperCase()}
                             </div>
@@ -1297,7 +1301,7 @@ export function OverviewPanel({ isOpen, onClose }: OverviewPanelProps) {
                         <div className="text-xs text-text-muted mb-2">Execution mode distribution</div>
                         <div className="flex flex-wrap gap-2">
                           {Object.keys(benchmarkReport.executionModes).length === 0 ? (
-                            <div className="text-sm text-text-muted">{t('overview.noData', '暂无数据')}</div>
+                            <div className="text-sm text-text-muted">{t('overview.noData')}</div>
                           ) : (
                             Object.entries(benchmarkReport.executionModes)
                               .sort(([, a], [, b]) => b - a)
@@ -1314,7 +1318,7 @@ export function OverviewPanel({ isOpen, onClose }: OverviewPanelProps) {
                         <div className="text-xs text-text-muted mb-2">Adapter mode distribution</div>
                         <div className="flex flex-wrap gap-2">
                           {Object.keys(benchmarkReport.adapterModes).length === 0 ? (
-                            <div className="text-sm text-text-muted">{t('overview.noData', '暂无数据')}</div>
+                            <div className="text-sm text-text-muted">{t('overview.noData')}</div>
                           ) : (
                             Object.entries(benchmarkReport.adapterModes)
                               .sort(([, a], [, b]) => b - a)
@@ -1332,7 +1336,7 @@ export function OverviewPanel({ isOpen, onClose }: OverviewPanelProps) {
                       <div className="text-xs text-text-muted mb-2">Visual provider distribution</div>
                       <div className="flex flex-wrap gap-2">
                         {Object.keys(benchmarkProviderDistribution).length === 0 ? (
-                          <div className="text-sm text-text-muted">{t('overview.noData', '暂无数据')}</div>
+                          <div className="text-sm text-text-muted">{t('overview.noData')}</div>
                         ) : (
                           Object.entries(benchmarkProviderDistribution)
                             .sort(([, a], [, b]) => b - a)
@@ -1423,7 +1427,7 @@ export function OverviewPanel({ isOpen, onClose }: OverviewPanelProps) {
                         <div className="text-xs text-text-muted mb-2">Top approval action types</div>
                         <div className="flex flex-wrap gap-2">
                           {Object.keys(benchmarkReport.approvalAudit.byActionType).length === 0 ? (
-                            <div className="text-sm text-text-muted">{t('overview.noData', '暂无数据')}</div>
+                            <div className="text-sm text-text-muted">{t('overview.noData')}</div>
                           ) : (
                             Object.entries(benchmarkReport.approvalAudit.byActionType)
                               .sort(([, a], [, b]) => b - a)
@@ -1443,7 +1447,7 @@ export function OverviewPanel({ isOpen, onClose }: OverviewPanelProps) {
                         <div className="text-xs text-text-muted mb-2">Top approval intent keywords</div>
                         <div className="flex flex-wrap gap-2">
                           {Object.keys(benchmarkReport.approvalAudit.byIntentKeyword).length === 0 ? (
-                            <div className="text-sm text-text-muted">{t('overview.noData', '暂无数据')}</div>
+                            <div className="text-sm text-text-muted">{t('overview.noData')}</div>
                           ) : (
                             Object.entries(benchmarkReport.approvalAudit.byIntentKeyword)
                               .sort(([, a], [, b]) => b - a)
@@ -1461,7 +1465,7 @@ export function OverviewPanel({ isOpen, onClose }: OverviewPanelProps) {
                         <div className="text-xs text-text-muted mb-2">Top approval risk reasons</div>
                         <div className="flex flex-wrap gap-2">
                           {Object.keys(benchmarkReport.approvalAudit.byRiskReason).length === 0 ? (
-                            <div className="text-sm text-text-muted">{t('overview.noData', '暂无数据')}</div>
+                            <div className="text-sm text-text-muted">{t('overview.noData')}</div>
                           ) : (
                             Object.entries(benchmarkReport.approvalAudit.byRiskReason)
                               .sort(([, a], [, b]) => b - a)
@@ -1525,7 +1529,7 @@ export function OverviewPanel({ isOpen, onClose }: OverviewPanelProps) {
                 {benchmarkLoadError ? (
                   <div className="text-sm text-error">{benchmarkLoadError}</div>
                 ) : benchmarkTasks.length === 0 ? (
-                  <div className="text-sm text-text-muted">{t('overview.noData', '暂无数据')}</div>
+                  <div className="text-sm text-text-muted">{t('overview.noData')}</div>
                 ) : (
                   <div className="space-y-3">
                     {benchmarkTasks.map((task) => {
@@ -1678,7 +1682,7 @@ export function OverviewPanel({ isOpen, onClose }: OverviewPanelProps) {
                   </div>
                 )}
                 {benchmarkSuites.length === 0 ? (
-                  <div className="text-sm text-text-muted">{t('overview.noData', '暂无数据')}</div>
+                  <div className="text-sm text-text-muted">{t('overview.noData')}</div>
                 ) : (
                   <div className="space-y-3">
                     {benchmarkSuites.map((suite) => {
@@ -1807,7 +1811,7 @@ export function OverviewPanel({ isOpen, onClose }: OverviewPanelProps) {
 
               <div className="bg-elevated rounded-xl p-4">
                 <h3 className="text-sm font-medium text-text-secondary mb-3">
-                  {t('overview.sourceDistribution', '来源分布')}
+                  {t('overview.sourceDistribution')}
                 </h3>
                 <div className="flex flex-wrap gap-2">
                    {Object.entries(sourceStats)
@@ -1826,11 +1830,11 @@ export function OverviewPanel({ isOpen, onClose }: OverviewPanelProps) {
 
               <div className="bg-elevated rounded-xl p-4">
                 <h3 className="text-sm font-medium text-text-secondary mb-3">
-                  {t('overview.dailyTrend', '每日趋势')}
+                  {t('overview.dailyTrend')}
                 </h3>
                 {dailyStatsArray.length === 0 ? (
                   <div className="text-sm text-text-muted text-center py-4">
-                    {t('overview.noData', '暂无数据')}
+                    {t('overview.noData')}
                   </div>
                 ) : (
                   <div className="flex items-end gap-1 h-32">
@@ -1860,11 +1864,11 @@ export function OverviewPanel({ isOpen, onClose }: OverviewPanelProps) {
                 <div className="flex items-center justify-center gap-4 mt-3">
                   <div className="flex items-center gap-1.5">
                     <div className="w-3 h-3 rounded bg-success" />
-                    <span className="text-xs text-text-muted">{t('overview.completed', '完成')}</span>
+                    <span className="text-xs text-text-muted">{t('overview.completed')}</span>
                   </div>
                   <div className="flex items-center gap-1.5">
                     <div className="w-3 h-3 rounded bg-error" />
-                    <span className="text-xs text-text-muted">{t('overview.failed', '失败')}</span>
+                    <span className="text-xs text-text-muted">{t('overview.failed')}</span>
                   </div>
                 </div>
               </div>

@@ -6,6 +6,7 @@ import {
 } from '../../history/taskHistory';
 import { useTaskStore } from './taskStore';
 import { useSessionStore } from './sessionStore';
+import i18n from '../i18n';
 
 interface HistoryState {
   isOpen: boolean;
@@ -112,7 +113,7 @@ export const useHistoryStore = create<HistoryState>((set, get) => ({
       const result = await window.electron.invoke('history:replay', { taskId });
       const payload = result?.data?.data || result?.data || result;
       if (!result?.success || payload?.success === false) {
-        throw new Error(payload?.error || result?.error || '重放失败');
+        throw new Error(payload?.error || result?.error || i18n.t('historyStore.replayFailed'));
       }
 
       const taskRecord =
@@ -127,7 +128,7 @@ export const useHistoryStore = create<HistoryState>((set, get) => ({
       useTaskStore.getState().setTask({
         id: payload?.run?.id || payload?.handle || `task-${Date.now()}`,
         status: 'executing',
-        description: taskRecord?.task || '重放任务',
+        description: taskRecord?.task || i18n.t('historyStore.replayTask'),
         progress: { current: 0, total: 0 },
       });
       useTaskStore
@@ -163,12 +164,12 @@ export const useHistoryStore = create<HistoryState>((set, get) => ({
   runTemplate: async (templateId, input, executionMode, displayTitle) => {
     try {
       const activeSessionId = useSessionStore.getState().activeSessionId;
-      const shortTitle = displayTitle?.trim() || '模板任务';
-      const taskDescription = `运行模板：${shortTitle}`;
+      const shortTitle = displayTitle?.trim() || i18n.t('historyStore.templateTask');
+      const taskDescription = i18n.t('historyStore.runTemplateDescription', { title: shortTitle });
       const taskStore = useTaskStore.getState();
 
       taskStore.addMessage({ role: 'user', content: taskDescription });
-      taskStore.addMessage({ role: 'ai', content: '任务已创建' });
+      taskStore.addMessage({ role: 'ai', content: i18n.t('historyStore.taskCreated') });
       taskStore.setCurrentResult(null);
 
       const result = await window.electron.invoke('template:run', {
@@ -180,7 +181,7 @@ export const useHistoryStore = create<HistoryState>((set, get) => ({
       });
       const payload = result?.data?.data || result?.data || result;
       if (!result?.success || payload?.success === false) {
-        throw new Error(payload?.error || result?.error || '运行模板失败');
+        throw new Error(payload?.error || result?.error || i18n.t('historyStore.runTemplateFailed'));
       }
       const visualProvider =
         payload?.run?.metadata?.visualProvider ||
@@ -204,7 +205,9 @@ export const useHistoryStore = create<HistoryState>((set, get) => ({
       console.error('[HistoryStore] Failed to run template:', error);
       useTaskStore.getState().addMessage({
         role: 'ai',
-        content: `运行模板失败: ${error instanceof Error ? error.message : String(error)}`,
+        content: i18n.t('historyStore.runTemplateFailedMessage', {
+          message: error instanceof Error ? error.message : String(error),
+        }),
       });
     }
   },

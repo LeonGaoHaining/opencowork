@@ -56,21 +56,21 @@ export function SkillGenerateDialog({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
       <div className="w-[420px] rounded-lg bg-[var(--color-surface)] p-6 shadow-lg">
         <h3 className="mb-4 text-lg font-semibold text-[var(--color-text-primary)]">
-          {t('skill.generateTitle') || '生成 Skill'}
+          {t('skill.generateTitle')}
         </h3>
 
         <div className="mb-4 rounded-md bg-[var(--color-elevated)] p-3">
           <p className="text-sm text-[var(--color-text-secondary)]">
-            {t('skill.generateDescription') || '任务已成功完成，是否需要生成 Skill?'}
+            {t('skill.generateDescription')}
           </p>
           <p className="mt-2 text-xs text-[var(--color-text-muted)]">
             &quot;{taskDescription}&quot;
           </p>
           <p className="mt-1 text-xs text-[var(--color-text-muted)]">
-            {actionCount} {t('skill.actions') || 'actions'}
+            {actionCount} {t('skill.actions')}
           </p>
           <p className="mt-2 text-xs text-[var(--color-text-muted)]">
-            {t('skill.generateMetadata') || 'Generated skills are saved as agent-created and user-invocable.'}
+            {t('skill.generateMetadata')}
           </p>
         </div>
 
@@ -84,9 +84,9 @@ export function SkillGenerateDialog({
                 : 'bg-[var(--color-elevated)] text-[var(--color-text-primary)] hover:bg-[var(--color-border)]'
             }`}
           >
-            <div className="font-medium">{t('skill.optionCurrent') || '仅本次生成'}</div>
+            <div className="font-medium">{t('skill.optionCurrent')}</div>
             <div className="text-xs opacity-80">
-              {t('skill.optionCurrentDesc') || '只生成一次，后续仍会询问'}
+              {t('skill.optionCurrentDesc')}
             </div>
           </button>
 
@@ -99,9 +99,9 @@ export function SkillGenerateDialog({
                 : 'bg-[var(--color-elevated)] text-[var(--color-text-primary)] hover:bg-[var(--color-border)]'
             }`}
           >
-            <div className="font-medium">{t('skill.optionAlways') || '后续都默认生成'}</div>
+            <div className="font-medium">{t('skill.optionAlways')}</div>
             <div className="text-xs opacity-80">
-              {t('skill.optionAlwaysDesc') || '自动保存设置，不再询问'}
+              {t('skill.optionAlwaysDesc')}
             </div>
           </button>
 
@@ -114,9 +114,9 @@ export function SkillGenerateDialog({
                 : 'bg-[var(--color-elevated)] text-[var(--color-text-primary)] hover:bg-[var(--color-border)]'
             }`}
           >
-            <div className="font-medium">{t('skill.optionSkip') || '不生成'}</div>
+            <div className="font-medium">{t('skill.optionSkip')}</div>
             <div className="text-xs opacity-80">
-              {t('skill.optionSkipDesc') || '忽略本次，不生成 Skill'}
+              {t('skill.optionSkipDesc')}
             </div>
           </button>
         </div>
@@ -128,7 +128,7 @@ export function SkillGenerateDialog({
             disabled={isLoading}
             className="flex-1 rounded-md bg-[var(--color-elevated)] px-4 py-2 text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-border)] disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {t('common.cancel') || '取消'}
+            {t('common.cancel')}
           </button>
           <button
             type="button"
@@ -136,7 +136,7 @@ export function SkillGenerateDialog({
             disabled={isLoading || !selectedOption}
             className="flex-1 rounded-md bg-[var(--color-primary)] px-4 py-2 text-white transition-colors hover:bg-[var(--color-primary-hover)] disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {isLoading ? t('common.loading') || '加载中...' : t('common.confirm') || '确认'}
+            {isLoading ? t('common.loading') : t('common.confirm')}
           </button>
         </div>
       </div>

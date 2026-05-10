@@ -22,6 +22,7 @@ import ResultPanel from './components/ResultPanel';
 import { useTaskStore } from './stores/taskStore';
 import { useSessionStore } from './stores/sessionStore';
 import { useTranslation } from './i18n/useTranslation';
+import i18n from './i18n';
 
 interface ErrorBoundaryProps {
   children: ReactNode;
@@ -51,12 +52,12 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
       return (
         <div className="h-screen flex items-center justify-center bg-background">
           <div className="text-center p-8">
-            <div className="text-red-400 text-xl mb-4">Something went wrong</div>
+            <div className="text-red-400 text-xl mb-4">{i18n.t('app.errorBoundaryTitle')}</div>
             <div className="text-text-muted text-sm mb-4">
-              {this.state.error?.message || 'An unexpected error occurred'}
+              {this.state.error?.message || i18n.t('app.unexpectedError')}
             </div>
             <button onClick={() => window.location.reload()} className="btn btn-primary">
-              Reload
+              {i18n.t('app.reload')}
             </button>
           </div>
         </div>
@@ -154,7 +155,7 @@ function App() {
         maxTurns: event?.maxTurns,
       });
       updateTaskStatus('waiting_confirm');
-      addLog({ type: 'info', message: event?.error?.message || '等待视觉操作确认' });
+      addLog({ type: 'info', message: event?.error?.message || t('logs.waitingVisualApproval') });
       return;
     }
 
@@ -166,16 +167,16 @@ function App() {
       handledFailureRunIdsRef.current.add(runId);
     }
 
-    const errorMsg = event?.error?.message || event?.error || '未知错误';
+    const errorMsg = event?.error?.message || event?.error || t('logs.unknownError');
     setTaskError(errorMsg);
     updateTaskStatus('failed');
     setCurrentResult(null);
     clearActiveSteps();
     addMessage({
       role: 'ai',
-      content: `任务执行失败: ${errorMsg}`,
+      content: t('logs.taskFailed', { message: errorMsg }),
     });
-    addLog({ type: 'error', message: `错误: ${errorMsg}` });
+    addLog({ type: 'error', message: t('logs.error', { message: errorMsg }) });
     saveMessages(useTaskStore.getState().messages);
   };
 
@@ -211,7 +212,7 @@ function App() {
             updateCurrentStep(
               `${action.type}: ${action.params ? JSON.stringify(action.params).substring(0, 50) : ''}`
             );
-            addLog({ type: 'step', message: `执行步骤: ${action.type}` });
+            addLog({ type: 'step', message: t('logs.step', { action: action.type }) });
           }
         } catch (error) {
           console.error('[Renderer] task:nodeStart handler error:', error);
@@ -231,7 +232,10 @@ function App() {
               result: node.result,
               duration: node.duration,
             });
-            addLog({ type: 'success', message: `完成: ${node.action?.type || '步骤'}` });
+            addLog({
+              type: 'success',
+              message: t('logs.success', { action: node.action?.type || t('logs.defaultStep') }),
+            });
           }
         } catch (error) {
           console.error('[Renderer] task:nodeComplete handler error:', error);
@@ -252,7 +256,7 @@ function App() {
 
           const { activeSteps } = useTaskStore.getState();
           const taskResult = event.result || event.data?.result || null;
-          const resultText = taskResult?.summary || '任务已完成';
+          const resultText = taskResult?.summary || t('logs.taskCompletedResult');
           const steps = Array.isArray(event.legacyResult?.steps) ? event.legacyResult.steps : [];
 
           const finalSteps =
@@ -266,7 +270,7 @@ function App() {
             steps: finalSteps,
           });
           clearActiveSteps();
-          addLog({ type: 'success', message: '任务执行完成' });
+          addLog({ type: 'success', message: t('logs.taskCompleted') });
           saveMessages(useTaskStore.getState().messages);
         } catch (error) {
           console.error('[Renderer] task:completed handler error:', error);
@@ -308,7 +312,7 @@ function App() {
             timeout: event.timeout,
           });
           updateTaskStatus('waiting_confirm');
-          addLog({ type: 'info', message: `等待用户确认: ${event.question}` });
+          addLog({ type: 'info', message: t('logs.waitingUserConfirm', { question: event.question }) });
         } catch (error) {
           console.error('[Renderer] ask:user:request handler error:', error);
         }
@@ -321,25 +325,25 @@ function App() {
           console.log('[Renderer] Received task:statusUpdate', event);
           const { updateTaskStatus, addLog, setTaskInterrupted } = useTaskStore.getState();
           if (event.status === 'replanning') {
-            addLog({ type: 'info', message: event.message || '正在重新规划' });
+            addLog({ type: 'info', message: event.message || t('logs.replanning') });
           } else if (event.status === 'waiting_confirm') {
             updateTaskStatus('waiting_confirm');
             addLog({
               type: 'info',
-              message: event.message || '等待确认高风险视觉操作',
+              message: event.message || t('logs.waitingVisualRiskConfirm'),
             });
           } else if (event.status === 'paused') {
             setTaskInterrupted(true, event.message || 'manual_pause');
             updateTaskStatus('paused');
-            addLog({ type: 'info', message: event.message || '任务已暂停' });
+            addLog({ type: 'info', message: event.message || t('logs.taskPaused') });
           } else if (event.status === 'executing') {
             setTaskInterrupted(false, undefined, null);
             updateTaskStatus('executing');
-            addLog({ type: 'info', message: event.message || '任务已恢复' });
+            addLog({ type: 'info', message: event.message || t('logs.taskResumed') });
           } else if (event.status === 'cancelled') {
             setTaskInterrupted(false, undefined, null);
             updateTaskStatus('cancelled');
-            addLog({ type: 'info', message: '任务已取消' });
+            addLog({ type: 'info', message: t('logs.taskCancelled') });
           }
         } catch (error) {
           console.error('[Renderer] task:statusUpdate handler error:', error);
@@ -352,7 +356,7 @@ function App() {
         try {
           console.log('[Renderer] Received task:waiting_login', event);
           updateTaskStatus('waiting_confirm');
-          addLog({ type: 'info', message: event.message || '等待处理登录弹窗' });
+          addLog({ type: 'info', message: event.message || t('logs.waitingLoginPopup') });
         } catch (error) {
           console.error('[Renderer] task:waiting_login handler error:', error);
         }
