@@ -2,6 +2,37 @@
 
 All notable changes to OpenCowork are documented in this file.
 
+## v0.14.6 - 2026-05-10
+
+### Release focus
+
+Improve runtime stability for local-first desktop AI automation by tightening task failure semantics, child-process timeout behavior, MCP stdio cleanup, visual automation cleanup, history persistence, and renderer task-event isolation.
+
+### Highlights
+
+- Stopped unrecoverable task execution failures from continuing through later plan nodes and overwriting failed state with completed state.
+- Updated CLI action timeouts so timed-out commands terminate their child process and resolve only once.
+- Fixed pending history writes so records added during an active SQLite flush are preserved and flushed in a follow-up batch.
+- Hardened MCP stdio connection failure, timeout, disconnect, and pending request cleanup paths.
+- Added desktop harness launch/shutdown command timeouts to prevent visual desktop lifecycle operations from hanging indefinitely.
+- Ensured visual adapter sessions are destroyed even if computer cleanup fails.
+- Filtered renderer task events by the current run or handle to reduce stale event state corruption.
+- Awaited Ask User IPC responses and bounded direct session message loads.
+
+### Open-source marketing and usage notes
+
+- This release is framed as a stability and reliability update for evaluators and contributors; it does not claim enterprise production certification, hosted SaaS availability, or commercial pricing.
+- Local configuration and credentials remain private by default. Do not publish `config/llm.json`, IM credentials, tokens, cookies, local databases, or task artifacts.
+- The recommended evaluation path remains a dedicated desktop, VM, or isolated user account for browser, MCP, CLI, and IM automation.
+
+### Verification
+
+- `npm run build`
+
+### Known test status
+
+- `npm run test:run` currently has existing UI/i18n text assertion failures in `IMConfigPanel`, `SkillPanel`, and `TemplatePanel`. These failures are not part of the `v0.14.6` stability patch, but they remain visible in the full suite and should be addressed separately.
+
 ## v0.14.4 - 2026-05-09
 
 ### Release focus

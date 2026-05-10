@@ -15,6 +15,8 @@ This copy is kept in `docs/` for readers who prefer all documentation under one 
 - Session-level successful workflow template creation
 - Template reruns with short UI titles and full execution prompts
 - Skill uninstall from persisted local skill folders
+- Runtime stability hardening for task failure, CLI timeout, MCP stdio cleanup, and visual session cleanup paths
+- Active-run task event filtering to reduce stale renderer state updates
 - Runtime trace, approval, and Agent Runtime platformization planning
 
 ## Recommended Reading Order
@@ -23,5 +25,5 @@ This copy is kept in `docs/` for readers who prefer all documentation under one 
 2. `USER_GUIDE.md`
 3. `docs/ARCHITECTURE.md`
 4. `docs/ROADMAP.md`
-5. `docs/RELEASE_v0.14.2.md`
+5. `docs/RELEASE_v0.14.6.md`
 6. `CHANGELOG.md`

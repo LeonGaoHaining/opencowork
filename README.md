@@ -68,20 +68,24 @@ OpenCowork is a practical foundation for:
 - desktop computer-use experiments with approval, trace, and benchmark loops,
 - open-source agent runtime research around protocol, trace, and multi-client reuse.
 
-## Current Release: v0.14.2
+## Current Release: v0.14.6
 
-`v0.14.2` focuses on release polish for the current desktop AI workflow surface: skill uninstall correctness, session-scoped successful workflow templates, safer template reruns, cleaner chat/result overflow handling, and immediate session switching after creating a new session.
+`v0.14.6` is a stability-focused open-source release for teams evaluating OpenCowork as a local desktop AI Agent Runtime. It tightens long-running task behavior, process cleanup, MCP stdio lifecycle handling, visual automation cleanup, and renderer task-state isolation.
 
 Highlights:
 
-- fixed skill uninstall so installed skill folders are removed by their actual persisted path,
-- added a session-level successful workflow save path that creates templates only from completed chat runs in the active session,
-- kept full template prompts for execution while showing short run titles in chat, task status, and logs,
-- hardened long text rendering in chat messages, task status, and result delivery surfaces,
-- made the new-session button immediately switch the chat UI into the created session.
+- stops unrecoverable task failures from continuing into later nodes and overwriting failed state,
+- kills CLI child processes when action-level timeouts are reached,
+- preserves history writes that arrive while SQLite flush is already in progress,
+- cleans MCP stdio pending requests and processes on timeout, disconnect, or connection failure,
+- ensures visual adapter sessions are destroyed even when computer cleanup fails,
+- filters renderer task events by the active run or handle to avoid stale event updates.
 
 Recent product milestones:
 
+- `v0.14.6`: runtime stability, cleanup coverage, MCP stdio lifecycle hardening, and task UI event isolation.
+- `v0.14.5`: i18n coverage and release polish.
+- `v0.14.4`: Feishu follow-up context and browser visual/computer-use reliability.
 - `v0.14.2`: session template save, template-run UI hardening, result overflow fixes, and immediate new-session switching.
 
 ## Core Capabilities
@@ -255,7 +259,7 @@ Try connecting a remote MCP endpoint from the MCP panel, then ask the agent what
 - `USER_GUIDE.md` — practical usage guide
 - `docs/ARCHITECTURE.md` — architecture overview
 - `docs/ROADMAP.md` — near-term and strategic roadmap
-- `docs/RELEASE_v0.14.2.md` — current release notes
+- `docs/RELEASE_v0.14.6.md` — current release notes
 - `CHANGELOG.md` — release history
 - `CONTRIBUTING.md` — contribution workflow
 - `SECURITY.md` — vulnerability reporting policy
