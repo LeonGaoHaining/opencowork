@@ -68,9 +68,9 @@ OpenCowork is a practical foundation for:
 - desktop computer-use experiments with approval, trace, and benchmark loops,
 - open-source agent runtime research around protocol, trace, and multi-client reuse.
 
-## Current Release: v0.14.6
+## Current Release: v0.14.7
 
-`v0.14.6` is a stability-focused open-source release for teams evaluating OpenCowork as a local desktop AI Agent Runtime. It tightens long-running task behavior, process cleanup, MCP stdio lifecycle handling, visual automation cleanup, and renderer task-state isolation.
+`v0.14.7` improves clone-time and startup reliability across Windows, macOS, and Linux by replacing the Unix-only source cleanup command and restoring the tracked settings manager module.
 
 Highlights:
 
@@ -83,6 +83,7 @@ Highlights:
 
 Recent product milestones:
 
+- `v0.14.7`: cross-platform startup cleanup, restored settings manager tracking, and release version sync.
 - `v0.14.6`: runtime stability, cleanup coverage, MCP stdio lifecycle hardening, and task UI event isolation.
 - `v0.14.5`: i18n coverage and release polish.
 - `v0.14.4`: Feishu follow-up context and browser visual/computer-use reliability.
@@ -227,6 +228,8 @@ Keep `config/` local. It is git-ignored and must not be committed.
 npm run electron:dev
 ```
 
+On Windows, macOS, and Linux, `electron:dev` now uses a Node-based source cleanup step, so it no longer depends on a Unix-only `find` command.
+
 ### Build and Test
 
 ```bash
@@ -259,8 +262,7 @@ Try connecting a remote MCP endpoint from the MCP panel, then ask the agent what
 - `USER_GUIDE.md` — practical usage guide
 - `docs/ARCHITECTURE.md` — architecture overview
 - `docs/ROADMAP.md` — near-term and strategic roadmap
-- `docs/RELEASE_v0.14.6.md` — current release notes
-- `CHANGELOG.md` — release history
+- `CHANGELOG.md` — current release notes and release history
 - `CONTRIBUTING.md` — contribution workflow
 - `SECURITY.md` — vulnerability reporting policy
 
