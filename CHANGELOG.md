@@ -2,6 +2,26 @@
 
 All notable changes to OpenCowork are documented in this file.
 
+## v0.14.7 - 2026-05-12
+
+### Release focus
+
+Make startup and versioning safe for cross-platform clones by replacing the Unix-only source cleanup command and restoring the tracked settings manager module that was previously hidden by an over-broad ignore rule.
+
+### Highlights
+
+- Replaced the `find`-based `clean:src` script with a Node implementation so `electron:dev` works on Windows, macOS, and Linux.
+- Narrowed the ignore rule for `config/` so `src/config/settings.ts` can be tracked in Git and cloned normally.
+- Bumped the package and renderer version markers to `0.14.7` for the release tag.
+
+### Verification
+
+- `node ./scripts/clean-src.mjs`
+
+### Notes
+
+- `src/config/settings.ts` stores local UI/runtime settings only; it does not contain API keys or tokens.
+
 ## v0.14.6 - 2026-05-10
 
 ### Release focus

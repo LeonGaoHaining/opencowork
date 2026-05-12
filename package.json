@@ -1,6 +1,6 @@
 {
   "name": "opencowork",
-  "version": "0.14.6",
+  "version": "0.14.7",
   "description": "Open-source desktop AI agent with browser automation, skills, and MCP support",
   "homepage": "https://opencowork.me",
   "repository": {
@@ -16,7 +16,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "clean:src": "find src -name '*.js' -type f ! -name '*.test.js' -delete",
+    "clean:src": "node ./scripts/clean-src.mjs",
     "build:main": "npm run clean:src && tsc -p tsconfig.main.json",
     "build:preload": "npm run clean:src && tsc -p tsconfig.preload.json",
     "build:renderer": "npm run clean:src && vite build",

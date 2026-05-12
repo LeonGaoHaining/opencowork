@@ -6,7 +6,7 @@ release/
 .env
 .vscode/
 *.local
-config/
+/config/
 # Runtime data
 data/
 history.db
