@@ -35,6 +35,8 @@ Do not include live API keys, Feishu credentials, cookies, tokens, private task 
 
 ## Response Targets
 
+These are best-effort targets for an open-source project, not contractual service-level agreements.
+
 | Severity | First Response | Target Fix Window |
 | --- | --- | --- |
 | Critical | 24 hours | 7 days |

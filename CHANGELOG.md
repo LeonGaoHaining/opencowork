@@ -19,6 +19,10 @@ Keep the desktop footer stable when localized control labels are long.
 
 - `npm run build`
 
+### Documentation note
+
+- Public docs should present OpenCowork as an open-source, local-first evaluation project and avoid unsupported claims about hosted SaaS, production certification, enterprise compliance, commercial pricing, guaranteed task success, or managed support SLAs.
+
 ## v0.14.8 - 2026-05-16
 
 ### Release focus
@@ -127,7 +131,7 @@ Improve Feishu follow-up handling so repeated messages in the same conversation 
 
 ### Release focus
 
-Ship the current workflow-template, session, and UI hardening slice while keeping the existing open-source commercial direction intact.
+Ship the current workflow-template, session, and UI hardening slice while keeping public messaging open-source and evaluation-oriented.
 
 ### Highlights
 
@@ -198,7 +202,7 @@ The next work stream builds on `v0.12.4` with more result-driven desktop workflo
 
 ### Go-to-market notes
 
-- Documented the recommended commercial direction: open-source distribution, design partner pilots, scenario-based workflow delivery, private deployment guidance, annual support, reusable template packs, training, and later lightweight team subscriptions.
+- Documented the then-current product narrative for open-source distribution, design partner evaluation, scenario-based workflows, and reusable template packs.
 - Explicitly avoided presenting commercial pricing or customer claims as shipped product features; the update is a product narrative and release-surface improvement rather than a runtime change.
 
 ### Highlights

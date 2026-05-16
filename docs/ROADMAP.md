@@ -2,7 +2,9 @@
 
 ## Product Direction
 
-OpenCowork is evolving from an internal high-velocity agent shell into a Browser-first AI work system that emphasizes task completion, result delivery, and repeatable automation, while keeping strong MCP interoperability and open-source extensibility.
+OpenCowork is evolving from an internal high-velocity agent shell into a browser-first local AI agent runtime that emphasizes task completion, result delivery, and repeatable automation experiments, while keeping MCP interoperability and open-source extensibility.
+
+This roadmap is directional. It is not a commitment to hosted SaaS availability, production certification, enterprise compliance, commercial pricing, managed support, or guaranteed delivery dates.
 
 ## Current Stage
 
@@ -17,9 +19,11 @@ OpenCowork is evolving from an internal high-velocity agent shell into a Browser
 - Feishu integration,
 - MCP client support,
 - MCP server mode,
-- English and Chinese UI.
+- English and Chinese UI,
 - skill uninstall from persisted local folders,
-- session-level successful workflow template creation.
+- session-level successful workflow template creation,
+- automatic Electron native module rebuilds after install,
+- compact footer controls for long localized labels.
 
 ### Current transition
 
@@ -111,7 +115,7 @@ The current codebase is entering an architectural convergence phase:
 - Introduce an `AgentRuntimeApi` facade so Electron, Scheduler, IM, MCP, and future CLI/Web clients reuse the same runtime.
 - Unify approval policy across browser, desktop, visual, CLI, MCP, and skill execution.
 - Productize Plan Mode as a read-only planning path before execution.
-- Add task trace, file-change summaries, diff artifacts, and structured execution output for audit-grade observability.
+- Add task trace, file-change summaries, diff artifacts, and structured execution output for inspection-oriented observability.
 - Centralize runtime configuration, workspace rules, and `AGENTS.md` loading.
 - Continue decomposing `TaskEngine` into focused runtime services and coordinators.
 
@@ -119,7 +123,7 @@ The current codebase is entering an architectural convergence phase:
 
 ### 1. Browser-first task delivery
 
-The product should become best-in-class at finishing browser-heavy work and returning usable outputs rather than only showing an execution trace.
+The product should keep improving at finishing browser-heavy work and returning usable outputs rather than only showing an execution trace.
 
 ### 2. Unified task system
 
@@ -139,7 +143,7 @@ Skills should become a compelling layer for community extension and lightweight 
 
 ### 6. Open-source credibility
 
-The project should feel reliable, well-documented, and easy to evaluate for builders, tinkerers, and product teams.
+The project should be documented clearly, easy to evaluate, and explicit about current limitations for builders, tinkerers, and product teams.
 
 ### 7. Runtime platformization
 

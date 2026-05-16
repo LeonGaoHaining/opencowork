@@ -1,6 +1,8 @@
 # Contributing to OpenCowork
 
-Thanks for helping build OpenCowork. The project is an open-source desktop AI work system focused on browser automation, desktop workflows, MCP interoperability, reusable task runs, skills, and local Agent Runtime infrastructure.
+Thanks for helping build OpenCowork. The project is an open-source desktop AI agent runtime focused on browser automation, local workflows, MCP interoperability, reusable task runs, skills, and human-supervised execution.
+
+Public project language should stay factual and evaluation-oriented. Do not describe OpenCowork as a hosted SaaS service, production-certified RPA product, enterprise compliance package, guaranteed automation system, or commercial offering with published pricing or support SLAs unless those claims are backed by shipped public artifacts.
 
 ## Where Contributions Help Most
 
@@ -87,6 +89,14 @@ Common docs:
 - `docs/ARCHITECTURE.md`
 - `docs/ROADMAP.md`
 - `CHANGELOG.md`
+
+Marketing and release copy should:
+
+- describe current capabilities, not future promises,
+- distinguish shipped behavior from roadmap work,
+- mention human oversight for browser, desktop, CLI, IM, MCP, and scheduled workflows,
+- avoid unsupported claims about compliance, certification, uptime, pricing, or enterprise readiness,
+- use placeholders and never include real credentials, customer data, or private deployment details.
 
 ## Commit Style
 

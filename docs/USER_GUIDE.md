@@ -4,6 +4,8 @@ For the latest public-facing usage documentation, see the root `USER_GUIDE.md`.
 
 This copy is kept in `docs/` for readers who prefer all documentation under one directory.
 
+OpenCowork documentation should be read as open-source evaluation material. It does not claim hosted SaaS availability, production certification, enterprise compliance, guaranteed automation success, commercial pricing, or managed support SLAs.
+
 ## Current Product Themes
 
 - Desktop-native AI task execution
@@ -18,6 +20,8 @@ This copy is kept in `docs/` for readers who prefer all documentation under one 
 - Runtime stability hardening for task failure, CLI timeout, MCP stdio cleanup, and visual session cleanup paths
 - Active-run task event filtering to reduce stale renderer state updates
 - Runtime trace, approval, and Agent Runtime platformization planning
+- Compact footer controls for long localized labels
+- Electron native module rebuilds after install
 
 ## Recommended Reading Order
 

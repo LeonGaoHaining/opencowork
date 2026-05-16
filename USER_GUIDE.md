@@ -1,10 +1,12 @@
 # OpenCowork User Guide
 
-This guide explains how to use OpenCowork as a desktop AI work system for browser automation, local execution, reusable task runs, templates, skills, IM workflows, and MCP tools.
+This guide explains how to evaluate OpenCowork as a local-first desktop AI agent for browser automation, local execution, reusable task runs, templates, skills, IM workflows, and MCP tools.
+
+OpenCowork is an open-source project, not a hosted SaaS product or production-certified RPA platform. Use it on machines and accounts you control, review actions before sensitive operations, and treat advanced browser, desktop, IM, and MCP workflows as areas for careful evaluation.
 
 ## What OpenCowork Does Best
 
-OpenCowork is strongest when a task requires more than one model response:
+OpenCowork is most useful to evaluate when a task requires more than one model response:
 
 - opening websites and operating a headed browser,
 - collecting and summarizing information,
@@ -72,7 +74,7 @@ Analyze this uploaded product screenshot and return a concise report.
 
 ### Live Preview and Human Oversight
 
-The preview area shows browser and agent activity in real time. You can observe execution, approve high-impact actions, pause or resume work, interrupt active tasks, or take over when manual control is safer.
+The preview area shows browser and agent activity in real time. You can observe execution, approve high-impact actions, pause or resume work, interrupt active tasks, or take over when manual control is safer. Human oversight is part of the expected operating model.
 
 ### Result Delivery
 
@@ -171,13 +173,13 @@ Current behavior:
 
 ## Agent Runtime Observability
 
-OpenCowork now includes the first reusable local Agent Runtime baseline:
+OpenCowork includes an early reusable local Agent Runtime baseline:
 
 - shared protocol for task events, approvals, outputs, artifacts, and errors,
 - one runtime API for Electron, Scheduler, IM, MCP, and future clients,
 - unified approval policy across browser, desktop, visual, CLI, MCP, and skills,
 - Plan Mode for read-only analysis before execution,
-- trace and diff artifacts for audit-grade observability.
+- trace and diff artifacts for inspection-oriented observability.
 
 In the task runs panel, run details can include:
 

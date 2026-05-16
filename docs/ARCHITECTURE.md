@@ -2,7 +2,9 @@
 
 ## Overview
 
-OpenCowork is an Electron-based desktop AI work system. The current implementation combines a renderer UI, a main-process orchestration layer, LangGraph-based agent execution, browser and CLI executors, a skill system, MCP integration on both the client and server side, and an emerging browser / desktop / hybrid computer-use runtime.
+OpenCowork is an Electron-based local desktop AI agent runtime. The current implementation combines a renderer UI, a main-process orchestration layer, LangGraph-based agent execution, browser and CLI executors, a skill system, MCP integration on both the client and server side, and an emerging browser / desktop / hybrid computer-use runtime.
+
+This document describes current architecture and technical direction for an open-source project. It is not a production certification, enterprise compliance statement, managed service commitment, or commercial pricing document.
 
 The architecture is currently in transition from an entry-point-driven agent shell to a more unified task-oriented system. The near-term goal is to make `TaskRun`, `TaskResult`, and unified orchestration first-class concepts so that chat, scheduler, IM, history, runs, and templates can share one task lifecycle.
 

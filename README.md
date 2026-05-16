@@ -1,6 +1,6 @@
 <h1 align="center">OpenCowork</h1>
 
-<p align="center"><strong>Open-source, local-first desktop AI Agent Runtime for turning business goals into executable, reusable, and auditable workflows.</strong></p>
+<p align="center"><strong>Open-source, local-first desktop AI agent runtime for evaluating browser automation, MCP workflows, skills, and reusable task runs.</strong></p>
 
 <p align="center">
   <a href="https://github.com/LeonGaoHaining/opencowork/stargazers"><img src="https://img.shields.io/github/stars/LeonGaoHaining/opencowork?style=social" alt="stars"></a>
@@ -12,9 +12,9 @@
 
 ## Why OpenCowork
 
-OpenCowork is for teams that want an AI agent to do real work on a local desktop, not only answer chat messages. It combines a headed browser, local execution, reusable skills, MCP integrations, task history, templates, scheduling, IM file workflows, and human-in-the-loop approval into one desktop-native agent system.
+OpenCowork is for builders, researchers, and product teams evaluating how a local desktop AI agent can operate a browser, call local tools, use MCP integrations, preserve task history, and reuse successful runs as templates.
 
-The core product idea is simple: describe a business outcome, let the agent operate local tools and websites, review the result, then turn the successful run into a reusable workflow. OpenCowork is not positioned as a generic chatbot or a traditional RPA recorder. It is a local AI automation layer for repeatable knowledge work where execution, traceability, privacy, and result reuse matter.
+The core product idea is simple: describe a goal, let the agent operate local tools and websites under human oversight, review the result, then turn a successful run into a reusable workflow. OpenCowork is not positioned as a production-certified RPA suite, hosted SaaS platform, or generic chatbot.
 
 The product direction is result-first:
 
@@ -24,26 +24,26 @@ The product direction is result-first:
 - connect local desktop execution with IM, Scheduler, Skills, and MCP,
 - make browser and desktop automation observable, recoverable, and repeatable.
 
-## Product Positioning
+## Open-Source Positioning
 
-OpenCowork is currently best suited for builders, researchers, product teams, and early enterprise design partners who need local execution, BYO model configuration, browser automation, and private workflow delivery.
+OpenCowork is an open-source evaluation and development project. It is currently best suited for local experimentation, workflow prototyping, contributor-driven feature work, and design-partner-style evaluation on machines controlled by the user.
 
-The strongest early fit is not low-price self-serve SaaS. It is high-value, scenario-driven automation where a team wants a local AI worker that can be deployed privately, connected to internal tools, and supported through repeatable workflow packages.
+The project intentionally avoids claiming hosted availability, production certification, enterprise compliance, guaranteed task success, published commercial pricing, or managed service-level commitments.
 
 Good fit:
 
-- technical or semi-technical teams evaluating local AI automation,
+- technical or semi-technical users evaluating local AI automation,
 - privacy-sensitive teams that prefer local execution and BYO model keys,
 - operations, research, sales, and consulting teams with repeated browser-heavy work,
 - product and agent teams building on MCP, Hybrid CUA, task traces, and reusable runtime APIs,
-- enterprise pilots that need private deployment, scenario delivery, templates, and annual support.
+- contributors and design partners who can test local-first workflows and report limitations clearly.
 
 Not the current focus:
 
 - a fully hosted multi-tenant SaaS platform,
 - a generic personal chatbot,
 - a no-code RPA replacement for every enterprise process,
-- a production claims package with published commercial pricing.
+- a production claims package with published commercial pricing or SLA language.
 
 ## Typical Scenarios
 
@@ -52,37 +52,38 @@ Not the current focus:
 | Market and sales research | Opens websites, searches companies, extracts public information, compares competitors, and summarizes findings | Research brief, lead list, pricing watch, PPT outline |
 | Operations file processing | Receives files or screenshots through IM, analyzes them, applies repeatable rules, and sends result files back | Cleaned spreadsheet, OCR result, structured report |
 | Internal tool workflows | Connects MCP tools, browser back offices, local scripts, and skills into one task run | Reusable workflow template, run record, artifacts |
-| Browser back-office automation | Handles non-standard web consoles, forms, dashboards, approvals, and long-tail manual workflows | Completed operation, audit trace, screenshot evidence |
+| Browser back-office automation | Helps operate web consoles, forms, dashboards, approvals, and long-tail manual workflows under user oversight | Operation attempt, trace, screenshot evidence |
 | Scheduled knowledge work | Runs recurring checks, summaries, monitoring, and weekly/monthly reporting through templates | Daily report, weekly digest, monitoring summary |
 | Agent runtime experiments | Provides a local runtime surface for browser/desktop computer-use, MCP client/server, approval, and trace UX | Runtime prototype, benchmark trace, reusable adapter |
 
 ## What You Can Build
 
-OpenCowork is a practical foundation for:
+OpenCowork can be used as a practical foundation for:
 
 - local AI automation pilots for research, operations, sales, and consulting teams,
 - scenario-specific workflow packages that turn successful task runs into templates,
-- private deployment and annual support offerings for teams that need local execution,
+- private deployment experiments for teams that need local execution,
 - MCP-native local agent workflows that connect internal tools and external services,
 - Feishu-driven task intake, file analysis, progress updates, and result delivery,
 - desktop computer-use experiments with approval, trace, and benchmark loops,
 - open-source agent runtime research around protocol, trace, and multi-client reuse.
 
-## Current Release: v0.14.7
+## Current Release: v0.14.9
 
-`v0.14.7` improves clone-time and startup reliability across Windows, macOS, and Linux by replacing the Unix-only source cleanup command and restoring the tracked settings manager module.
+`v0.14.9` keeps the desktop footer stable when localized control labels are long. It builds on `v0.14.8`, which automatically rebuilds native SQLite modules for the installed Electron runtime after `npm install`.
 
 Highlights:
 
-- stops unrecoverable task failures from continuing into later nodes and overwriting failed state,
-- kills CLI child processes when action-level timeouts are reached,
-- preserves history writes that arrive while SQLite flush is already in progress,
-- cleans MCP stdio pending requests and processes on timeout, disconnect, or connection failure,
-- ensures visual adapter sessions are destroyed even when computer cleanup fails,
-- filters renderer task events by the active run or handle to avoid stale event updates.
+- adds compact footer button styling used only by the bottom control bar,
+- reduces footer spacing and preview icon button size,
+- truncates center task status text instead of letting it deform surrounding controls,
+- keeps native `better-sqlite3` rebuilds aligned with Electron through `postinstall`,
+- documents Node.js 20 or 22 LTS as the supported development baseline.
 
 Recent product milestones:
 
+- `v0.14.9`: footer control bar compact layout and release version sync.
+- `v0.14.8`: Electron native module rebuilds after install and Node requirement documentation.
 - `v0.14.7`: cross-platform startup cleanup, restored settings manager tracking, and release version sync.
 - `v0.14.6`: runtime stability, cleanup coverage, MCP stdio lifecycle hardening, and task UI event isolation.
 - `v0.14.5`: i18n coverage and release polish.
@@ -107,19 +108,19 @@ Recent product milestones:
 | Human Oversight | Pause, resume, interrupt, approve, cancel, and take over tasks |
 | i18n | English-first UI with Chinese support |
 
-## Commercial Direction
+## Open-Source Marketing Notes
 
-OpenCowork remains an open-source project. The commercial direction is to use open-source distribution for adoption while productizing high-value local AI automation services around the runtime.
+OpenCowork remains an open-source project. Public descriptions should be factual, capability-based, and clear about current limitations.
 
-Current recommended commercialization path:
+Use language that says the project can help users evaluate or prototype:
 
-- design partner pilots around a small number of standard scenarios,
-- scenario-based workflow delivery for market research, operations file processing, and MCP-connected internal tools,
-- private deployment guidance and annual support for teams that need local-first AI automation,
-- reusable industry template packs and workflow packs created from proven customer runs,
-- training, implementation partners, and a lightweight team edition after installability, support, and template reuse are stronger.
+- local-first desktop AI automation,
+- browser and MCP workflow experiments,
+- reusable task and template patterns,
+- human-supervised execution and trace inspection,
+- contributor-driven runtime research.
 
-This direction avoids premature dependence on a heavy multi-tenant cloud platform. It prioritizes high-ARPU design partners, repeatable templates, local deployment trust, and measurable business outputs before broader self-serve subscriptions.
+Avoid language that implies OpenCowork currently provides hosted SaaS, enterprise certification, guaranteed automation success, compliance attestations, commercial pricing, or managed support SLAs.
 
 ## Architecture Direction
 
@@ -270,7 +271,7 @@ Try connecting a remote MCP endpoint from the MCP panel, then ask the agent what
 
 ## Open Source Status
 
-OpenCowork is actively evolving. The current release line is best suited for builders, researchers, and product teams who want to evaluate or contribute to a local desktop agent stack with real browser automation, MCP interoperability, and reusable task infrastructure.
+OpenCowork is actively evolving. The current release line is best suited for builders, researchers, and product teams who want to evaluate or contribute to a local desktop agent stack with browser automation, MCP interoperability, and reusable task infrastructure.
 
 Good contribution areas:
 

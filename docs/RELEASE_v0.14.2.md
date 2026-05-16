@@ -9,7 +9,7 @@
 
 ## Release Focus
 
-`v0.14.2` ships the current workflow-template and session polish slice. It keeps OpenCowork's open-source commercial direction unchanged while tightening the product surfaces that turn successful local AI task runs into reusable workflows.
+`v0.14.2` shipped the workflow-template and session polish slice while tightening the product surfaces that turn successful local AI task runs into reusable workflows. Current public messaging should be interpreted through the open-source evaluation note below.
 
 ## Highlights
 
@@ -29,9 +29,9 @@
 - Result delivery remains usable when summaries, structured data, artifacts, or visual traces are long.
 - Uninstalling a skill now removes the installed local skill folder instead of only refreshing UI state.
 
-## Commercial Direction Note
+## Open-Source Marketing Note
 
-The commercial direction documented in `README.md` and `CHANGELOG.md` is intentionally preserved: OpenCowork remains open source, with commercialization focused on design partner pilots, scenario-based workflow delivery, private deployment guidance, annual support, reusable template and workflow packs, training, and later lightweight team subscriptions.
+This release note is historical. Current public messaging presents OpenCowork as an open-source, local-first evaluation project. It should not be read as a claim of hosted SaaS availability, production certification, enterprise compliance, commercial pricing, guaranteed task success, or managed support SLAs.
 
 This release does not add commercial pricing or customer claims as product features.
 
