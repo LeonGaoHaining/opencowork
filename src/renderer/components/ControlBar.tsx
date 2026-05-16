@@ -214,12 +214,12 @@ export function ControlBar({ onSkillClick, onMCPClick, onTemplateClick, onRunsCl
   };
 
   return (
-    <div className="h-14 flex items-center justify-between px-4 border-t border-border bg-surface">
+    <div className="h-14 flex items-center justify-between gap-3 px-3 border-t border-border bg-surface">
       {/* Left: Action buttons */}
-      <div className="flex items-center gap-2">
+      <div className="flex shrink-0 items-center gap-1.5">
         <button
           onClick={handleCheckLogin}
-          className="btn btn-secondary"
+          className="btn btn-secondary btn-compact"
           disabled={!task || task.status === 'idle'}
           title={t('controlBar.detectLogin')}
         >
@@ -227,19 +227,19 @@ export function ControlBar({ onSkillClick, onMCPClick, onTemplateClick, onRunsCl
         </button>
         <button
           onClick={handleTakeover}
-          className="btn btn-secondary"
+          className="btn btn-secondary btn-compact"
           disabled={!task || task.status === 'idle'}
         >
           {t('controlBar.takeover')}
         </button>
         {task?.status === 'paused' ? (
-          <button onClick={handleResume} className="btn btn-primary">
+          <button onClick={handleResume} className="btn btn-primary btn-compact">
             {t('controlBar.resume')}
           </button>
         ) : (
           <button
             onClick={handlePause}
-            className="btn btn-secondary"
+            className="btn btn-secondary btn-compact"
             disabled={!task || task.status !== 'executing'}
           >
             {t('controlBar.pause')}
@@ -247,7 +247,7 @@ export function ControlBar({ onSkillClick, onMCPClick, onTemplateClick, onRunsCl
         )}
         <button
           onClick={handleStop}
-          className="btn btn-danger"
+          className="btn btn-danger btn-compact"
           disabled={
             !task ||
             task.status === 'idle' ||
@@ -259,7 +259,7 @@ export function ControlBar({ onSkillClick, onMCPClick, onTemplateClick, onRunsCl
         </button>
         <button
           onClick={handleInterruptAndSave}
-          className="btn btn-secondary"
+          className="btn btn-secondary btn-compact"
           disabled={!task || task.status !== 'executing'}
           title={t('controlBar.interruptSaveTitle')}
         >
@@ -267,14 +267,14 @@ export function ControlBar({ onSkillClick, onMCPClick, onTemplateClick, onRunsCl
         </button>
         <button
           onClick={handleOpenRestoreList}
-          className="btn btn-secondary"
+          className="btn btn-secondary btn-compact"
           title={t('controlBar.restoreTaskTitle')}
         >
           {t('controlBar.restoreTask')}
         </button>
         <button
           onClick={() => setVisualRunOpen(true)}
-          className="btn btn-secondary"
+          className="btn btn-secondary btn-compact"
           title={t('controlBar.visualRunTitle')}
         >
           {t('controlBar.visualRun')}
@@ -282,7 +282,7 @@ export function ControlBar({ onSkillClick, onMCPClick, onTemplateClick, onRunsCl
       </div>
 
       {/* Center: Status */}
-      <div className="text-sm text-text-secondary">
+      <div className="min-w-0 flex-1 truncate px-2 text-center text-xs text-text-secondary">
         {task ? (
           <span>
             {task.status === 'idle' && t('taskStatus.idle')}
@@ -303,19 +303,19 @@ export function ControlBar({ onSkillClick, onMCPClick, onTemplateClick, onRunsCl
       </div>
 
       {/* Right: View options */}
-      <div className="flex items-center gap-2">
+      <div className="flex shrink-0 items-center gap-1.5">
         {/* Preview Mode Switcher - Icon buttons */}
         <div className="flex items-center gap-1">
           <button
             onClick={() => handlePreviewModeChange('sidebar')}
-            className={`w-10 h-10 flex items-center justify-center rounded-lg transition-all ${
+            className={`w-9 h-9 flex items-center justify-center rounded-lg transition-all ${
               previewMode === 'sidebar'
                 ? 'bg-primary text-white'
                 : 'bg-elevated text-text-secondary hover:text-white hover:bg-border'
             }`}
             title={t('controlBar.sidebarPreview')}
           >
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -326,14 +326,14 @@ export function ControlBar({ onSkillClick, onMCPClick, onTemplateClick, onRunsCl
           </button>
           <button
             onClick={() => handlePreviewModeChange('detached')}
-            className={`w-10 h-10 flex items-center justify-center rounded-lg transition-all ${
+            className={`w-9 h-9 flex items-center justify-center rounded-lg transition-all ${
               previewMode === 'detached'
                 ? 'bg-primary text-white'
                 : 'bg-elevated text-text-secondary hover:text-white hover:bg-border'
             }`}
             title={t('controlBar.independentWindow')}
           >
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -346,7 +346,7 @@ export function ControlBar({ onSkillClick, onMCPClick, onTemplateClick, onRunsCl
 
         <button
           onClick={() => setHistoryOpen(true)}
-          className="btn btn-secondary"
+          className="btn btn-secondary btn-compact"
           title={t('controlBar.history')}
         >
           {t('controlBar.history')}
@@ -354,7 +354,7 @@ export function ControlBar({ onSkillClick, onMCPClick, onTemplateClick, onRunsCl
 
         <button
           onClick={() => setSchedulerOpen(true)}
-          className="btn btn-secondary"
+          className="btn btn-secondary btn-compact"
           title={t('controlBar.scheduler')}
         >
           {t('controlBar.scheduler')}
@@ -362,17 +362,17 @@ export function ControlBar({ onSkillClick, onMCPClick, onTemplateClick, onRunsCl
 
         <button
           onClick={onTemplateClick}
-          className="btn btn-secondary"
+          className="btn btn-secondary btn-compact"
           title={t('controlBar.templates')}
         >
           {t('controlBar.templates')}
         </button>
 
-        <button onClick={onRunsClick} className="btn btn-secondary" title={t('controlBar.runs')}>
+        <button onClick={onRunsClick} className="btn btn-secondary btn-compact" title={t('controlBar.runs')}>
           {t('controlBar.runs')}
         </button>
 
-        <button onClick={onMCPClick} className="btn btn-secondary" title="MCP">
+        <button onClick={onMCPClick} className="btn btn-secondary btn-compact" title="MCP">
           MCP
         </button>
 
@@ -380,7 +380,7 @@ export function ControlBar({ onSkillClick, onMCPClick, onTemplateClick, onRunsCl
           onClick={() => {
             onSkillClick();
           }}
-          className="btn btn-secondary"
+          className="btn btn-secondary btn-compact"
           title={t('controlBar.skills')}
         >
           {t('controlBar.skills')}
@@ -388,7 +388,7 @@ export function ControlBar({ onSkillClick, onMCPClick, onTemplateClick, onRunsCl
 
         <button
           onClick={() => setShowPlanViewer(!showPlanViewer)}
-          className={`btn ${showPlanViewer ? 'btn-primary' : 'btn-secondary'}`}
+          className={`btn btn-compact ${showPlanViewer ? 'btn-primary' : 'btn-secondary'}`}
         >
           {t('controlBar.plan')}
         </button>
@@ -398,7 +398,7 @@ export function ControlBar({ onSkillClick, onMCPClick, onTemplateClick, onRunsCl
           return (
             <button
               onClick={() => setImPanelOpen(true)}
-              className={`btn ${
+              className={`btn btn-compact ${
                 imStatus === 'connected' ? 'bg-success text-white' : 'btn-secondary'
               }`}
               title={getIMStatusText(imStatus)}
@@ -421,10 +421,10 @@ export function ControlBar({ onSkillClick, onMCPClick, onTemplateClick, onRunsCl
 
         <button
           onClick={onSettingsClick}
-          className="btn btn-secondary"
+          className="btn btn-secondary btn-compact"
           title={t('settings.title')}
         >
-          <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -437,10 +437,10 @@ export function ControlBar({ onSkillClick, onMCPClick, onTemplateClick, onRunsCl
 
         <button
           onClick={onOverviewClick}
-          className="btn btn-secondary"
+          className="btn btn-secondary btn-compact"
           title={t('overview.title')}
         >
-          <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -454,7 +454,7 @@ export function ControlBar({ onSkillClick, onMCPClick, onTemplateClick, onRunsCl
         {/* Language Switcher */}
         <select
           onChange={handleLanguageChange}
-          className="btn btn-secondary text-xs"
+          className="btn btn-secondary btn-compact"
           defaultValue={
             localStorage.getItem('language') || (navigator.language.startsWith('zh') ? 'zh' : 'en')
           }

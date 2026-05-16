@@ -70,6 +70,10 @@ body {
   @apply px-4 py-2 rounded-md font-medium transition-colors duration-150;
 }
 
+.btn-compact {
+  @apply inline-flex items-center justify-center whitespace-nowrap px-2.5 py-1.5 text-xs leading-none;
+}
+
 .btn-primary {
   @apply bg-primary hover:bg-primary-hover text-white;
 }

@@ -2,6 +2,23 @@
 
 All notable changes to OpenCowork are documented in this file.
 
+## v0.14.9 - 2026-05-16
+
+### Release focus
+
+Keep the desktop footer stable when localized control labels are long.
+
+### Highlights
+
+- Added a compact footer button style used only by the bottom control bar.
+- Reduced footer button spacing and preview icon button size to prevent layout stretching.
+- Made the center task status area truncate instead of pushing action buttons out of shape.
+- Bumped package and renderer version markers to `0.14.9` for the release tag.
+
+### Verification
+
+- `npm run build`
+
 ## v0.14.8 - 2026-05-16
 
 ### Release focus
