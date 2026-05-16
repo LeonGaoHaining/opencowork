@@ -2,6 +2,24 @@
 
 All notable changes to OpenCowork are documented in this file.
 
+## v0.14.8 - 2026-05-16
+
+### Release focus
+
+Make fresh desktop installs more reliable by rebuilding native SQLite modules for the Electron runtime automatically.
+
+### Highlights
+
+- Added a `rebuild:native` script that rebuilds `better-sqlite3` with `electron-rebuild`.
+- Added a `postinstall` hook so `npm install` automatically targets the installed Electron ABI.
+- Updated Node.js requirements to Node 20 or 22 LTS in install and contributor docs.
+- Bumped package and renderer version markers to `0.14.8` for the release tag.
+
+### Verification
+
+- `npm run rebuild:native`
+- `npm run build`
+
 ## v0.14.7 - 2026-05-12
 
 ### Release focus

@@ -1,6 +1,6 @@
 {
   "name": "opencowork",
-  "version": "0.14.7",
+  "version": "0.14.8",
   "description": "Open-source desktop AI agent with browser automation, skills, and MCP support",
   "homepage": "https://opencowork.me",
   "repository": {
@@ -13,10 +13,16 @@
   "author": "OpenCowork Team <gaohaining@virtualmetah.com>",
   "license": "Apache-2.0",
   "main": "dist/main/main/index.js",
+  "engines": {
+    "node": ">=20 <26",
+    "npm": ">=9"
+  },
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
     "clean:src": "node ./scripts/clean-src.mjs",
+    "rebuild:native": "electron-rebuild -f -w better-sqlite3",
+    "postinstall": "npm run rebuild:native",
     "build:main": "npm run clean:src && tsc -p tsconfig.main.json",
     "build:preload": "npm run clean:src && tsc -p tsconfig.preload.json",
     "build:renderer": "npm run clean:src && vite build",

@@ -24,6 +24,8 @@ cd opencowork
 npm install
 ```
 
+OpenCowork requires Node.js 20 or 22 LTS. During `npm install`, native modules such as `better-sqlite3` are rebuilt for Electron automatically. If Electron reports a native module version mismatch, run `npm run rebuild:native` and launch again.
+
 ### 2. Configure Your Model
 
 Create `config/llm.json` with your provider, model, and credentials.

@@ -160,7 +160,7 @@ See `SECURITY.md` for the vulnerability reporting policy.
 
 ### Requirements
 
-- Node.js 18+
+- Node.js 20 or 22 LTS
 - npm 9+
 - Python 3.8+
 - A valid LLM API configuration in `config/llm.json`
@@ -204,6 +204,8 @@ cd opencowork
 npm install
 npx playwright install chromium
 ```
+
+`npm install` automatically rebuilds native modules such as `better-sqlite3` for the installed Electron runtime. If you switch Node or Electron versions, rerun `npm install` or `npm run rebuild:native` before launching the app.
 
 ### Configure Your Model
 

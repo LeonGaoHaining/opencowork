@@ -23,6 +23,8 @@ npm install
 npm run electron:dev
 ```
 
+Use Node.js 20 or 22 LTS for development. `npm install` rebuilds native modules for Electron automatically; after changing Node or Electron versions, run `npm run rebuild:native` before `npm run electron:dev`.
+
 ## Project Commands
 
 ```bash
